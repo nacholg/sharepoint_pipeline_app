@@ -1,0 +1,17 @@
+{
+  "ROYALTON BAVARO|Punta Cana": {
+    "name": "ROYALTON BAVARO",
+    "display_name": "Royalton Bavaro",
+    "address": "Highway Macao Playa Arena Gorda, Punta Cana 23000, Dominican Republic",
+    "city": "Punta Cana",
+    "country": "Dominican Republic",
+    "phone": "+1 809-552-6888",
+    "website": "https://www.royaltonresorts.com/resorts/bavaro",
+    "domain": "royaltonresorts.com",
+    "logo_url": "https://img.logo.dev/www.royaltonresorts.com?token=pk_W0O3rw_ZRJeUV2xPg4OR2w&size=256&format=png",
+    "local_logo_path": "assets/logos/royaltonresorts-com.png",
+    "google_place_id": "ChIJidUR4cXrqI4RMwPeB5ttVw0",
+    "google_maps_uri": "https://maps.google.com/?cid=961357558086239027&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYBCAA",
+    "enrichment_status": "ok"
+  }
+}

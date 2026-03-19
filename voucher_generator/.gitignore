@@ -1,0 +1,46 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# =========================
+# Virtual environment
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Environment variables
+# =========================
+.env
+
+# =========================
+# Generated outputs (CRÍTICO)
+# =========================
+rendered_pdfs/
+rendered_vouchers/
+
+# =========================
+# Temporary / intermediate files
+# =========================
+*.log
+*.tmp
+*.temp
+
+# JSON outputs generados (opcional)
+voucher_payloads.json
+voucher_payloads_enriched.json
+
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

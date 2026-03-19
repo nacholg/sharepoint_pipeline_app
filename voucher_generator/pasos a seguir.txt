@@ -1,0 +1,2 @@
+cd "C:\Users\ignac\OneDrive\Escritorio\generadordevouchers"
+.venv\Scripts\Activate.ps1
