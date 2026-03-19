@@ -10,11 +10,17 @@ class Settings:
     MS_CLIENT_SECRET = os.getenv("MS_CLIENT_SECRET")
     MS_TENANT_ID = os.getenv("MS_TENANT_ID", "common")
     MS_REDIRECT_URI = os.getenv("MS_REDIRECT_URI", "http://localhost:8000/auth/callback")
-    GRAPH_SCOPES = os.getenv("GRAPH_SCOPES", "User.Read").split()
+    GRAPH_SCOPES = os.getenv(
+        "GRAPH_SCOPES",
+        "User.Read Files.ReadWrite.All Sites.ReadWrite.All",
+    ).split()
 
-    PIPELINE_WORKDIR = os.getenv("PIPELINE_WORKDIR", "").strip()
-    PYTHON_EXECUTABLE = os.getenv("PYTHON_EXECUTABLE", "python").strip()
-    BRAND_LOGO = os.getenv("BRAND_LOGO", "assets\\brand\\mastercard.png").strip()
+    # legado / compatibilidad
+    PIPELINE_COMMAND = os.getenv("PIPELINE_COMMAND", "python generar_voucher.py")
+
+    # nuevas para el monorepo
+    JOBS_ROOT = os.getenv("JOBS_ROOT", "work/jobs")
+    BRAND_LOGO = os.getenv("BRAND_LOGO", "assets/logos/royaltonresorts-com.png")
 
 
 settings = Settings()

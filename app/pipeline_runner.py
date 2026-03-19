@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
+import os
 import shutil
 import subprocess
+import sys
 import zipfile
-import os
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
@@ -103,6 +103,7 @@ def _copy_input_excel(source_excel: Path, job_dir: Path) -> Path:
     shutil.copy2(source_excel, dest)
     return dest
 
+
 def _collect_outputs(job_dir: Path) -> List[str]:
     wanted: List[Path] = []
 
@@ -131,36 +132,47 @@ def run_full_voucher_pipeline(
     *,
     job_id: str,
     source_excel: Path,
-    jobs_root: Path,
+    jobs_root: Optional[Path] = None,
     brand_logo: Optional[str] = None,
     pretty_json: bool = True,
 ) -> PipelineRunResult:
-    pipeline_root = Path(settings.PIPELINE_WORKDIR).resolve()
-    python_exe = Path(settings.PYTHON_EXECUTABLE).resolve()
+    project_root = Path(__file__).resolve().parent.parent
+    generator_root = project_root / "voucher_generator"
+    python_exe = Path(sys.executable).resolve()
 
-    if not pipeline_root.exists():
+    if jobs_root is None:
+        jobs_root = project_root / settings.JOBS_ROOT
+    else:
+        jobs_root = Path(jobs_root)
+
+    jobs_root = jobs_root.resolve()
+    _ensure_dir(jobs_root)
+
+    logos_dir = (generator_root / "assets" / "logos").resolve()
+
+    if not generator_root.exists():
         return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=str(pipeline_root),
+            working_dir=str(generator_root),
             input_file=str(source_excel),
-            error=f"PIPELINE_WORKDIR no existe: {pipeline_root}",
+            error=f"voucher_generator no existe: {generator_root}",
         )
 
-    if not python_exe.exists():
+    if not logos_dir.exists():
         return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=str(pipeline_root),
+            working_dir=str(generator_root),
             input_file=str(source_excel),
-            error=f"PYTHON_EXECUTABLE no existe: {python_exe}",
+            error=f"No existe la carpeta de logos: {logos_dir}",
         )
 
     if not source_excel.exists():
         return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=str(pipeline_root),
+            working_dir=str(generator_root),
             input_file=str(source_excel),
             error=f"Excel de entrada no existe: {source_excel}",
         )
@@ -170,7 +182,6 @@ def run_full_voucher_pipeline(
 
     local_excel = _copy_input_excel(source_excel.resolve(), job_dir).resolve()
 
-    # Paths dentro del job
     payload_json = (job_dir / "voucher_payloads.json").resolve()
     enriched_json = (job_dir / "voucher_payloads_enriched.json").resolve()
     hotel_cache = (job_dir / "hotel_cache.json").resolve()
@@ -179,7 +190,6 @@ def run_full_voucher_pipeline(
 
     steps: List[PipelineStepResult] = []
 
-    # 1) xlsx_to_voucher_json.py
     cmd_1 = [
         str(python_exe),
         "xlsx_to_voucher_json.py",
@@ -190,7 +200,7 @@ def run_full_voucher_pipeline(
     if pretty_json:
         cmd_1.append("--pretty")
 
-    step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=pipeline_root)
+    step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=generator_root)
     steps.append(step_1)
     if not step_1.ok:
         return PipelineRunResult(
@@ -203,16 +213,19 @@ def run_full_voucher_pipeline(
             error="Falló xlsx_to_voucher_json.py",
         )
 
-    # 2) enrich_hotels.py
     cmd_2 = [
         str(python_exe),
         "enrich_hotels.py",
         str(payload_json),
         "-o",
         str(enriched_json),
+        "--cache",
+        str(hotel_cache),
+        "--logos-dir",
+        str(logos_dir),
     ]
 
-    step_2 = _run_step("enrich_hotels", cmd_2, cwd=pipeline_root)
+    step_2 = _run_step("enrich_hotels", cmd_2, cwd=generator_root)
     steps.append(step_2)
     if not step_2.ok:
         return PipelineRunResult(
@@ -225,13 +238,6 @@ def run_full_voucher_pipeline(
             error="Falló enrich_hotels.py",
         )
 
-    # Si enrich_hotels.py escribe hotel_cache.json en el cwd del pipeline,
-    # lo copiamos al job para centralizar artefactos.
-    cache_in_root = pipeline_root / "hotel_cache.json"
-    if cache_in_root.exists() and not hotel_cache.exists():
-        shutil.copy2(cache_in_root, hotel_cache)
-
-    # 3) render_vouchers_html.py
     cmd_3 = [
         str(python_exe),
         "render_vouchers_html.py",
@@ -242,9 +248,12 @@ def run_full_voucher_pipeline(
 
     logo_to_use = brand_logo or settings.BRAND_LOGO
     if logo_to_use:
-        cmd_3.extend(["--brand-logo", logo_to_use])
+        logo_path = Path(logo_to_use)
+        if not logo_path.is_absolute():
+            logo_path = (generator_root / logo_path).resolve()
+        cmd_3.extend(["--brand-logo", str(logo_path)])
 
-    step_3 = _run_step("render_vouchers_html", cmd_3, cwd=pipeline_root)
+    step_3 = _run_step("render_vouchers_html", cmd_3, cwd=generator_root)
     steps.append(step_3)
     if not step_3.ok:
         return PipelineRunResult(
@@ -257,7 +266,6 @@ def run_full_voucher_pipeline(
             error="Falló render_vouchers_html.py",
         )
 
-    # 4) render_vouchers_pdf.py
     cmd_4 = [
         str(python_exe),
         "render_vouchers_pdf.py",
@@ -266,7 +274,7 @@ def run_full_voucher_pipeline(
         str(rendered_pdf_dir),
     ]
 
-    step_4 = _run_step("render_vouchers_pdf", cmd_4, cwd=pipeline_root)
+    step_4 = _run_step("render_vouchers_pdf", cmd_4, cwd=generator_root)
     steps.append(step_4)
     if not step_4.ok:
         return PipelineRunResult(
