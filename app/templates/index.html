@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voucher Generator</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <h1>Voucher Generator</h1>
+        <p class="subtitle">Generación de vouchers HTML y PDF</p>
+      </div>
+
+      {% if user %}
+        <div class="user-box">
+          <span>{{ user.name }}</span>
+          <small>{{ user.email }}</small>
+          <div style="margin-top: 8px;">
+            <a class="secondary-btn" href="/auth/logout">Cerrar sesión</a>
+          </div>
+        </div>
+      {% else %}
+        <div class="user-box muted">
+          <span>No autenticado</span>
+          <small>Modo local disponible</small>
+        </div>
+      {% endif %}
+    </header>
+
+    <section class="card">
+      <div class="section-header">
+        <div>
+          <h2>Microsoft / SharePoint</h2>
+          <p class="section-help">Explorador modal sobre SharePoint real</p>
+        </div>
+
+        {% if user %}
+          <span class="pill ok">Sesión iniciada</span>
+        {% else %}
+          <a class="primary-btn" href="/auth/login">Iniciar sesión con Microsoft</a>
+        {% endif %}
+      </div>
+
+      {% if user %}
+        <div class="form-grid">
+          <div class="field">
+            <label for="sourceFileName">Excel origen</label>
+            <input id="sourceFileName" type="text" readonly placeholder="Seleccionar desde SharePoint" />
+          </div>
+
+          <div class="field">
+            <label for="destFolderName">Carpeta destino</label>
+            <input id="destFolderName" type="text" readonly placeholder="Seleccionar carpeta destino" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="pickSourceBtn" class="secondary-btn" type="button">Buscar Excel</button>
+          <button id="pickDestBtn" class="secondary-btn" type="button">Elegir carpeta</button>
+          <button id="runSharepointBtn" class="primary-btn" type="button">Ejecutar pipeline SharePoint</button>
+        </div>
+
+        <p class="placeholder-note">
+          El explorador abre directamente en la carpeta base configurada de SharePoint.
+        </p>
+      {% else %}
+        <p class="placeholder-note">
+          Iniciá sesión con Microsoft para habilitar el flujo SharePoint.
+        </p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <div>
+          <h2>Modo local</h2>
+          <p class="section-help">Ejecución directa del pipeline usando un Excel local</p>
+        </div>
+        <span class="pill neutral">Disponible</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="localExcelPath">Ruta local del Excel</label>
+          <input
+            id="localExcelPath"
+            type="text"
+            placeholder="C:\Users\ignac\OneDrive\Escritorio\generadordevouchers\LISTADO GENERAL - MODELO.xlsx"
+          />
+        </div>
+
+        <div class="field">
+          <label for="brandLogo">Ruta logo opcional</label>
+          <input
+            id="brandLogo"
+            type="text"
+            placeholder="assets\brand\mastercard.png"
+          />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="runLocalBtn" class="primary-btn" type="button">Generar vouchers</button>
+      </div>
+
+      <p class="placeholder-note">
+        En modo local, los archivos se guardan automáticamente en una carpeta del job dentro de <code>work/jobs</code>.
+      </p>
+    </section>
+
+    <section class="card hidden" id="statusCard">
+      <h2>Estado</h2>
+      <div id="statusMessage" class="status-box">Listo para ejecutar.</div>
+    </section>
+
+    <section class="card hidden" id="summaryCard">
+      <h2>Resumen</h2>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-label">Estado</span>
+          <strong id="summaryOk">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Job ID</span>
+          <strong id="summaryJobId">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">ZIP</span>
+          <strong id="summaryZip">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Archivos</span>
+          <strong id="summaryFilesCount">-</strong>
+        </div>
+      </div>
+
+      <div class="path-box">
+        <div class="path-row">
+          <span class="path-label">Carpeta local del job</span>
+          <code id="jobFolderPath">-</code>
+        </div>
+        <div class="path-row">
+          <span class="path-label">ZIP local</span>
+          <code id="jobZipPath">-</code>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="openFolderBtn" class="secondary-btn hidden" type="button">Abrir carpeta local</button>
+        <a id="downloadZipBtn" class="secondary-btn hidden" href="#" target="_blank">Descargar ZIP</a>
+      </div>
+    </section>
+
+    <section class="card hidden" id="stepsCard">
+      <h2>Pasos del pipeline</h2>
+      <div id="stepsContainer"></div>
+    </section>
+
+    <section class="card hidden" id="filesCard">
+      <h2>Archivos generados</h2>
+      <ul id="filesList" class="files-list"></ul>
+    </section>
+
+    <section class="card hidden" id="rawCard">
+      <h2>Respuesta técnica</h2>
+      <pre id="resultBox"></pre>
+    </section>
+  </main>
+
+  <div id="spExplorerModal" class="modal hidden">
+    <div class="modal-backdrop" id="spExplorerBackdrop"></div>
+
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h3 id="spExplorerTitle">Explorar SharePoint</h3>
+          <p id="spExplorerSubtitle" class="section-help">Seleccioná un archivo o carpeta</p>
+        </div>
+        <button id="spExplorerCloseBtn" class="secondary-btn" type="button">Cerrar</button>
+      </div>
+
+      <div class="modal-toolbar">
+        <button id="spExplorerBackBtn" class="secondary-btn" type="button">Volver</button>
+        <div id="spExplorerPath" class="path-pill">/</div>
+      </div>
+
+      <div id="spExplorerStatus" class="status-box">Cargando...</div>
+
+      <div id="spExplorerList" class="explorer-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

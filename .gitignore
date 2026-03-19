@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+work/
+*.log
+
+# Voucher generator outputs
+voucher_generator/rendered_pdfs/
+voucher_generator/rendered_vouchers/
+
+# OS
+.DS_Store
+Thumbs.db
