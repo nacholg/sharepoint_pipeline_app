@@ -141,7 +141,7 @@ def run_full_voucher_pipeline(
 ) -> PipelineRunResult:
     project_root = Path(__file__).resolve().parent.parent
     generator_root = project_root / "voucher_generator"
-    python_exe = Path(sys.executable).resolve()
+    python_exe = Path(sys.executable)
     print("DEBUG sys.executable =", sys.executable)
     print("DEBUG python_exe =", python_exe)
     print("DEBUG project_root =", project_root)
