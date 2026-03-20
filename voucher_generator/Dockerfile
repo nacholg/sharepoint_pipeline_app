@@ -6,7 +6,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright
 
 WORKDIR /app
 
-# Dependencias del sistema (CLAVE para Playwright)
+# Dependencias del sistema (CLAVE para Playwright!)
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
