@@ -71,6 +71,9 @@ def _run_step(
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
+    print("DEBUG running step:", name)
+    print("DEBUG command:", command)
+    print("DEBUG cwd:", cwd)
 
     completed = subprocess.run(
         command,
@@ -139,6 +142,10 @@ def run_full_voucher_pipeline(
     project_root = Path(__file__).resolve().parent.parent
     generator_root = project_root / "voucher_generator"
     python_exe = Path(sys.executable).resolve()
+    print("DEBUG sys.executable =", sys.executable)
+    print("DEBUG python_exe =", python_exe)
+    print("DEBUG project_root =", project_root)
+    print("DEBUG generator_root =", generator_root)
 
     if jobs_root is None:
         jobs_root = project_root / settings.JOBS_ROOT
