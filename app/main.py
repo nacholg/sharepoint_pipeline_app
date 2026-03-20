@@ -18,6 +18,8 @@ from app.routes.ui import router as ui_router
 from app.services.sharepoint_graph import GraphSharePointService
 from app.token_store import get_user_token
 
+from fastapi import UploadFile, File, Form
+import shutil
 
 load_dotenv()
 
@@ -132,6 +134,38 @@ def get_sharepoint_context(graph: GraphSharePointService) -> dict:
         "base_folder": base_folder,
     }
 
+@app.post("/api/local/run")
+async def api_local_run(
+    file: UploadFile = File(...),
+):
+    try:
+        job_id = str(uuid4())
+        jobs_root = Path("work/jobs").resolve()
+        job_dir = (jobs_root / job_id).resolve()
+        input_dir = (job_dir / "input").resolve()
+        input_dir.mkdir(parents=True, exist_ok=True)
+
+        local_excel_path = input_dir / file.filename
+
+        # guardar archivo subido
+        with open(local_excel_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        result = run_full_voucher_pipeline(
+            job_id=job_id,
+            source_excel=local_excel_path,
+            jobs_root=jobs_root,
+            brand_logo=None,
+            pretty_json=True,
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error ejecutando pipeline local: {e}",
+        )
 
 @app.get("/api/sharepoint/explore")
 def api_sharepoint_explore(request: Request, folder_id: str | None = None):

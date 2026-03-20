@@ -7,189 +7,218 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <main class="container">
-    <header class="page-header">
-      <div>
-        <h1>Voucher Generator</h1>
-        <p class="subtitle">Generación de vouchers HTML y PDF</p>
+  <div class="app-shell">
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
+
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-mark">VG</div>
+        <div>
+          <h1>Voucher Generator</h1>
+          <p class="brand-subtitle">Premium Pipeline Console</p>
+        </div>
       </div>
 
-      {% if user %}
-        <div class="user-box">
-          <span>{{ user.name }}</span>
-          <small>{{ user.email }}</small>
-          <div style="margin-top: 8px;">
-            <a class="secondary-btn" href="/auth/logout">Cerrar sesión</a>
-          </div>
-        </div>
-      {% else %}
-        <div class="user-box muted">
-          <span>No autenticado</span>
-          <small>Modo local disponible</small>
-        </div>
-      {% endif %}
-    </header>
-
-    <section class="card">
-      <div class="section-header">
-        <div>
-          <h2>Microsoft / SharePoint</h2>
-          <p class="section-help">Explorador modal sobre SharePoint real</p>
-        </div>
-
+      <div class="topbar-actions">
         {% if user %}
-          <span class="pill ok">Sesión iniciada</span>
+          <div class="user-pill success">
+            <span class="user-dot"></span>
+            <div>
+              <strong>{{ user.name or "Usuario autenticado" }}</strong>
+              <small>{{ user.email }}</small>
+            </div>
+          </div>
+          <a class="btn ghost" href="/auth/logout">Logout</a>
         {% else %}
-          <a class="primary-btn" href="/auth/login">Iniciar sesión con Microsoft</a>
+          <div class="user-pill">
+            <span class="user-dot"></span>
+            <div>
+              <strong>No autenticado</strong>
+              <small>Conectá tu cuenta Microsoft</small>
+            </div>
+          </div>
+          <a class="btn primary" href="/auth/login">Login SharePoint</a>
         {% endif %}
       </div>
+    </header>
 
-      {% if user %}
-        <div class="form-grid">
-          <div class="field">
-            <label for="sourceFileName">Excel origen</label>
-            <input id="sourceFileName" type="text" readonly placeholder="Seleccionar desde SharePoint" />
+    <main class="main-layout">
+      <section class="hero card">
+        <div class="hero-copy">
+          <span class="eyebrow">Automatización premium</span>
+          <h2>Generá vouchers HTML y PDF desde Excel local o SharePoint</h2>
+          <p>
+            Ejecutá el pipeline completo, seguí cada paso visualmente y abrí
+            los archivos resultantes desde la interfaz.
+          </p>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat-box">
+            <span class="stat-label">Entradas</span>
+            <strong>Excel</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Salida</span>
+            <strong>HTML + PDF + ZIP</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Origen</span>
+            <strong>Local / SharePoint</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="mode-switch" role="tablist" aria-label="Origen del pipeline">
+          <button id="btnLocal" class="mode-btn active" type="button">Local</button>
+          <button id="btnSP" class="mode-btn" type="button">SharePoint</button>
+        </div>
+
+        <div id="localSection" class="mode-panel">
+          <div class="panel-header">
+            <div>
+              <h3>Modo Local</h3>
+              <p>Subí un Excel desde tu equipo y corré el pipeline directamente.</p>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="destFolderName">Carpeta destino</label>
-            <input id="destFolderName" type="text" readonly placeholder="Seleccionar carpeta destino" />
+          <div class="form-grid">
+            <label class="field">
+              <span>Excel de entrada</span>
+              <input type="file" id="fileInput" accept=".xlsx,.xlsm" />
+            </label>
+          </div>
+
+          <div class="panel-actions">
+            <button id="runLocalBtn" class="btn primary large" type="button">
+              Ejecutar pipeline local
+            </button>
           </div>
         </div>
 
-        <div class="actions">
-          <button id="pickSourceBtn" class="secondary-btn" type="button">Buscar Excel</button>
-          <button id="pickDestBtn" class="secondary-btn" type="button">Elegir carpeta</button>
-          <button id="runSharepointBtn" class="primary-btn" type="button">Ejecutar pipeline SharePoint</button>
+        <div id="spSection" class="mode-panel hidden">
+          <div class="panel-header">
+            <div>
+              <h3>Modo SharePoint</h3>
+              <p>Explorá tu biblioteca, elegí un Excel de origen y una carpeta destino.</p>
+            </div>
+            {% if not user %}
+              <div class="notice warning">
+                Necesitás iniciar sesión con Microsoft para usar SharePoint.
+              </div>
+            {% endif %}
+          </div>
+
+          {% if user %}
+            <div class="sp-summary-grid">
+              <div class="result-kpi">
+                <span>Excel seleccionado</span>
+                <strong id="selectedSourceLabel">Sin seleccionar</strong>
+              </div>
+              <div class="result-kpi">
+                <span>Carpeta destino</span>
+                <strong id="selectedDestLabel">Sin seleccionar</strong>
+              </div>
+            </div>
+
+            <div class="panel-actions">
+              <button id="pickSPFileBtn" class="btn secondary large" type="button">
+                Elegir archivo de SharePoint
+              </button>
+              <button id="pickSPFolderBtn" class="btn secondary large" type="button">
+                Elegir carpeta destino
+              </button>
+              <button id="runSPBtn" class="btn primary large" type="button">
+                Ejecutar desde SharePoint
+              </button>
+            </div>
+          {% else %}
+            <div class="panel-actions">
+              <a class="btn primary large" href="/auth/login">Login SharePoint</a>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section id="progressCard" class="card hidden">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Pipeline status</span>
+            <h3>Estado de ejecución</h3>
+          </div>
+          <div id="pipelineStatusBadge" class="status-badge neutral">Esperando</div>
         </div>
 
-        <p class="placeholder-note">
-          El explorador abre directamente en la carpeta base configurada de SharePoint.
-        </p>
-      {% else %}
-        <p class="placeholder-note">
-          Iniciá sesión con Microsoft para habilitar el flujo SharePoint.
-        </p>
-      {% endif %}
-    </section>
-
-    <section class="card">
-      <div class="section-header">
-        <div>
-          <h2>Modo local</h2>
-          <p class="section-help">Ejecución directa del pipeline usando un Excel local</p>
-        </div>
-        <span class="pill neutral">Disponible</span>
-      </div>
-
-      <div class="form-grid">
-        <div class="field">
-          <label for="localExcelPath">Ruta local del Excel</label>
-          <input
-            id="localExcelPath"
-            type="text"
-            placeholder="C:\Users\ignac\OneDrive\Escritorio\generadordevouchers\LISTADO GENERAL - MODELO.xlsx"
-          />
+        <div class="progress-wrap">
+          <div class="progress-meta">
+            <span id="progressLabel">Listo para ejecutar</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill"></div>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="brandLogo">Ruta logo opcional</label>
-          <input
-            id="brandLogo"
-            type="text"
-            placeholder="assets\brand\mastercard.png"
-          />
+        <div id="steps" class="steps-list"></div>
+      </section>
+
+      <section id="resultCard" class="card hidden">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Resultado</span>
+            <h3>Archivos y salida del job</h3>
+          </div>
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="runLocalBtn" class="primary-btn" type="button">Generar vouchers</button>
-      </div>
+        <div id="resultContent"></div>
+      </section>
+    </main>
+  </div>
 
-      <p class="placeholder-note">
-        En modo local, los archivos se guardan automáticamente en una carpeta del job dentro de <code>work/jobs</code>.
-      </p>
-    </section>
+  {% if user %}
+  <script id="user-data" type="application/json">{{ user | tojson | safe }}</script>
+  {% else %}
+  <script id="user-data" type="application/json">null</script>
+  {% endif %}
 
-    <section class="card hidden" id="statusCard">
-      <h2>Estado</h2>
-      <div id="statusMessage" class="status-box">Listo para ejecutar.</div>
-    </section>
-
-    <section class="card hidden" id="summaryCard">
-      <h2>Resumen</h2>
-      <div class="summary-grid">
-        <div class="summary-item">
-          <span class="summary-label">Estado</span>
-          <strong id="summaryOk">-</strong>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Job ID</span>
-          <strong id="summaryJobId">-</strong>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">ZIP</span>
-          <strong id="summaryZip">-</strong>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Archivos</span>
-          <strong id="summaryFilesCount">-</strong>
-        </div>
-      </div>
-
-      <div class="path-box">
-        <div class="path-row">
-          <span class="path-label">Carpeta local del job</span>
-          <code id="jobFolderPath">-</code>
-        </div>
-        <div class="path-row">
-          <span class="path-label">ZIP local</span>
-          <code id="jobZipPath">-</code>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="openFolderBtn" class="secondary-btn hidden" type="button">Abrir carpeta local</button>
-        <a id="downloadZipBtn" class="secondary-btn hidden" href="#" target="_blank">Descargar ZIP</a>
-      </div>
-    </section>
-
-    <section class="card hidden" id="stepsCard">
-      <h2>Pasos del pipeline</h2>
-      <div id="stepsContainer"></div>
-    </section>
-
-    <section class="card hidden" id="filesCard">
-      <h2>Archivos generados</h2>
-      <ul id="filesList" class="files-list"></ul>
-    </section>
-
-    <section class="card hidden" id="rawCard">
-      <h2>Respuesta técnica</h2>
-      <pre id="resultBox"></pre>
-    </section>
-  </main>
-
-  <div id="spExplorerModal" class="modal hidden">
-    <div class="modal-backdrop" id="spExplorerBackdrop"></div>
-
-    <div class="modal-panel">
+  <div id="spModal" class="modal hidden">
+    <div class="modal-backdrop" id="spModalBackdrop"></div>
+    <div class="modal-dialog">
       <div class="modal-header">
         <div>
-          <h3 id="spExplorerTitle">Explorar SharePoint</h3>
-          <p id="spExplorerSubtitle" class="section-help">Seleccioná un archivo o carpeta</p>
+          <span class="eyebrow">SharePoint Explorer</span>
+          <h3 id="spModalTitle">Seleccionar Excel de origen</h3>
         </div>
-        <button id="spExplorerCloseBtn" class="secondary-btn" type="button">Cerrar</button>
+        <button id="closeSPModalBtn" class="btn ghost small" type="button">Cerrar</button>
       </div>
 
       <div class="modal-toolbar">
-        <button id="spExplorerBackBtn" class="secondary-btn" type="button">Volver</button>
-        <div id="spExplorerPath" class="path-pill">/</div>
+        <div class="modal-path">
+          <strong>Carpeta actual:</strong>
+          <span id="spCurrentPathLabel">Raíz</span>
+        </div>
+        <div class="panel-actions" style="margin-top:0;">
+          <button id="spBackBtn" class="btn secondary small" type="button">Volver</button>
+          <button id="selectCurrentFolderBtn" class="btn secondary small hidden" type="button">
+            Usar carpeta actual como destino
+          </button>
+        </div>
       </div>
 
-      <div id="spExplorerStatus" class="status-box">Cargando...</div>
+      <div id="spModalBody" class="sharepoint-browser"></div>
 
-      <div id="spExplorerList" class="explorer-list"></div>
+      <div class="modal-footer">
+        <div class="sp-selected">
+          <div><strong>Excel:</strong> <span id="spPickedSourceInline">Sin seleccionar</span></div>
+          <div><strong>Destino:</strong> <span id="spPickedDestInline">Sin seleccionar</span></div>
+        </div>
+        <button id="confirmSPSelectionBtn" class="btn primary" type="button">
+          Confirmar selección
+        </button>
+      </div>
     </div>
   </div>
 
