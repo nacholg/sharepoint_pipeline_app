@@ -9,3 +9,4 @@ playwright
 pydantic-settings
 openpyxl==3.1.5
 itsdangerous
+chromium
