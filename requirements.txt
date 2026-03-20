@@ -7,5 +7,5 @@ msal
 python-dotenv
 playwright
 pydantic-settings
-openpyxl
+openpyxl==3.1.5
 itsdangerous
