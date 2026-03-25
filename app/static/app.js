@@ -2,6 +2,7 @@ const API = {
   localRun: "/api/local/run",
   sharepointRun: "/api/sharepoint/run",
   sharepointExplore: "/api/sharepoint/explore",
+  sharepointSites: "/api/sharepoint/sites",
 };
 
 const currentUser = (() => {
@@ -40,6 +41,10 @@ const resultContent = document.getElementById("resultContent");
 const selectedSourceLabel = document.getElementById("selectedSourceLabel");
 const selectedDestLabel = document.getElementById("selectedDestLabel");
 
+const sourceSiteSelect = document.getElementById("sourceSiteSelect");
+const destinationSiteSelect = document.getElementById("destinationSiteSelect");
+const modalSiteSelect = document.getElementById("modalSiteSelect");
+
 const spModal = document.getElementById("spModal");
 const spModalBackdrop = document.getElementById("spModalBackdrop");
 const closeSPModalBtn = document.getElementById("closeSPModalBtn");
@@ -54,13 +59,19 @@ const selectCurrentFolderBtn = document.getElementById("selectCurrentFolderBtn")
 const spPickedSourceInline = document.getElementById("spPickedSourceInline");
 const spPickedDestInline = document.getElementById("spPickedDestInline");
 
+let sharepointSites = [];
+
 let selectedSourceFileId = null;
 let selectedSourceFileName = null;
+let selectedSourceSiteKey = null;
+
 let selectedDestinationFolderId = null;
 let selectedDestinationFolderName = null;
+let selectedDestinationSiteKey = null;
 
 let currentSharePointFolderId = null;
 let currentSharePointFolderName = null;
+let currentModalSiteKey = null;
 let spBrowseMode = "source";
 let spFolderStack = [];
 
@@ -72,12 +83,16 @@ runSPBtn?.addEventListener("click", runSharePointPipeline);
 
 pickSPFileBtn?.addEventListener("click", async () => {
   spBrowseMode = "source";
+  currentModalSiteKey = sourceSiteSelect?.value || getDefaultSiteKey();
+  if (modalSiteSelect) modalSiteSelect.value = currentModalSiteKey;
   openSPModal();
   await loadSharePointFolder(null, true);
 });
 
 pickSPFolderBtn?.addEventListener("click", async () => {
   spBrowseMode = "dest";
+  currentModalSiteKey = destinationSiteSelect?.value || getDefaultSiteKey();
+  if (modalSiteSelect) modalSiteSelect.value = currentModalSiteKey;
   openSPModal();
   await loadSharePointFolder(null, true);
 });
@@ -105,9 +120,83 @@ selectCurrentFolderBtn?.addEventListener("click", async () => {
   if (!currentSharePointFolderId) return;
   selectedDestinationFolderId = currentSharePointFolderId;
   selectedDestinationFolderName = currentSharePointFolderName;
+  selectedDestinationSiteKey = currentModalSiteKey;
+  if (destinationSiteSelect) destinationSiteSelect.value = currentModalSiteKey;
   syncPickedLabels();
   await loadSharePointFolder(currentSharePointFolderId, false, true);
 });
+
+modalSiteSelect?.addEventListener("change", async () => {
+  currentModalSiteKey = modalSiteSelect.value;
+  await loadSharePointFolder(null, true);
+});
+
+sourceSiteSelect?.addEventListener("change", () => {
+  if (selectedSourceSiteKey !== sourceSiteSelect.value) {
+    selectedSourceFileId = null;
+    selectedSourceFileName = null;
+    selectedSourceSiteKey = null;
+    syncPickedLabels();
+  }
+});
+
+destinationSiteSelect?.addEventListener("change", () => {
+  if (selectedDestinationSiteKey !== destinationSiteSelect.value) {
+    selectedDestinationFolderId = null;
+    selectedDestinationFolderName = null;
+    selectedDestinationSiteKey = null;
+    syncPickedLabels();
+  }
+});
+
+document.addEventListener("DOMContentLoaded", async () => {
+  if (currentUser) {
+    await loadSharePointSites();
+  }
+  syncPickedLabels();
+});
+
+function getDefaultSiteKey() {
+  if (sharepointSites.find((x) => x.key === "globalevents2")) {
+    return "globalevents2";
+  }
+  return sharepointSites[0]?.key || null;
+}
+
+async function loadSharePointSites() {
+  try {
+    const response = await fetch(API.sharepointSites);
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      return;
+    }
+
+    sharepointSites = data.sites || [];
+
+    fillSiteSelect(sourceSiteSelect, sharepointSites);
+    fillSiteSelect(destinationSiteSelect, sharepointSites);
+    fillSiteSelect(modalSiteSelect, sharepointSites);
+
+    const defaultKey = getDefaultSiteKey();
+    if (sourceSiteSelect && defaultKey) sourceSiteSelect.value = defaultKey;
+    if (destinationSiteSelect && defaultKey) destinationSiteSelect.value = defaultKey;
+    if (modalSiteSelect && defaultKey) modalSiteSelect.value = defaultKey;
+  } catch (error) {
+    console.error("No se pudieron cargar los sites:", error);
+  }
+}
+
+function fillSiteSelect(selectEl, sites) {
+  if (!selectEl) return;
+  selectEl.innerHTML = "";
+  for (const site of sites) {
+    const opt = document.createElement("option");
+    opt.value = site.key;
+    opt.textContent = site.label;
+    selectEl.appendChild(opt);
+  }
+}
 
 function switchMode(mode) {
   const isLocal = mode === "local";
@@ -142,16 +231,24 @@ function updateModalContext() {
 
 function syncPickedLabels() {
   if (selectedSourceLabel) {
-    selectedSourceLabel.textContent = selectedSourceFileName || "Sin seleccionar";
+    selectedSourceLabel.textContent = selectedSourceFileName
+      ? `${selectedSourceFileName} (${selectedSourceSiteKey || "-"})`
+      : "Sin seleccionar";
   }
   if (selectedDestLabel) {
-    selectedDestLabel.textContent = selectedDestinationFolderName || "Sin seleccionar";
+    selectedDestLabel.textContent = selectedDestinationFolderName
+      ? `${selectedDestinationFolderName} (${selectedDestinationSiteKey || "-"})`
+      : "Sin seleccionar";
   }
   if (spPickedSourceInline) {
-    spPickedSourceInline.textContent = selectedSourceFileName || "Sin seleccionar";
+    spPickedSourceInline.textContent = selectedSourceFileName
+      ? `${selectedSourceFileName} (${selectedSourceSiteKey || "-"})`
+      : "Sin seleccionar";
   }
   if (spPickedDestInline) {
-    spPickedDestInline.textContent = selectedDestinationFolderName || "Sin seleccionar";
+    spPickedDestInline.textContent = selectedDestinationFolderName
+      ? `${selectedDestinationFolderName} (${selectedDestinationSiteKey || "-"})`
+      : "Sin seleccionar";
   }
 }
 
@@ -209,6 +306,8 @@ async function runSharePointPipeline() {
       body: JSON.stringify({
         source_file_id: selectedSourceFileId,
         destination_folder_id: selectedDestinationFolderId,
+        source_site_key: selectedSourceSiteKey || sourceSiteSelect?.value || getDefaultSiteKey(),
+        destination_site_key: selectedDestinationSiteKey || destinationSiteSelect?.value || getDefaultSiteKey(),
       }),
     });
 
@@ -231,9 +330,13 @@ async function loadSharePointFolder(folderId = null, resetStack = false, preserv
 
   try {
     let url = API.sharepointExplore;
-    if (folderId) {
-      url += `?folder_id=${encodeURIComponent(folderId)}`;
-    }
+    const params = new URLSearchParams();
+
+    if (folderId) params.set("folder_id", folderId);
+    if (currentModalSiteKey) params.set("site_key", currentModalSiteKey);
+
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -249,8 +352,15 @@ async function loadSharePointFolder(folderId = null, resetStack = false, preserv
 
     currentSharePointFolderId = data.current_folder?.id || null;
     currentSharePointFolderName = data.current_folder?.name || "Raíz";
+    currentModalSiteKey = data.site_key || currentModalSiteKey;
+
+    if (modalSiteSelect && currentModalSiteKey) {
+      modalSiteSelect.value = currentModalSiteKey;
+    }
+
     if (spCurrentPathLabel) {
-      spCurrentPathLabel.textContent = currentSharePointFolderName;
+      const siteLabel = data.site_label ? `${data.site_label} / ` : "";
+      spCurrentPathLabel.textContent = `${siteLabel}${currentSharePointFolderName}`;
     }
 
     if (resetStack) {
@@ -258,27 +368,28 @@ async function loadSharePointFolder(folderId = null, resetStack = false, preserv
     }
 
     if (!preserveStack) {
-      const exists = spFolderStack.some((x) => x.id === currentSharePointFolderId);
-      if (!exists) {
+      const alreadyTop = spFolderStack[spFolderStack.length - 1]?.id === currentSharePointFolderId;
+      if (!alreadyTop) {
         spFolderStack.push({
           id: currentSharePointFolderId,
           name: currentSharePointFolderName,
+          site_key: currentModalSiteKey,
         });
       }
     }
 
-    renderSharePointModalBrowser(data);
+    renderSharePointItems(data.items || []);
   } catch (error) {
     spModalBody.innerHTML = `
       <div class="error-banner">
-        Error cargando SharePoint: ${escapeHtml(error?.message || "desconocido")}
+        Error: ${escapeHtml(error.message || "No se pudo cargar SharePoint")}
       </div>
     `;
   }
 }
 
-function renderSharePointModalBrowser(data) {
-  const items = data.items || [];
+function renderSharePointItems(items) {
+  if (!spModalBody) return;
 
   if (!items.length) {
     spModalBody.innerHTML = `
@@ -290,139 +401,165 @@ function renderSharePointModalBrowser(data) {
     return;
   }
 
-  let html = `<div class="sp-list">`;
+  const rows = items
+    .map((item) => {
+      const isFolder = !!item.is_folder;
+      const isFile = !!item.is_file;
 
-  for (const item of items) {
-    const isSelectedSource = selectedSourceFileId && item.id === selectedSourceFileId;
-    const isSelectedDest = selectedDestinationFolderId && item.id === selectedDestinationFolderId;
+      let actionButtons = "";
 
-    if (item.is_folder) {
-      html += `
-        <div class="sp-item ${isSelectedDest ? "active-pick" : ""}">
-          <div class="sp-main" data-open-folder="${escapeHtml(item.id)}">
-            📁 ${escapeHtml(item.name)}
-          </div>
-          <div class="panel-actions" style="margin-top:0;">
-            <button class="btn secondary small" data-open-folder="${escapeHtml(item.id)}" type="button">
-              Abrir
+      if (isFolder) {
+        actionButtons += `
+          <button
+            class="btn secondary small"
+            type="button"
+            onclick="window.__openSharePointFolder('${escapeJs(item.id)}')"
+          >
+            Abrir
+          </button>
+        `;
+
+        if (spBrowseMode === "dest") {
+          actionButtons += `
+            <button
+              class="btn primary small"
+              type="button"
+              onclick="window.__pickDestinationFolder('${escapeJs(item.id)}','${escapeJs(item.name)}')"
+            >
+              Elegir
             </button>
-            ${
-              spBrowseMode === "dest"
-                ? `<button class="btn secondary small" data-select-folder="${escapeHtml(item.id)}" data-select-folder-name="${escapeHtml(item.name)}" type="button">Elegir destino</button>`
-                : ""
-            }
+          `;
+        }
+      }
+
+      if (isFile && spBrowseMode === "source") {
+        const validExcel = String(item.name || "").toLowerCase().endsWith(".xlsx")
+          || String(item.name || "").toLowerCase().endsWith(".xlsm");
+
+        if (validExcel) {
+          actionButtons += `
+            <button
+              class="btn primary small"
+              type="button"
+              onclick="window.__pickSourceFile('${escapeJs(item.id)}','${escapeJs(item.name)}')"
+            >
+              Seleccionar
+            </button>
+          `;
+        }
+      }
+
+      return `
+        <div class="browser-row">
+          <div class="browser-main">
+            <div class="browser-name">
+              <span class="browser-icon">${isFolder ? "📁" : "📄"}</span>
+              ${escapeHtml(item.name || "Sin nombre")}
+            </div>
+            <div class="browser-meta">
+              ${isFolder ? "Carpeta" : (item.mime_type || "Archivo")}
+            </div>
+          </div>
+          <div class="browser-actions">
+            ${actionButtons || `<span class="muted-pill">Sin acción</span>`}
           </div>
         </div>
       `;
-    } else if (item.is_file) {
-      const isExcel = /\.(xlsx|xlsm)$/i.test(item.name || "");
-      html += `
-        <div class="sp-item ${isSelectedSource ? "active-pick" : ""}">
-          <div class="sp-main">
-            ${isExcel ? "📄" : "📎"} ${escapeHtml(item.name)}
-          </div>
-          <div class="panel-actions" style="margin-top:0;">
-            ${
-              isExcel && spBrowseMode === "source"
-                ? `<button class="btn secondary small" data-select-file="${escapeHtml(item.id)}" data-select-file-name="${escapeHtml(item.name)}" type="button">Elegir Excel</button>`
-                : `<span class="muted">${isExcel ? "Disponible" : "No compatible"}</span>`
-            }
-          </div>
-        </div>
-      `;
-    }
-  }
+    })
+    .join("");
 
-  html += `</div>`;
-  spModalBody.innerHTML = html;
-
-  spModalBody.querySelectorAll("[data-open-folder]").forEach((el) => {
-    el.addEventListener("click", async () => {
-      const folderId = el.getAttribute("data-open-folder");
-      await loadSharePointFolder(folderId, false);
-    });
-  });
-
-  spModalBody.querySelectorAll("[data-select-folder]").forEach((el) => {
-    el.addEventListener("click", async () => {
-      selectedDestinationFolderId = el.getAttribute("data-select-folder");
-      selectedDestinationFolderName = el.getAttribute("data-select-folder-name");
-      syncPickedLabels();
-      await loadSharePointFolder(currentSharePointFolderId, false, true);
-    });
-  });
-
-  spModalBody.querySelectorAll("[data-select-file]").forEach((el) => {
-    el.addEventListener("click", async () => {
-      selectedSourceFileId = el.getAttribute("data-select-file");
-      selectedSourceFileName = el.getAttribute("data-select-file-name");
-      syncPickedLabels();
-      await loadSharePointFolder(currentSharePointFolderId, false, true);
-    });
-  });
+  spModalBody.innerHTML = `<div class="browser-list">${rows}</div>`;
 }
 
-function resetUI(labelText = "Procesando...") {
+window.__openSharePointFolder = async function (folderId) {
+  await loadSharePointFolder(folderId, false, false);
+};
+
+window.__pickSourceFile = function (fileId, fileName) {
+  selectedSourceFileId = fileId;
+  selectedSourceFileName = fileName;
+  selectedSourceSiteKey = currentModalSiteKey;
+  if (sourceSiteSelect) sourceSiteSelect.value = currentModalSiteKey;
+  syncPickedLabels();
+};
+
+window.__pickDestinationFolder = function (folderId, folderName) {
+  selectedDestinationFolderId = folderId;
+  selectedDestinationFolderName = folderName;
+  selectedDestinationSiteKey = currentModalSiteKey;
+  if (destinationSiteSelect) destinationSiteSelect.value = currentModalSiteKey;
+  syncPickedLabels();
+};
+
+function resetUI(message = "Procesando...") {
   progressCard?.classList.remove("hidden");
   resultCard?.classList.add("hidden");
-  stepsDiv.innerHTML = "";
-  progressFill.style.width = "0%";
-  progressLabel.textContent = labelText;
-  progressPercent.textContent = "0%";
-  pipelineStatusBadge.textContent = "Ejecutando";
-  pipelineStatusBadge.className = "status-badge running";
+
+  if (progressFill) progressFill.style.width = "12%";
+  if (progressLabel) progressLabel.textContent = message;
+  if (progressPercent) progressPercent.textContent = "12%";
+  if (pipelineStatusBadge) {
+    pipelineStatusBadge.textContent = "Running";
+    pipelineStatusBadge.className = "status-badge running";
+  }
+
+  if (stepsDiv) {
+    stepsDiv.innerHTML = `
+      <div class="step-item running">
+        <div class="step-bullet"></div>
+        <div>
+          <strong>Pipeline iniciado</strong>
+          <p>Esperando respuesta del backend...</p>
+        </div>
+      </div>
+    `;
+  }
 }
 
 function setRunningState() {
-  progressCard?.classList.remove("hidden");
-  resultCard?.classList.add("hidden");
+  runLocalBtn && (runLocalBtn.disabled = true);
+  runSPBtn && (runSPBtn.disabled = true);
+  pickSPFileBtn && (pickSPFileBtn.disabled = true);
+  pickSPFolderBtn && (pickSPFolderBtn.disabled = true);
+}
+
+function clearRunningState() {
+  runLocalBtn && (runLocalBtn.disabled = false);
+  runSPBtn && (runSPBtn.disabled = false);
+  pickSPFileBtn && (pickSPFileBtn.disabled = false);
+  pickSPFolderBtn && (pickSPFolderBtn.disabled = false);
 }
 
 function renderResult(data, mode) {
-  const steps = data.steps || [];
-  stepsDiv.innerHTML = "";
+  clearRunningState();
 
-  if (steps.length) {
-    steps.forEach((step, index) => {
-      const percent = Math.round(((index + 1) / steps.length) * 100);
-      progressFill.style.width = `${percent}%`;
-      progressPercent.textContent = `${percent}%`;
-      progressLabel.textContent = `Paso ${index + 1} de ${steps.length}: ${step.name}`;
-
-      const div = document.createElement("div");
-      div.className = `step ${step.ok ? "ok" : "error"}`;
-      div.innerHTML = `
-        <div class="step-head">
-          <div class="step-title">${escapeHtml(step.name)}</div>
-          <div class="step-state">${step.ok ? "OK" : "Error"}</div>
-        </div>
-        ${step.stdout ? `<pre>${escapeHtml(step.stdout)}</pre>` : ""}
-        ${step.stderr ? `<pre>${escapeHtml(step.stderr)}</pre>` : ""}
-      `;
-      stepsDiv.appendChild(div);
-    });
-  }
-
-  const finalPercent = steps.length ? 100 : 0;
-  progressFill.style.width = `${finalPercent}%`;
-  progressPercent.textContent = `${finalPercent}%`;
-
-  if (data.ok) {
-    progressLabel.textContent = "Pipeline completado";
-    pipelineStatusBadge.textContent = "Completado";
-    pipelineStatusBadge.className = "status-badge success";
-  } else {
-    progressLabel.textContent = "Pipeline finalizó con errores";
-    pipelineStatusBadge.textContent = "Error";
-    pipelineStatusBadge.className = "status-badge error";
-  }
-
+  progressCard?.classList.remove("hidden");
   resultCard?.classList.remove("hidden");
 
-  const generatedFiles = data.generated_files || [];
-  const uploadedFiles = data.uploaded_files || [];
-  const uploadedZip = data.uploaded_zip || null;
-  const zipFile = data.zip_file || null;
+  if (progressFill) progressFill.style.width = data.ok ? "100%" : "100%";
+  if (progressLabel) progressLabel.textContent = data.ok ? "Pipeline finalizado" : "Pipeline con error";
+  if (progressPercent) progressPercent.textContent = "100%";
+
+  if (pipelineStatusBadge) {
+    pipelineStatusBadge.textContent = data.ok ? "Success" : "Error";
+    pipelineStatusBadge.className = `status-badge ${data.ok ? "success" : "error"}`;
+  }
+
+  renderSteps(data.steps || [], data.error);
+
+  const generatedFiles = Array.isArray(data.generated_files) ? data.generated_files : [];
+  const uploadedFiles = Array.isArray(data.uploaded_files) ? data.uploaded_files : [];
+
+  const uploadedZipHtml = data.uploaded_zip
+    ? `
+      <div class="result-kpi">
+        <span>ZIP subido</span>
+        <strong>${escapeHtml(data.uploaded_zip.name || "artifacts.zip")}</strong>
+        ${data.uploaded_zip.web_url ? `<a href="${escapeHtml(data.uploaded_zip.web_url)}" target="_blank">Abrir</a>` : ""}
+        ${data.uploaded_zip.upload_error ? `<p class="error-text">${escapeHtml(data.uploaded_zip.upload_error)}</p>` : ""}
+      </div>
+    `
+    : "";
 
   resultContent.innerHTML = `
     <div class="result-grid">
@@ -431,98 +568,157 @@ function renderResult(data, mode) {
         <strong>${escapeHtml(data.job_id || "-")}</strong>
       </div>
       <div class="result-kpi">
-        <span>Estado</span>
-        <strong>${data.ok ? "OK" : "Con error"}</strong>
+        <span>Modo</span>
+        <strong>${escapeHtml(mode)}</strong>
       </div>
       <div class="result-kpi">
-        <span>Generados</span>
-        <strong>${generatedFiles.length}</strong>
+        <span>Site origen</span>
+        <strong>${escapeHtml(data.source_site_label || "-")}</strong>
       </div>
       <div class="result-kpi">
-        <span>Subidos</span>
-        <strong>${uploadedFiles.length}</strong>
+        <span>Site destino</span>
+        <strong>${escapeHtml(data.destination_site_label || "-")}</strong>
       </div>
+      ${uploadedZipHtml}
+    </div>
+
+    <div class="result-section">
+      <h4>Archivos generados</h4>
+      ${
+        generatedFiles.length
+          ? `<ul class="file-list">${generatedFiles.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}</ul>`
+          : `<p class="muted-text">No hay archivos generados.</p>`
+      }
+    </div>
+
+    <div class="result-section">
+      <h4>Uploads a SharePoint</h4>
+      ${
+        uploadedFiles.length
+          ? `
+          <ul class="file-list">
+            ${uploadedFiles
+              .map((f) => {
+                if (f.upload_error) {
+                  return `<li>${escapeHtml(f.name || "-")} — <span class="error-text">${escapeHtml(f.upload_error)}</span></li>`;
+                }
+                if (f.web_url) {
+                  return `<li><a href="${escapeHtml(f.web_url)}" target="_blank">${escapeHtml(f.name || "-")}</a></li>`;
+                }
+                return `<li>${escapeHtml(f.name || "-")}</li>`;
+              })
+              .join("")}
+          </ul>`
+          : `<p class="muted-text">No hubo uploads individuales.</p>`
+      }
     </div>
 
     ${
-      mode === "sharepoint" && uploadedFiles.length
-        ? `
-          <h4>Archivos en SharePoint</h4>
-          <div class="file-list">
-            ${uploadedFiles
-              .map((file) => {
-                const name = escapeHtml(file.name || "archivo");
-                const action = file.web_url
-                  ? `<a class="btn secondary small" target="_blank" rel="noopener noreferrer" href="${file.web_url}">Abrir</a>`
-                  : `<span class="muted">Sin link</span>`;
-                return `
-                  <div class="file-item">
-                    <div class="file-name">${name}</div>
-                    <div>${action}</div>
-                  </div>
-                `;
-              })
-              .join("")}
-          </div>
-        `
-        : ""
-    }
-
-    ${
-      mode === "sharepoint" && uploadedZip && uploadedZip.web_url
-        ? `
-          <div class="panel-actions">
-            <a class="btn primary" target="_blank" rel="noopener noreferrer" href="${uploadedZip.web_url}">
-              Abrir ZIP en SharePoint
-            </a>
-          </div>
-        `
-        : ""
-    }
-
-    ${
-      mode === "local" && zipFile
-        ? `
-          <div class="panel-actions">
-            <div class="notice">
-              ZIP generado: <strong>${escapeHtml(zipFile)}</strong>
-            </div>
-          </div>
-        `
-        : ""
-    }
-
-    ${
       data.error
-        ? `<div class="error-banner"><strong>Error:</strong> ${escapeHtml(data.error)}</div>`
+        ? `<div class="error-banner">Error: ${escapeHtml(data.error)}</div>`
         : ""
     }
   `;
 }
 
+function renderSteps(steps, fatalError = null) {
+  if (!stepsDiv) return;
+
+  if (!steps.length && !fatalError) {
+    stepsDiv.innerHTML = `
+      <div class="step-item success">
+        <div class="step-bullet"></div>
+        <div>
+          <strong>Sin pasos detallados</strong>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const parts = steps.map((step) => {
+    const statusClass = step.ok ? "success" : "error";
+    const output = [step.stdout, step.stderr].filter(Boolean).join("\n");
+
+    return `
+      <div class="step-item ${statusClass}">
+        <div class="step-bullet"></div>
+        <div>
+          <strong>${escapeHtml(step.name || "Paso")}</strong>
+          <p>Return code: ${escapeHtml(String(step.returncode ?? "-"))}</p>
+          ${output ? `<pre class="log-block">${escapeHtml(output)}</pre>` : ""}
+        </div>
+      </div>
+    `;
+  });
+
+  if (fatalError) {
+    parts.push(`
+      <div class="step-item error">
+        <div class="step-bullet"></div>
+        <div>
+          <strong>Error final</strong>
+          <pre class="log-block">${escapeHtml(fatalError)}</pre>
+        </div>
+      </div>
+    `);
+  }
+
+  stepsDiv.innerHTML = parts.join("");
+}
+
 function renderFatalError(error) {
+  clearRunningState();
+
   progressCard?.classList.remove("hidden");
   resultCard?.classList.remove("hidden");
-  progressFill.style.width = "100%";
-  progressPercent.textContent = "100%";
-  progressLabel.textContent = "Error inesperado";
-  pipelineStatusBadge.textContent = "Error";
-  pipelineStatusBadge.className = "status-badge error";
 
-  resultContent.innerHTML = `
-    <div class="error-banner">
-      <strong>Error inesperado:</strong> ${escapeHtml(error?.message || "desconocido")}
-    </div>
-  `;
+  if (progressFill) progressFill.style.width = "100%";
+  if (progressLabel) progressLabel.textContent = "Error en la ejecución";
+  if (progressPercent) progressPercent.textContent = "100%";
+
+  if (pipelineStatusBadge) {
+    pipelineStatusBadge.textContent = "Error";
+    pipelineStatusBadge.className = "status-badge error";
+  }
+
+  const msg = error?.message || "Ocurrió un error inesperado.";
+
+  if (stepsDiv) {
+    stepsDiv.innerHTML = `
+      <div class="step-item error">
+        <div class="step-bullet"></div>
+        <div>
+          <strong>Error fatal</strong>
+          <pre class="log-block">${escapeHtml(msg)}</pre>
+        </div>
+      </div>
+    `;
+  }
+
+  if (resultContent) {
+    resultContent.innerHTML = `
+      <div class="error-banner">
+        ${escapeHtml(msg)}
+      </div>
+    `;
+  }
 }
 
 function escapeHtml(value) {
   return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-syncPickedLabels();
+function escapeJs(value) {
+  return String(value ?? "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll("'", "\\'")
+    .replaceAll('"', '\\"')
+    .replaceAll("\n", "\\n")
+    .replaceAll("\r", "\\r");
+}

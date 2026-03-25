@@ -113,6 +113,18 @@
           </div>
 
           {% if user %}
+            <div class="sp-site-grid">
+              <label class="field">
+                <span>Site origen</span>
+                <select id="sourceSiteSelect"></select>
+              </label>
+
+              <label class="field">
+                <span>Site destino</span>
+                <select id="destinationSiteSelect"></select>
+              </label>
+            </div>
+
             <div class="sp-summary-grid">
               <div class="result-kpi">
                 <span>Excel seleccionado</span>
@@ -196,6 +208,10 @@
       </div>
 
       <div class="modal-toolbar">
+        <div class="modal-site">
+          <strong>Site:</strong>
+          <select id="modalSiteSelect"></select>
+        </div>
         <div class="modal-path">
           <strong>Carpeta actual:</strong>
           <span id="spCurrentPathLabel">Raíz</span>

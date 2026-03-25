@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 import requests
 
 
@@ -69,7 +70,8 @@ class GraphSharePointService:
         return destination_path
 
     def get_site_by_path(self, hostname: str, site_path: str) -> Dict[str, Any]:
-        url = f"{GRAPH_BASE}/sites/{hostname}:{site_path}"
+        clean_path = site_path if site_path.startswith("/") else f"/{site_path}"
+        url = f"{GRAPH_BASE}/sites/{hostname}:{clean_path}"
         data = self._get(url)
         return {
             "id": data.get("id"),
@@ -112,7 +114,10 @@ class GraphSharePointService:
 
     def get_drive_item_by_path(self, drive_id: str, item_path: str) -> Dict[str, Any]:
         clean_path = item_path.strip("/")
-        url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{clean_path}"
+        if clean_path:
+            url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{clean_path}"
+        else:
+            url = f"{GRAPH_BASE}/drives/{drive_id}/root"
         data = self._get(url)
         return self._normalize_item(data)
 

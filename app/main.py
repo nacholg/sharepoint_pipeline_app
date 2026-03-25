@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
+import shutil
 from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
@@ -18,15 +20,51 @@ from app.routes.ui import router as ui_router
 from app.services.sharepoint_graph import GraphSharePointService
 from app.token_store import get_user_token
 
-from fastapi import UploadFile, File, Form
-import shutil
-
 load_dotenv()
 
+
+def _load_sharepoint_sites() -> dict[str, dict]:
+    raw = os.getenv("SHAREPOINT_SITES_JSON", "").strip()
+
+    if raw:
+        try:
+            data = json.loads(raw)
+            result = {}
+            for item in data:
+                key = str(item["key"]).strip()
+                result[key] = {
+                    "key": key,
+                    "label": item.get("label", key),
+                    "site_path": item["site_path"],
+                    "library_name": item["library_name"],
+                    "default_folder_path": item.get("default_folder_path", "/"),
+                    "brand_logo": item.get("brand_logo"),
+                }
+            if result:
+                return result
+        except Exception as e:
+            raise RuntimeError(f"SHAREPOINT_SITES_JSON inválido: {e}")
+
+    # fallback a la config vieja para no romper compatibilidad
+    hostname = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
+    site_path = os.getenv("SHAREPOINT_SITE_PATH", "/sites/GLOBALEVENTS2")
+    library_name = os.getenv("SHAREPOINT_LIBRARY_NAME", "Documentos")
+    folder_path = os.getenv("SHAREPOINT_FOLDER_PATH", "/General")
+
+    return {
+        "default": {
+            "key": "default",
+            "label": "Default",
+            "site_path": site_path,
+            "library_name": library_name,
+            "default_folder_path": folder_path,
+            "brand_logo": None,
+        }
+    }
+
+
 SHAREPOINT_HOSTNAME = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
-SHAREPOINT_SITE_PATH = os.getenv("SHAREPOINT_SITE_PATH", "/sites/GLOBALEVENTS2")
-SHAREPOINT_LIBRARY_NAME = os.getenv("SHAREPOINT_LIBRARY_NAME", "Documentos")
-SHAREPOINT_FOLDER_PATH = os.getenv("SHAREPOINT_FOLDER_PATH", "/General")
+SHAREPOINT_SITES = _load_sharepoint_sites()
 
 
 app = FastAPI(title="Voucher Generator")
@@ -42,6 +80,8 @@ app.include_router(jobs_router)
 class SharePointRunRequest(BaseModel):
     source_file_id: str
     destination_folder_id: str | None = None
+    source_site_key: str | None = None
+    destination_site_key: str | None = None
 
 
 def get_graph_access_token_from_session(request: Request) -> str:
@@ -69,16 +109,28 @@ def get_graph_access_token_from_session(request: Request) -> str:
     return access_token
 
 
-def get_sharepoint_context(graph: GraphSharePointService) -> dict:
+def get_site_config(site_key: str | None) -> dict:
+    if site_key and site_key in SHAREPOINT_SITES:
+        return SHAREPOINT_SITES[site_key]
+
+    if "globalevents2" in SHAREPOINT_SITES:
+        return SHAREPOINT_SITES["globalevents2"]
+
+    return next(iter(SHAREPOINT_SITES.values()))
+
+
+def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None = None) -> dict:
+    site_cfg = get_site_config(site_key)
+
     print(
         "SP CONFIG:",
         SHAREPOINT_HOSTNAME,
-        SHAREPOINT_SITE_PATH,
-        SHAREPOINT_LIBRARY_NAME,
-        SHAREPOINT_FOLDER_PATH,
+        site_cfg["site_path"],
+        site_cfg["library_name"],
+        site_cfg["default_folder_path"],
     )
 
-    site = graph.get_site_by_path(SHAREPOINT_HOSTNAME, SHAREPOINT_SITE_PATH)
+    site = graph.get_site_by_path(SHAREPOINT_HOSTNAME, site_cfg["site_path"])
     if not site or not site.get("id"):
         raise HTTPException(
             status_code=500,
@@ -87,14 +139,14 @@ def get_sharepoint_context(graph: GraphSharePointService) -> dict:
 
     drives = graph.list_site_drives(site["id"])
     print("AVAILABLE DRIVES:", [d.get("name") for d in drives])
-    print("TARGET DRIVE NAME:", SHAREPOINT_LIBRARY_NAME)
+    print("TARGET DRIVE NAME:", site_cfg["library_name"])
 
     target_drive = next(
         (
             d
             for d in drives
             if str(d.get("name", "")).strip().lower()
-            == SHAREPOINT_LIBRARY_NAME.strip().lower()
+            == site_cfg["library_name"].strip().lower()
         ),
         None,
     )
@@ -104,35 +156,58 @@ def get_sharepoint_context(graph: GraphSharePointService) -> dict:
         raise HTTPException(
             status_code=500,
             detail=(
-                f"No se encontró la biblioteca '{SHAREPOINT_LIBRARY_NAME}' en el site. "
+                f"No se encontró la biblioteca '{site_cfg['library_name']}' en el site. "
                 f"Disponibles: {available}"
             ),
         )
 
     base_folder = None
-    if SHAREPOINT_FOLDER_PATH and SHAREPOINT_FOLDER_PATH.strip() not in ("", "/"):
+    folder_path = site_cfg["default_folder_path"]
+
+    if folder_path and folder_path.strip() not in ("", "/"):
         try:
             base_folder = graph.get_drive_item_by_path(
                 target_drive["id"],
-                SHAREPOINT_FOLDER_PATH,
+                folder_path,
             )
         except Exception as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"No se pudo resolver la carpeta base '{SHAREPOINT_FOLDER_PATH}': {e}",
+                detail=f"No se pudo resolver la carpeta base '{folder_path}': {e}",
             )
 
         if not base_folder.get("is_folder"):
             raise HTTPException(
                 status_code=500,
-                detail=f"La ruta base '{SHAREPOINT_FOLDER_PATH}' no es una carpeta válida.",
+                detail=f"La ruta base '{folder_path}' no es una carpeta válida.",
             )
 
     return {
+        "site_config": site_cfg,
         "site": site,
         "drive": target_drive,
         "base_folder": base_folder,
     }
+
+
+@app.get("/api/sharepoint/sites")
+def api_sharepoint_sites():
+    return {
+        "ok": True,
+        "hostname": SHAREPOINT_HOSTNAME,
+        "sites": [
+            {
+                "key": cfg["key"],
+                "label": cfg["label"],
+                "site_path": cfg["site_path"],
+                "library_name": cfg["library_name"],
+                "default_folder_path": cfg["default_folder_path"],
+                "brand_logo": cfg.get("brand_logo"),
+            }
+            for cfg in SHAREPOINT_SITES.values()
+        ],
+    }
+
 
 @app.post("/api/local/run")
 async def api_local_run(
@@ -147,7 +222,6 @@ async def api_local_run(
 
         local_excel_path = input_dir / file.filename
 
-        # guardar archivo subido
         with open(local_excel_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
@@ -167,16 +241,22 @@ async def api_local_run(
             detail=f"Error ejecutando pipeline local: {e}",
         )
 
+
 @app.get("/api/sharepoint/explore")
-def api_sharepoint_explore(request: Request, folder_id: str | None = None):
+def api_sharepoint_explore(
+    request: Request,
+    folder_id: str | None = None,
+    site_key: str | None = None,
+):
     access_token = get_graph_access_token_from_session(request)
     graph = GraphSharePointService(access_token)
 
     try:
-        resolved = get_sharepoint_context(graph)
+        resolved = get_sharepoint_context(graph, site_key=site_key)
         site = resolved["site"]
         drive = resolved["drive"]
         base_folder = resolved["base_folder"]
+        site_cfg = resolved["site_config"]
 
         if folder_id:
             current_folder = graph.get_drive_item(drive["id"], folder_id)
@@ -205,6 +285,8 @@ def api_sharepoint_explore(request: Request, folder_id: str | None = None):
     return {
         "ok": True,
         "mode": "graph_sharepoint_site",
+        "site_key": site_cfg["key"],
+        "site_label": site_cfg["label"],
         "site": site,
         "drive": drive,
         "current_folder": current_folder,
@@ -217,20 +299,24 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     access_token = get_graph_access_token_from_session(request)
     graph = GraphSharePointService(access_token)
 
+    source_site_key = payload.source_site_key
+    destination_site_key = payload.destination_site_key or payload.source_site_key
+
     try:
-        resolved = get_sharepoint_context(graph)
-        site = resolved["site"]
-        drive = resolved["drive"]
+        source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
+        source_site = source_resolved["site"]
+        source_drive = source_resolved["drive"]
+        source_site_cfg = source_resolved["site_config"]
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"No se pudo resolver el site/drive de SharePoint: {e}",
+            detail=f"No se pudo resolver el site/drive origen de SharePoint: {e}",
         )
 
     try:
-        source_file = graph.get_drive_item(drive["id"], payload.source_file_id)
+        source_file = graph.get_drive_item(source_drive["id"], payload.source_file_id)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -254,10 +340,19 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         )
 
     destination_folder = None
+    destination_site = None
+    destination_drive = None
+    destination_site_cfg = None
+
     if payload.destination_folder_id:
         try:
+            destination_resolved = get_sharepoint_context(graph, site_key=destination_site_key)
+            destination_site = destination_resolved["site"]
+            destination_drive = destination_resolved["drive"]
+            destination_site_cfg = destination_resolved["site_config"]
+
             destination_folder = graph.get_drive_item(
-                drive["id"],
+                destination_drive["id"],
                 payload.destination_folder_id,
             )
         except Exception as e:
@@ -287,19 +382,21 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     local_excel_path = input_dir / (source_name or "sharepoint_input.xlsx")
 
     try:
-        graph.download_drive_file(drive["id"], payload.source_file_id, local_excel_path)
+        graph.download_drive_file(source_drive["id"], payload.source_file_id, local_excel_path)
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"No se pudo descargar el Excel desde SharePoint Graph: {e}",
         )
 
+    brand_logo = source_site_cfg.get("brand_logo")
+
     try:
         result = run_full_voucher_pipeline(
             job_id=job_id,
             source_excel=local_excel_path,
             jobs_root=jobs_root,
-            brand_logo=None,
+            brand_logo=brand_logo,
             pretty_json=True,
         )
     except Exception as e:
@@ -313,11 +410,11 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     uploaded_files = []
     uploaded_zip = None
 
-    if destination_folder:
+    if destination_folder and destination_drive:
         for file_path_str in response.get("generated_files", []):
             try:
                 uploaded = graph.upload_file_to_folder(
-                    drive_id=drive["id"],
+                    drive_id=destination_drive["id"],
                     folder_id=destination_folder["id"],
                     local_file_path=Path(file_path_str),
                 )
@@ -334,7 +431,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         if zip_path:
             try:
                 uploaded_zip = graph.upload_file_to_folder(
-                    drive_id=drive["id"],
+                    drive_id=destination_drive["id"],
                     folder_id=destination_folder["id"],
                     local_file_path=Path(zip_path),
                 )
@@ -345,8 +442,14 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
                 }
 
     response["mode"] = "graph_sharepoint_site"
-    response["site"] = site
-    response["drive"] = drive
+    response["source_site_key"] = source_site_cfg["key"]
+    response["source_site_label"] = source_site_cfg["label"]
+    response["destination_site_key"] = destination_site_cfg["key"] if destination_site_cfg else None
+    response["destination_site_label"] = destination_site_cfg["label"] if destination_site_cfg else None
+    response["source_site"] = source_site
+    response["source_drive"] = source_drive
+    response["destination_site"] = destination_site
+    response["destination_drive"] = destination_drive
     response["source_file"] = source_file
     response["destination_folder"] = destination_folder
     response["downloaded_excel_path"] = str(local_excel_path)
