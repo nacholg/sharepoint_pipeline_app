@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import json
+import mimetypes
 import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def clean_filename(value: str) -> str:
@@ -29,30 +34,81 @@ def display_or_pending(value: Any, pending: str = "Pending") -> str:
     return e(value) if value not in (None, "") else pending
 
 
-def make_relative_asset_path(asset_path: str, output_dir: Path) -> str:
-    return Path(os.path.relpath(asset_path, start=output_dir)).as_posix()
+def file_to_data_uri(path: Path) -> Optional[str]:
+    try:
+        if not path.exists() or not path.is_file():
+            return None
+        mime_type, _ = mimetypes.guess_type(str(path))
+        mime_type = mime_type or "application/octet-stream"
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+    except Exception:
+        return None
 
 
-def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path) -> Optional[str]:
-    local_logo_path = hotel.get("local_logo_path")
-    if local_logo_path:
-        try:
-            return make_relative_asset_path(local_logo_path, output_dir)
-        except Exception:
-            return Path(local_logo_path).as_posix()
-    return hotel.get("logo_url")
+def resolve_logo_src(value: Optional[str], output_dir: Path, debug: bool = False, label: str = "logo") -> Optional[str]:
+    if not value:
+        if debug:
+            print(f"[DEBUG] {label}: no value provided")
+        return None
+
+    value = str(value).strip()
+    if not value:
+        if debug:
+            print(f"[DEBUG] {label}: empty value after strip")
+        return None
+
+    if value.startswith(("http://", "https://", "data:")):
+        if debug:
+            print(f"[DEBUG] {label}: using remote/data URI source")
+        return value
+
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = (BASE_DIR / candidate).resolve()
+
+    if debug:
+        print(f"[DEBUG] {label}: raw='{value}'")
+        print(f"[DEBUG] {label}: BASE_DIR='{BASE_DIR}'")
+        print(f"[DEBUG] {label}: resolved='{candidate}'")
+        print(f"[DEBUG] {label}: exists={candidate.exists()} is_file={candidate.is_file() if candidate.exists() else False}")
+
+    data_uri = file_to_data_uri(candidate)
+    if data_uri:
+        if debug:
+            print(f"[DEBUG] {label}: embedded as data URI")
+        return data_uri
+
+    try:
+        relative_path = Path(os.path.relpath(candidate, start=output_dir)).as_posix()
+        if debug:
+            print(f"[DEBUG] {label}: fallback relative path='{relative_path}'")
+        return relative_path
+    except Exception as exc:
+        if debug:
+            print(f"[DEBUG] {label}: relpath fallback failed: {exc}")
+        return candidate.as_posix()
+
+
+def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False) -> Optional[str]:
+    return resolve_logo_src(
+        hotel.get("local_logo_path") or hotel.get("logo_url"),
+        output_dir=output_dir,
+        debug=debug,
+        label="hotel_logo",
+    )
 
 
 def passenger_cards(passengers: List[Dict[str, Any]]) -> str:
-    cards = []
+    cards: List[str] = []
     for pax in passengers:
         cards.append(
             f"""
-            <article class=\"pax-card\">
-              <div class=\"pax-name text-wrap\">{e(pax.get('full_name') or 'Passenger')}</div>
-              <div class=\"pax-meta-row\"><span class=\"pax-label\">Nationality</span><span class=\"pax-value text-safe\">{display_or_pending(pax.get('nationality'), '-')}</span></div>
-              <div class=\"pax-meta-row\"><span class=\"pax-label\">Passport</span><span class=\"pax-value text-safe\">{display_or_pending(pax.get('passport_number'), '-')}</span></div>
-              <div class=\"pax-meta-row\"><span class=\"pax-label\">Exp.</span><span class=\"pax-value text-safe\">{display_or_pending(pax.get('passport_expiration'), '-')}</span></div>
+            <article class="pax-card">
+              <div class="pax-name">{e(pax.get('full_name') or 'Passenger')}</div>
+              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value text-safe">{display_or_pending(pax.get('nationality'), '-')}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value text-safe">{display_or_pending(pax.get('passport_number'), '-')}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value text-safe">{display_or_pending(pax.get('passport_expiration'), '-')}</span></div>
             </article>
             """
         )
@@ -60,14 +116,14 @@ def passenger_cards(passengers: List[Dict[str, Any]]) -> str:
 
 
 def room_rows(rooms: List[Dict[str, Any]]) -> str:
-    rows = []
+    rows: List[str] = []
     for room in rooms:
         rows.append(
             f"""
             <tr>
               <td>{display_or_pending(room.get('room_count'), '-')}</td>
-              <td class=\"text-wrap\">{display_or_pending(room.get('room_category'), '-')}</td>
-              <td class=\"text-wrap\">{display_or_pending(room.get('additional_info'), '-')}</td>
+              <td class="text-wrap">{display_or_pending(room.get('room_category'), '-')}</td>
+              <td class="text-wrap">{display_or_pending(room.get('additional_info'), '-')}</td>
               <td>{display_or_pending(room.get('pax_count'), '-')}</td>
             </tr>
             """
@@ -83,12 +139,39 @@ def summary_tiles(stay: Dict[str, Any]) -> str:
         ("Meals", stay.get("meal_plan") or stay.get("meals")),
     ]
     return "\n".join(
-        f'''<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value text-wrap">{display_or_pending(value, '-')}</div></div>'''
+        f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value text-wrap">{display_or_pending(value, "-")}</div></div>'
         for label, value in items
     )
 
 
-def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Optional[str]) -> str:
+def extract_primary_last_name(voucher_payload: Dict[str, Any], idx: int) -> str:
+    passengers = voucher_payload.get("passengers", []) or []
+
+    for pax in passengers:
+        last_name = str(pax.get("last_name") or "").strip()
+        if last_name:
+            return last_name
+
+        full_name = str(pax.get("full_name") or "").strip()
+        if full_name:
+            parts = [p for p in full_name.split() if p.strip()]
+            if parts:
+                return parts[-1]
+
+    return f"VOUCHER_{idx:02d}"
+
+
+def build_output_filename(voucher_payload: Dict[str, Any], idx: int) -> str:
+    last_name = extract_primary_last_name(voucher_payload, idx)
+    return clean_filename(f"{last_name}_{idx:02d}.html")
+
+
+def build_html(
+    voucher_payload: Dict[str, Any],
+    output_dir: Path,
+    brand_logo: Optional[str],
+    debug: bool = False,
+) -> str:
     voucher = voucher_payload.get("voucher", {})
     destination = voucher_payload.get("destination", {})
     hotel = voucher_payload.get("hotel", {})
@@ -96,29 +179,40 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
     rooms = voucher_payload.get("rooms", [])
     passengers = voucher_payload.get("passengers", [])
 
-    brand_logo_html = (
-        f'<img class="brand-logo" src="{e(brand_logo)}" alt="Brand logo">'
-        if brand_logo
-        else '<div class="brand-wordmark">PRICELESS TRAVEL</div>'
+    brand_logo_src = resolve_logo_src(
+        brand_logo,
+        output_dir=output_dir,
+        debug=debug,
+        label="brand_logo",
+    )
+    header_brand_logo_html = (
+        f'<img class="brand-box-logo" src="{e(brand_logo_src)}" alt="Brand logo">'
+        if brand_logo_src
+        else '<div class="brand-box-placeholder">BRAND LOGO</div>'
     )
 
-    logo_src = hotel_logo_src(hotel, output_dir)
+    hotel_src = hotel_logo_src(hotel, output_dir, debug=debug)
     hotel_logo_html = (
-        f'<img class="hotel-logo" src="{e(logo_src)}" alt="Hotel logo">'
-        if logo_src
+        f'<img class="hotel-logo" src="{e(hotel_src)}" alt="Hotel logo">'
+        if hotel_src
         else '<div class="hotel-logo-placeholder">HOTEL LOGO</div>'
     )
 
     title_destination = destination.get("display_name") or destination.get("name") or "Destination"
     hotel_name = hotel.get("display_name") or hotel.get("name") or "Hotel"
-    hotel_meta = " · ".join(part for part in [hotel.get("city"), hotel.get("country")] if part)
+    subtitle_parts = [
+        rooms[0].get("room_category") if rooms else None,
+        hotel.get("city"),
+        hotel.get("country"),
+    ]
+    hotel_meta = " · ".join(str(part) for part in subtitle_parts if part)
 
-    return f"""<!DOCTYPE html>
+    html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{e(title_destination)} - {e(hotel_name)}</title>
+  <title>{e(hotel_name)} - Voucher</title>
   <style>
     :root {{
       --navy: #223a69;
@@ -174,7 +268,7 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       color: var(--white);
       padding: 22px 24px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto 170px;
+      grid-template-columns: minmax(0, 1fr) 246px 170px;
       gap: 16px;
       align-items: stretch;
     }}
@@ -184,29 +278,35 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       display: flex;
       flex-direction: column;
       justify-content: center;
+      overflow: hidden;
     }}
 
-    .voucher-kicker {{ font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.78; margin: 8px 0 10px; }}
-    .brand-logo {{ max-width: 170px; max-height: 34px; object-fit: contain; display: block; }}
-    .brand-wordmark {{ font-size: 14px; font-weight: 700; letter-spacing: 0.18em; }}
+    .voucher-kicker {{
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.78;
+      margin-bottom: 14px;
+    }}
 
     .header-title {{
-      font-size: 30px;
+      font-size: 31px;
       line-height: 1.06;
       font-weight: 800;
       letter-spacing: -0.03em;
-      margin: 0 0 6px;
+      margin: 0 0 10px;
       max-width: 100%;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
+      word-break: break-word;
     }}
 
     .header-subtitle {{
       font-size: 13px;
       line-height: 1.35;
-      opacity: 0.88;
+      opacity: 0.90;
       max-width: 100%;
       white-space: nowrap;
       overflow: hidden;
@@ -214,11 +314,12 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
     }}
 
     .header-meta {{
+      width: 246px;
+      min-width: 246px;
       display: grid;
-      grid-template-columns: repeat(3, 86px);
-      gap: 10px;
-      align-content: center;
-      justify-content: end;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      align-content: stretch;
     }}
 
     .meta-box {{
@@ -226,8 +327,8 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       border: 1px solid rgba(255,255,255,0.18);
       border-radius: 18px;
       padding: 12px 10px;
-      min-height: 92px;
-      width: 86px;
+      min-height: 98px;
+      min-width: 0;
       overflow: hidden;
     }}
 
@@ -235,18 +336,17 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       font-size: 10px;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      opacity: 0.78;
+      opacity: 0.82;
       margin-bottom: 8px;
-      line-height: 1.15;
     }}
 
     .meta-value {{
       font-size: 11px;
       font-weight: 700;
-      line-height: 1.15;
+      line-height: 1.16;
       overflow: hidden;
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
       word-break: break-word;
     }}
@@ -260,8 +360,29 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       align-items: center;
       justify-content: center;
       padding: 12px;
-      min-height: 92px;
+      min-height: 98px;
       overflow: hidden;
+    }}
+
+    .brand-box-logo {{
+      width: 100%;
+      height: 64px;
+      object-fit: contain;
+      display: block;
+    }}
+
+    .brand-box-placeholder {{
+      color: var(--navy);
+      border: 1px dashed #cad2e2;
+      border-radius: 12px;
+      width: 100%;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
     }}
 
     .hotel-logo {{ width: 100%; height: 58px; object-fit: contain; display: block; }}
@@ -284,7 +405,7 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
     .fact-value {{ font-size: 12.5px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }}
 
     .summary-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
-    .summary-tile {{ background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-height: 84px; min-width: 0; overflow: hidden; }}
+    .summary-tile {{ background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-height: 84px; overflow: hidden; }}
     .tile-label {{ font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }}
     .tile-value {{ font-size: 17px; line-height: 1.08; font-weight: 800; }}
 
@@ -300,7 +421,7 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
 
     .passengers-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
     .pax-card {{ background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-width: 0; overflow: hidden; }}
-    .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; }}
+    .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; overflow-wrap: anywhere; }}
     .pax-meta-row {{ display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; margin-bottom: 6px; }}
     .pax-meta-row:last-child {{ margin-bottom: 0; }}
     .pax-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }}
@@ -314,13 +435,15 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
     @media print {{
       body {{ background: #fff; padding: 0; }}
       .page {{ box-shadow: none; border-radius: 0; border: none; width: auto; min-height: auto; }}
-      .header {{ grid-template-columns: minmax(0, 1fr) auto 160px; gap: 12px; }}
-      .header-meta {{ grid-template-columns: repeat(3, 78px); gap: 8px; }}
-      .meta-box {{ width: 78px; padding: 10px 8px; min-height: 86px; }}
+      .header {{ grid-template-columns: minmax(0, 1fr) 234px 156px; gap: 12px; padding: 18px 20px; }}
+      .header-meta {{ width: 234px; min-width: 234px; gap: 6px; }}
+      .meta-box {{ min-height: 90px; padding: 10px 8px; border-radius: 16px; }}
       .meta-label {{ font-size: 9px; }}
       .meta-value {{ font-size: 10px; }}
-      .logo-box {{ width: 160px; min-width: 160px; }}
+      .logo-box {{ width: 156px; min-width: 156px; min-height: 90px; }}
+      .brand-box-logo, .brand-box-placeholder {{ height: 54px; }}
       .header-title {{ font-size: 28px; }}
+      .header-subtitle {{ font-size: 12px; }}
       .panel, .meta-box, .summary-tile, .pax-card, .table-wrap, .logo-box {{ break-inside: avoid; page-break-inside: avoid; }}
     }}
   </style>
@@ -329,12 +452,9 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
   <div class="page">
     <header class="header">
       <div class="header-left">
-        <div>
-          {brand_logo_html}
-          <div class="voucher-kicker">Hotel Voucher</div>
-          <div class="header-title text-wrap">{e(hotel_name)}</div>
-          <div class="header-subtitle">{e(title_destination)}{(' · ' + e(hotel_meta)) if hotel_meta else ''}</div>
-        </div>
+        <div class="voucher-kicker">Hotel Voucher</div>
+        <div class="header-title">{e(hotel_name)}</div>
+        <div class="header-subtitle">{e(hotel_meta)}</div>
       </div>
 
       <div class="header-meta">
@@ -353,7 +473,7 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
       </div>
 
       <div class="logo-box">
-        {hotel_logo_html}
+        {header_brand_logo_html}
       </div>
     </header>
 
@@ -425,14 +545,29 @@ def build_html(voucher_payload: Dict[str, Any], output_dir: Path, brand_logo: Op
   </div>
 </body>
 </html>"""
+    return html_doc
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render one compact premium HTML voucher per JSON payload.")
     parser.add_argument("input", help="Path to enriched voucher JSON")
     parser.add_argument("-o", "--output-dir", default="rendered_vouchers", help="Output directory")
-    parser.add_argument("--brand-logo", default=None, help="Optional path or URL to official brand logo")
+    parser.add_argument("--brand-logo", default=None, help="Optional path, URL or data URI for official brand logo")
+    parser.add_argument("--debug-logo", action="store_true", help="Print debug info for logo resolution")
     args = parser.parse_args()
+
+    args.brand_logo = args.brand_logo or "assets/logos/GEOBYPATAGONIK.png"
+
+    print(f"[DEBUG] input_json='{args.input}'")
+    print(f"[DEBUG] output_dir='{args.output_dir}'")
+    print(f"[DEBUG] BASE_DIR='{BASE_DIR}'")
+    print(f"[DEBUG] brand_logo_arg='{args.brand_logo}'")
+
+    if not str(args.brand_logo).startswith(("http://", "https://", "data:")):
+        resolved_brand_path = (BASE_DIR / args.brand_logo).resolve()
+        print(f"[DEBUG] brand_logo_resolved='{resolved_brand_path}'")
+        print(f"[DEBUG] brand_logo_exists={resolved_brand_path.exists()}")
+        print(f"[DEBUG] brand_logo_is_file={resolved_brand_path.is_file() if resolved_brand_path.exists() else False}")
 
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)
@@ -441,11 +576,15 @@ def main() -> None:
     vouchers = load_json(input_path)
 
     for idx, voucher_payload in enumerate(vouchers, start=1):
-        destination = voucher_payload.get("destination", {}).get("display_name") or voucher_payload.get("destination", {}).get("name") or "Destination"
-        hotel = voucher_payload.get("hotel", {}).get("display_name") or voucher_payload.get("hotel", {}).get("name") or "Hotel"
-        filename = clean_filename(f"{idx:02d}_{destination}_{hotel}.html")
-        html_text = build_html(voucher_payload, output_dir, args.brand_logo)
+        filename = build_output_filename(voucher_payload, idx)
+        html_text = build_html(
+            voucher_payload,
+            output_dir,
+            args.brand_logo,
+            debug=args.debug_logo,
+        )
         (output_dir / filename).write_text(html_text, encoding="utf-8")
+        print(f"[DEBUG] wrote_html='{output_dir / filename}'")
 
     print(f"✔ HTML vouchers generated in: {output_dir}")
 

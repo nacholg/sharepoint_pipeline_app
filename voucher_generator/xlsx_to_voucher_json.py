@@ -1,20 +1,21 @@
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
-from collections import defaultdict
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
-# Expected layout based on the updated spreadsheet.
+
+# Expected layout based on the operational spreadsheet.
 # Row 3 contains headers. Data starts on row 4.
 COL = {
-    "row_number": 1,
-    "group_label": 6,   # referencia operativa interna
+    "row_number": 1,   # "#"
+    "group_label": 6,
     "last_name": 7,
     "first_name": 8,
     "mail": 9,
@@ -26,9 +27,9 @@ COL = {
     "remarks": 18,
     "food_restrictions": 19,
     "qty": 36,
-    "destination": 37,  # destino a mostrar en el voucher
+    "destination": 39,
     "hotel_name": 38,
-    "room": 39,
+    "room": 37,
     "check_in": 40,
     "check_out": 41,
     "nights": 42,
@@ -46,17 +47,6 @@ def clean_text(value: Any) -> Optional[str]:
     return text
 
 
-def normalize_display_text(value: Any) -> Optional[str]:
-    return clean_text(value)
-
-
-def normalize_key_text(value: Any) -> Optional[str]:
-    text = clean_text(value)
-    if not text:
-        return None
-    return text.upper()
-
-
 def normalize_email(value: Any) -> Optional[str]:
     text = clean_text(value)
     return text.lower() if text else None
@@ -65,9 +55,8 @@ def normalize_email(value: Any) -> Optional[str]:
 def normalize_phone(value: Any) -> Optional[str]:
     if value is None:
         return None
-    if isinstance(value, (int, float)):
-        if int(value) == value:
-            return str(int(value))
+    if isinstance(value, (int, float)) and int(value) == value:
+        return str(int(value))
     return clean_text(value)
 
 
@@ -101,7 +90,6 @@ def normalize_date(value: Any) -> Optional[str]:
             pass
 
     text = str(value).strip()
-
     for fmt in (
         "%Y-%m-%d",
         "%d/%m/%Y",
@@ -118,6 +106,13 @@ def normalize_date(value: Any) -> Optional[str]:
     return text
 
 
+def normalize_key_text(value: Any) -> Optional[str]:
+    text = clean_text(value)
+    if not text:
+        return None
+    return text.upper()
+
+
 def to_title_case(value: Any) -> Optional[str]:
     text = clean_text(value)
     if not text:
@@ -130,173 +125,189 @@ def build_passenger_key(
     last_name: Optional[str],
     first_name: Optional[str],
     date_of_birth: Optional[str],
+    excel_row_number: int,
 ) -> str:
     passport = normalize_key_text(passport_number)
     if passport:
         return passport
 
-    return "|".join(
+    natural_key = "|".join(
         [
             normalize_key_text(last_name) or "NO-LASTNAME",
             normalize_key_text(first_name) or "NO-FIRSTNAME",
             normalize_date(date_of_birth) or "NO-DOB",
         ]
     )
+    # Keep row number to avoid collapsing different travelers with the same or missing data.
+    return f"{natural_key}|ROW-{excel_row_number}"
 
 
-def build_voucher_group_key(
-    destination: Optional[str],
-    hotel_name: Optional[str],
-    room: Optional[str],
-    check_in: Optional[str],
-    check_out: Optional[str],
-) -> str:
-    return "|".join(
-        [
-            normalize_key_text(destination) or "NO-DESTINATION",
-            normalize_key_text(hotel_name) or "NO-HOTEL",
-            normalize_date(check_in) or "NO-CHECKIN",
-            normalize_date(check_out) or "NO-CHECKOUT",
-            normalize_key_text(room) or "NO-ROOM",
-        ]
-    )
+# -------- Excel merged-cell helpers --------
+def build_merged_lookup(ws) -> Dict[Tuple[int, int], Tuple[int, int, int, int]]:
+    lookup: Dict[Tuple[int, int], Tuple[int, int, int, int]] = {}
+    for merged_range in ws.merged_cells.ranges:
+        min_col, min_row, max_col, max_row = merged_range.bounds
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                lookup[(row, col)] = (min_row, min_col, max_row, max_col)
+    return lookup
 
 
-# -------- Row extraction / forward fill --------
-def read_effective_rows(xlsx_path: Path, sheet_name: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_effective_cell_value(ws, merged_lookup, row: int, col: int) -> Any:
+    merge_bounds = merged_lookup.get((row, col))
+    if merge_bounds:
+        min_row, min_col, _, _ = merge_bounds
+        return ws.cell(min_row, min_col).value
+    return ws.cell(row, col).value
+
+
+def get_merge_anchor_id(merged_lookup, row: int, col: int) -> Optional[str]:
+    merge_bounds = merged_lookup.get((row, col))
+    if not merge_bounds:
+        return None
+    min_row, min_col, max_row, max_col = merge_bounds
+    return f"R{min_row}C{min_col}:R{max_row}C{max_col}"
+
+
+# -------- Row extraction --------
+def read_effective_rows(
+    xlsx_path: Path,
+    sheet_name: Optional[str] = None,
+    start_row: int = 4,
+) -> List[Dict[str, Any]]:
     wb = load_workbook(xlsx_path, data_only=True)
     ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
+    merged_lookup = build_merged_lookup(ws)
 
     rows: List[Dict[str, Any]] = []
-    last_values = {
-        "group_label": None,
-        "destination": None,
-        "hotel_name": None,
-        "room": None,
-        "check_in": None,
-        "check_out": None,
-        "nights": None,
-        "qty": None,
-    }
 
-    for excel_row in range(4, ws.max_row + 1):
-        first_name_raw = ws.cell(excel_row, COL["first_name"]).value
-        last_name_raw = ws.cell(excel_row, COL["last_name"]).value
-        destination_raw = ws.cell(excel_row, COL["destination"]).value
-        hotel_name_raw = ws.cell(excel_row, COL["hotel_name"]).value
-        room_raw = ws.cell(excel_row, COL["room"]).value
-        check_in_raw = ws.cell(excel_row, COL["check_in"]).value
-        check_out_raw = ws.cell(excel_row, COL["check_out"]).value
+    for excel_row in range(start_row, ws.max_row + 1):
+        raw_first_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["first_name"])
+        raw_last_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["last_name"])
+        raw_destination = get_effective_cell_value(ws, merged_lookup, excel_row, COL["destination"])
+        raw_hotel_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["hotel_name"])
+        raw_room = get_effective_cell_value(ws, merged_lookup, excel_row, COL["room"])
+        raw_check_in = get_effective_cell_value(ws, merged_lookup, excel_row, COL["check_in"])
+        raw_check_out = get_effective_cell_value(ws, merged_lookup, excel_row, COL["check_out"])
+        raw_qty = get_effective_cell_value(ws, merged_lookup, excel_row, COL["qty"])
 
-        # Skip fully blank trailing rows.
-        if all(
-            v in (None, "")
-            for v in [
-                first_name_raw,
-                last_name_raw,
-                destination_raw,
-                hotel_name_raw,
-                room_raw,
-                check_in_raw,
-                check_out_raw,
-            ]
-        ):
+        first_name = clean_text(raw_first_name)
+        last_name = clean_text(raw_last_name)
+        destination = clean_text(raw_destination)
+        hotel_name = clean_text(raw_hotel_name)
+        room = clean_text(raw_room)
+        check_in = normalize_date(raw_check_in)
+        check_out = normalize_date(raw_check_out)
+        qty = normalize_int(raw_qty)
+
+        has_passenger = bool(first_name or last_name)
+        has_voucher_context = any([destination, hotel_name, room, check_in, check_out, qty])
+
+        # Skip fully blank / trailing rows.
+        if not has_passenger and not has_voucher_context:
             continue
 
-        current_group_label_raw = clean_text(ws.cell(excel_row, COL["group_label"]).value)
-        current_destination_raw = clean_text(ws.cell(excel_row, COL["destination"]).value)
+        qty_merge_anchor = get_merge_anchor_id(merged_lookup, excel_row, COL["qty"])
+        row_number_merge_anchor = get_merge_anchor_id(merged_lookup, excel_row, COL["row_number"])
 
-        # Si aparece un destination explícito nuevo, reiniciar todo el contexto del voucher
-        if current_destination_raw:
-            if normalize_key_text(current_destination_raw) != normalize_key_text(last_values["destination"]):
-                last_values = {
-                    "group_label": None,
-                    "destination": None,
-                    "hotel_name": None,
-                    "room": None,
-                    "check_in": None,
-                    "check_out": None,
-                    "nights": None,
-                    "qty": None,
-                }
-
-        group_label = current_group_label_raw if current_group_label_raw else last_values["group_label"]
-        destination = current_destination_raw if current_destination_raw else last_values["destination"]
-        hotel_name = clean_text(hotel_name_raw) if clean_text(hotel_name_raw) else last_values["hotel_name"]
-        room = clean_text(room_raw) if clean_text(room_raw) else last_values["room"]
-        check_in = normalize_date(check_in_raw) if normalize_date(check_in_raw) else last_values["check_in"]
-        check_out = normalize_date(check_out_raw) if normalize_date(check_out_raw) else last_values["check_out"]
-        nights = normalize_int(ws.cell(excel_row, COL["nights"]).value) if normalize_int(ws.cell(excel_row, COL["nights"]).value) is not None else last_values["nights"]
-        qty = normalize_int(ws.cell(excel_row, COL["qty"]).value) if normalize_int(ws.cell(excel_row, COL["qty"]).value) is not None else last_values["qty"]
-
-        print({
-            "excel_row": excel_row,
-            "group_label_raw": ws.cell(excel_row, COL["group_label"]).value,
-            "destination_raw": ws.cell(excel_row, COL["destination"]).value,
-            "hotel_name_raw": ws.cell(excel_row, COL["hotel_name"]).value,
-        })
-
-        last_values.update(
-            {
-                "group_label": group_label,
-                "destination": destination,
-                "hotel_name": hotel_name,
-                "room": room,
-                "check_in": check_in,
-                "check_out": check_out,
-                "nights": nights,
-                "qty": qty,
-            }
+        source_row_number = normalize_int(
+            get_effective_cell_value(ws, merged_lookup, excel_row, COL["row_number"])
         )
-
-        first_name = clean_text(first_name_raw)
-        last_name = clean_text(last_name_raw)
-
-        if not first_name and not last_name:
-            continue
-
-        date_of_birth = normalize_date(ws.cell(excel_row, COL["date_of_birth"]).value)
-        passport_number = clean_text(ws.cell(excel_row, COL["passport_number"]).value)
-        passenger_key = build_passenger_key(passport_number, last_name, first_name, date_of_birth)
-        voucher_group_key = build_voucher_group_key(destination, hotel_name, room, check_in, check_out)
+        group_label = clean_text(get_effective_cell_value(ws, merged_lookup, excel_row, COL["group_label"]))
+        date_of_birth = normalize_date(
+            get_effective_cell_value(ws, merged_lookup, excel_row, COL["date_of_birth"])
+        )
+        passport_number = clean_text(
+            get_effective_cell_value(ws, merged_lookup, excel_row, COL["passport_number"])
+        )
 
         rows.append(
             {
                 "excel_row_number": excel_row,
-                "source_row_number": normalize_int(ws.cell(excel_row, COL["row_number"]).value),
+                "source_row_number": source_row_number,
+                "row_number_merge_anchor": row_number_merge_anchor,
                 "group_label": group_label,
-                "destination": destination,
                 "first_name": first_name,
                 "last_name": last_name,
-                "full_name": " ".join([p for p in [first_name, last_name] if p]),
-                "mail": normalize_email(ws.cell(excel_row, COL["mail"]).value),
-                "phone": normalize_phone(ws.cell(excel_row, COL["phone"]).value),
-                "nationality": clean_text(ws.cell(excel_row, COL["nationality"]).value),
+                "full_name": " ".join([p for p in [first_name, last_name] if p]) or None,
+                "mail": normalize_email(get_effective_cell_value(ws, merged_lookup, excel_row, COL["mail"])),
+                "phone": normalize_phone(get_effective_cell_value(ws, merged_lookup, excel_row, COL["phone"])),
+                "nationality": clean_text(
+                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["nationality"])
+                ),
                 "date_of_birth": date_of_birth,
                 "passport_number": passport_number,
-                "passport_expiration": normalize_date(ws.cell(excel_row, COL["passport_expiration"]).value),
-                "remarks": clean_text(ws.cell(excel_row, COL["remarks"]).value),
-                "food_restrictions": clean_text(ws.cell(excel_row, COL["food_restrictions"]).value),
+                "passport_expiration": normalize_date(
+                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["passport_expiration"])
+                ),
+                "remarks": clean_text(get_effective_cell_value(ws, merged_lookup, excel_row, COL["remarks"])),
+                "food_restrictions": clean_text(
+                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["food_restrictions"])
+                ),
+                "qty": qty,
+                "qty_merge_anchor": qty_merge_anchor,
+                "destination": destination,
                 "hotel_name": hotel_name,
                 "room": room,
                 "check_in": check_in,
                 "check_out": check_out,
-                "nights": nights,
-                "qty": qty,
-                "passenger_key": passenger_key,
-                "voucher_group_key": voucher_group_key,
+                "nights": normalize_int(get_effective_cell_value(ws, merged_lookup, excel_row, COL["nights"])),
+                "passenger_key": build_passenger_key(
+                    passport_number=passport_number,
+                    last_name=last_name,
+                    first_name=first_name,
+                    date_of_birth=date_of_birth,
+                    excel_row_number=excel_row,
+                ),
             }
         )
 
     return rows
 
 
-# -------- Grouping / payload generation --------
-def dedupe_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+# -------- Logical voucher grouping --------
+def build_voucher_blocks(rows: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+    blocks: List[List[Dict[str, Any]]] = []
+    current_block: List[Dict[str, Any]] = []
+    current_block_key: Optional[str] = None
+
+    for row in rows:
+        qty = row.get("qty")
+        qty_anchor = row.get("qty_merge_anchor")
+
+        if qty_anchor:
+            # Any merged QTY range is one voucher block across all affected rows.
+            block_key = f"MERGED:{qty_anchor}"
+            if current_block and current_block_key != block_key:
+                blocks.append(current_block)
+                current_block = []
+            current_block_key = block_key
+            current_block.append(row)
+            continue
+
+        # Non-merged QTY means one voucher per physical row.
+        if current_block:
+            blocks.append(current_block)
+            current_block = []
+            current_block_key = None
+
+        if qty is not None or row.get("full_name") or row.get("hotel_name") or row.get("destination"):
+            blocks.append([row])
+
+    if current_block:
+        blocks.append(current_block)
+
+    return blocks
+
+
+def dedupe_real_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen: set[str] = set()
     passengers: List[Dict[str, Any]] = []
 
-    for row in rows:
+    for row in sorted(rows, key=lambda r: (r["excel_row_number"], r.get("source_row_number") or 0)):
+        if not row.get("full_name"):
+            continue
+
         passenger_key = row["passenger_key"]
         if passenger_key in seen:
             continue
@@ -322,24 +333,60 @@ def dedupe_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return passengers
 
 
-def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        grouped[row["voucher_group_key"]].append(row)
+def pad_passengers(passengers: List[Dict[str, Any]], qty: int, block_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    padded = list(passengers)
+    next_index = len(padded) + 1
+    while len(padded) < qty:
+        padded.append(
+            {
+                "passenger_key": f"PENDING-{block_rows[0]['excel_row_number']}-{next_index}",
+                "first_name": None,
+                "last_name": None,
+                "full_name": "NAME PENDING",
+                "mail": None,
+                "phone": None,
+                "nationality": None,
+                "date_of_birth": None,
+                "passport_number": None,
+                "passport_expiration": None,
+                "food_restrictions": None,
+                "remarks": None,
+            }
+        )
+        next_index += 1
+    return padded
 
+
+def choose_block_header(block_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    # Prefer the first row in the block; merged cells are already expanded.
+    return sorted(block_rows, key=lambda r: r["excel_row_number"])[0]
+
+
+def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    blocks = build_voucher_blocks(rows)
     payloads: List[Dict[str, Any]] = []
 
-    for voucher_group_key, group_rows in grouped.items():
-        group_rows.sort(key=lambda r: (r["excel_row_number"], r["full_name"] or ""))
-        first = group_rows[0]
-        passengers = dedupe_passengers(group_rows)
+    for voucher_index, block_rows in enumerate(blocks, start=1):
+        block_rows = sorted(block_rows, key=lambda r: r["excel_row_number"])
+        header = choose_block_header(block_rows)
+        passengers = dedupe_real_passengers(block_rows)
 
-        destination_name = first["destination"]
-        hotel_name = first["hotel_name"]
+        declared_qty = header.get("qty") or 0
+        is_merged_qty_block = bool(header.get("qty_merge_anchor"))
+
+        if is_merged_qty_block:
+            pax_count = max(1, len(block_rows))
+        else:
+            pax_count = declared_qty if declared_qty > 0 else max(1, len(passengers))
+
+        passengers = pad_passengers(passengers, pax_count, block_rows)
+
+        voucher_id = header.get("source_row_number") or voucher_index
 
         payloads.append(
             {
-                "voucher_group_key": voucher_group_key,
+                "voucher_id": voucher_id,
+                "voucher_group_key": f"VOUCHER-{voucher_id}",
                 "voucher": {
                     "voucher_code": None,
                     "confirmation_number": None,
@@ -350,33 +397,37 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 },
                 "source": {
                     "sheet_name": None,
-                    "group_label": first["group_label"],
-                    "excel_rows": [r["excel_row_number"] for r in group_rows],
+                    "group_label": header.get("group_label"),
+                    "excel_rows": [r["excel_row_number"] for r in block_rows],
+                    "row_numbers": [
+                        r["source_row_number"] for r in block_rows if r.get("source_row_number") is not None
+                    ],
+                    "qty_merge_anchor": header.get("qty_merge_anchor"),
                 },
                 "destination": {
-                    "name": destination_name,
-                    "display_name": to_title_case(destination_name) or destination_name,
+                    "name": header.get("destination"),
+                    "display_name": to_title_case(header.get("destination")) or header.get("destination"),
                 },
                 "hotel": {
-                    "name": hotel_name,
-                    "display_name": to_title_case(hotel_name) or hotel_name,
+                    "name": header.get("hotel_name"),
+                    "display_name": to_title_case(header.get("hotel_name")) or header.get("hotel_name"),
                     "address": None,
                     "city": None,
                     "country": None,
                     "phone": None,
                 },
                 "stay": {
-                    "check_in": first["check_in"],
-                    "check_out": first["check_out"],
-                    "nights": first["nights"],
+                    "check_in": header.get("check_in"),
+                    "check_out": header.get("check_out"),
+                    "nights": header.get("nights"),
                 },
                 "rooms": [
                     {
                         "room_sequence": 1,
-                        "room_count": first["qty"] or 1,
-                        "room_category": first["room"],
+                        "room_count": 1,
+                        "room_category": header.get("room"),
                         "additional_info": None,
-                        "pax_count": len(passengers),
+                        "pax_count": pax_count,
                     }
                 ],
                 "passengers": passengers,
@@ -385,10 +436,10 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     payloads.sort(
         key=lambda p: (
+            str(p.get("voucher_id") or ""),
             p["stay"]["check_in"] or "",
             p["destination"]["name"] or "",
             p["hotel"]["name"] or "",
-            p["voucher_group_key"],
         )
     )
     return payloads
@@ -397,12 +448,17 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # -------- CLI --------
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Convert the operational XLSX into voucher-grouped JSON payloads."
+        description="Convert the operational XLSX into voucher JSON payloads, honoring merged QTY blocks."
     )
     parser.add_argument("input", help="Path to the source .xlsx file")
     parser.add_argument("-o", "--output", help="Path to the output .json file")
     parser.add_argument("--sheet", help="Optional sheet name. Defaults to the first sheet.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print the JSON output.")
+    parser.add_argument(
+        "--debug-rows",
+        action="store_true",
+        help="Also emit a .rows.json file with normalized rows for debugging.",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -415,6 +471,14 @@ def main() -> None:
         json.dumps(payloads, ensure_ascii=False, indent=2 if args.pretty else None),
         encoding="utf-8",
     )
+
+    if args.debug_rows:
+        debug_path = output_path.with_suffix(".rows.json")
+        debug_path.write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"Debug rows: {debug_path}")
 
     print(f"Rows processed: {len(rows)}")
     print(f"Voucher payloads generated: {len(payloads)}")
