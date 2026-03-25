@@ -1011,3 +1011,28 @@ select:focus {
     gap: 12px;
   }
 }
+/* 🔒 Anti overflow global */
+* {
+  box-sizing: border-box;
+}
+
+/* Texto largo controlado */
+.text-safe {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Para casos multilinea (MEJOR para pasajeros) */
+.text-wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Clamp elegante (HTML + PDF moderno) */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
