@@ -150,10 +150,24 @@ destinationSiteSelect?.addEventListener("change", () => {
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (currentUser) {
-    await loadSharePointSites();
+  console.log("DOMContentLoaded fired");
+  console.log("currentUser =", currentUser);
+  console.log("sourceSiteSelect =", sourceSiteSelect);
+  console.log("destinationSiteSelect =", destinationSiteSelect);
+
+  try {
+    if (sourceSiteSelect || destinationSiteSelect || modalSiteSelect) {
+      console.log("Loading SharePoint sites...");
+      await loadSharePointSites();
+      console.log("Sites loaded:", sharepointSites);
+    } else {
+      console.warn("No site selects found in DOM");
+    }
+
+    syncPickedLabels();
+  } catch (error) {
+    console.error("Init error:", error);
   }
-  syncPickedLabels();
 });
 
 function getDefaultSiteKey() {
@@ -164,38 +178,41 @@ function getDefaultSiteKey() {
 }
 
 async function loadSharePointSites() {
-  try {
-    const response = await fetch(API.sharepointSites);
-    const data = await response.json();
+  const response = await fetch(API.sharepointSites);
+  const data = await response.json();
 
-    if (!response.ok || !data.ok) {
-      return;
-    }
+  console.log("sharepoint sites response:", data);
 
-    sharepointSites = data.sites || [];
-
-    fillSiteSelect(sourceSiteSelect, sharepointSites);
-    fillSiteSelect(destinationSiteSelect, sharepointSites);
-    fillSiteSelect(modalSiteSelect, sharepointSites);
-
-    const defaultKey = getDefaultSiteKey();
-    if (sourceSiteSelect && defaultKey) sourceSiteSelect.value = defaultKey;
-    if (destinationSiteSelect && defaultKey) destinationSiteSelect.value = defaultKey;
-    if (modalSiteSelect && defaultKey) modalSiteSelect.value = defaultKey;
-  } catch (error) {
-    console.error("No se pudieron cargar los sites:", error);
+  if (!response.ok || !data.ok) {
+    throw new Error("No se pudieron cargar los sites");
   }
+
+  sharepointSites = data.sites || [];
+
+  fillSiteSelect(sourceSiteSelect, sharepointSites);
+  fillSiteSelect(destinationSiteSelect, sharepointSites);
+  fillSiteSelect(modalSiteSelect, sharepointSites);
+
+  const defaultKey = getDefaultSiteKey();
+
+  if (sourceSiteSelect && defaultKey) sourceSiteSelect.value = defaultKey;
+  if (destinationSiteSelect && defaultKey) destinationSiteSelect.value = defaultKey;
+  if (modalSiteSelect && defaultKey) modalSiteSelect.value = defaultKey;
 }
 
 function fillSiteSelect(selectEl, sites) {
   if (!selectEl) return;
+
   selectEl.innerHTML = "";
+
   for (const site of sites) {
     const opt = document.createElement("option");
     opt.value = site.key;
     opt.textContent = site.label;
     selectEl.appendChild(opt);
   }
+
+  console.log("filled select", selectEl.id, "with", sites.length, "sites");
 }
 
 function switchMode(mode) {
