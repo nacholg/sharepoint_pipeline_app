@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 
 BASE_DIR = Path(__file__).resolve().parent
+DEFAULT_BRAND_LOGO = "assets/logos/GEOBYPATAGONIK.png"
 
 
 def clean_filename(value: str) -> str:
@@ -46,7 +47,12 @@ def file_to_data_uri(path: Path) -> Optional[str]:
         return None
 
 
-def resolve_logo_src(value: Optional[str], output_dir: Path, debug: bool = False, label: str = "logo") -> Optional[str]:
+def resolve_logo_src(
+    value: Optional[str],
+    output_dir: Path,
+    debug: bool = False,
+    label: str = "logo",
+) -> Optional[str]:
     if not value:
         if debug:
             print(f"[DEBUG] {label}: no value provided")
@@ -71,7 +77,10 @@ def resolve_logo_src(value: Optional[str], output_dir: Path, debug: bool = False
         print(f"[DEBUG] {label}: raw='{value}'")
         print(f"[DEBUG] {label}: BASE_DIR='{BASE_DIR}'")
         print(f"[DEBUG] {label}: resolved='{candidate}'")
-        print(f"[DEBUG] {label}: exists={candidate.exists()} is_file={candidate.is_file() if candidate.exists() else False}")
+        print(
+            f"[DEBUG] {label}: exists={candidate.exists()} "
+            f"is_file={candidate.is_file() if candidate.exists() else False}"
+        )
 
     data_uri = file_to_data_uri(candidate)
     if data_uri:
@@ -170,6 +179,7 @@ def build_html(
     voucher_payload: Dict[str, Any],
     output_dir: Path,
     brand_logo: Optional[str],
+    theme_key: str = "default",
     debug: bool = False,
 ) -> str:
     voucher = voucher_payload.get("voucher", {})
@@ -178,6 +188,8 @@ def build_html(
     stay = voucher_payload.get("stay", {})
     rooms = voucher_payload.get("rooms", [])
     passengers = voucher_payload.get("passengers", [])
+
+    theme_key = theme_key or "default"
 
     brand_logo_src = resolve_logo_src(
         brand_logo,
@@ -198,7 +210,6 @@ def build_html(
         else '<div class="hotel-logo-placeholder">HOTEL LOGO</div>'
     )
 
-    title_destination = destination.get("display_name") or destination.get("name") or "Destination"
     hotel_name = hotel.get("display_name") or hotel.get("name") or "Hotel"
     subtitle_parts = [
         rooms[0].get("room_category") if rooms else None,
@@ -227,6 +238,9 @@ def build_html(
       --radius-lg: 18px;
       --radius-md: 14px;
       --shadow: 0 12px 32px rgba(21, 36, 70, 0.10);
+      --header-grad-1: #223a69;
+      --header-grad-2: #314b7b;
+      --accent: #223a69;
     }}
 
     * {{ box-sizing: border-box; }}
@@ -236,6 +250,18 @@ def build_html(
       color: var(--text);
       background: #e9edf4;
       padding: 18px;
+    }}
+
+    body.theme-mastercard {{
+      --paper: #fcfbfa;
+      --panel: #f6f3f1;
+      --line: #eadfd9;
+      --text: #241c1a;
+      --muted: #7b6963;
+      --header-grad-1: #EB001B;
+      --header-grad-2: #F79E1B;
+      --accent: #EB001B;
+      --shadow: 0 12px 32px rgba(111, 41, 23, 0.12);
     }}
 
     .page {{
@@ -264,43 +290,35 @@ def build_html(
     }}
 
     .header {{
-      background: linear-gradient(180deg, var(--navy) 0%, #263f70 100%);
-      color: var(--white);
-      padding: 22px 24px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 246px 170px;
-      gap: 16px;
+      gap: 14px;
       align-items: stretch;
+      padding: 22px 22px 18px;
+      background: linear-gradient(135deg, var(--header-grad-1), var(--header-grad-2));
+      color: #fff;
     }}
 
     .header-left {{
       min-width: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      overflow: hidden;
+      display: grid;
+      align-content: center;
+      gap: 8px;
     }}
 
     .voucher-kicker {{
       font-size: 12px;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      opacity: 0.78;
-      margin-bottom: 14px;
+      opacity: 0.82;
     }}
 
     .header-title {{
-      font-size: 31px;
-      line-height: 1.06;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin: 0 0 10px;
-      max-width: 100%;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
+      font-size: 34px;
+      line-height: 1.02;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
     }}
 
     .header-subtitle {{
@@ -372,7 +390,7 @@ def build_html(
     }}
 
     .brand-box-placeholder {{
-      color: var(--navy);
+      color: var(--accent);
       border: 1px dashed #cad2e2;
       border-radius: 12px;
       width: 100%;
@@ -385,50 +403,243 @@ def build_html(
       letter-spacing: 0.12em;
     }}
 
-    .hotel-logo {{ width: 100%; height: 58px; object-fit: contain; display: block; }}
-    .hotel-logo-placeholder {{ color: var(--navy); border: 1px dashed #cad2e2; border-radius: 12px; width: 100%; height: 58px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; }}
+    .hotel-logo {{
+      width: 100%;
+      height: 58px;
+      object-fit: contain;
+      display: block;
+    }}
 
-    .body {{ padding: 18px; display: grid; gap: 14px; }}
+    .hotel-logo-placeholder {{
+      color: var(--accent);
+      border: 1px dashed #cad2e2;
+      border-radius: 12px;
+      width: 100%;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }}
 
-    .top-grid {{ display: grid; grid-template-columns: 1.45fr 1fr; gap: 14px; }}
-    .panel {{ background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 18px; min-width: 0; }}
-    .section-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }}
+    .body {{
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }}
 
-    .hotel-card {{ display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 16px; align-items: start; }}
-    .hotel-name {{ font-size: 24px; line-height: 1.02; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 10px; overflow-wrap: anywhere; }}
-    .hotel-address {{ font-size: 13px; line-height: 1.45; margin-bottom: 14px; color: #233356; overflow-wrap: anywhere; }}
-    .hotel-mini-logo {{ border: 1px solid var(--line); border-radius: 16px; background: var(--white); display: flex; align-items: center; justify-content: center; padding: 10px; height: 118px; overflow: hidden; }}
-    .hotel-mini-logo .hotel-logo, .hotel-mini-logo .hotel-logo-placeholder {{ height: 44px; }}
+    .top-grid {{
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 14px;
+    }}
 
-    .facts {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }}
-    .fact-label {{ font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }}
-    .fact-value {{ font-size: 12.5px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      min-width: 0;
+    }}
 
-    .summary-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
-    .summary-tile {{ background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-height: 84px; overflow: hidden; }}
-    .tile-label {{ font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }}
-    .tile-value {{ font-size: 17px; line-height: 1.08; font-weight: 800; }}
+    .section-title {{
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }}
 
-    .table-wrap {{ overflow: hidden; border-radius: 14px; border: 1px solid var(--line); background: var(--white); }}
-    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
-    th, td {{ padding: 10px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid #e3e8f1; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }}
-    th {{ font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); background: #f8faff; }}
-    tbody tr:last-child td {{ border-bottom: none; }}
+    .hotel-card {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 124px;
+      gap: 14px;
+      align-items: center;
+      min-width: 0;
+    }}
+
+    .hotel-name {{
+      font-size: 22px;
+      line-height: 1.04;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }}
+
+    .hotel-address {{
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }}
+
+    .facts {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }}
+
+    .fact-label {{
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }}
+
+    .fact-value {{
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+    }}
+
+    .hotel-mini-logo {{
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      min-height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }}
+
+    .summary-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+
+    .summary-tile {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      min-height: 84px;
+      overflow: hidden;
+    }}
+
+    .tile-label {{
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }}
+
+    .tile-value {{
+      font-size: 17px;
+      line-height: 1.08;
+      font-weight: 800;
+    }}
+
+    .table-wrap {{
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--white);
+    }}
+
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }}
+
+    th, td {{
+      padding: 10px 10px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e3e8f1;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+
+    th {{
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      background: #f8faff;
+    }}
+
+    body.theme-mastercard th {{
+      background: #fff5ef;
+    }}
+
+    tbody tr:last-child td {{
+      border-bottom: none;
+    }}
+
     th:nth-child(1), td:nth-child(1) {{ width: 12%; }}
     th:nth-child(2), td:nth-child(2) {{ width: 30%; }}
     th:nth-child(3), td:nth-child(3) {{ width: 40%; }}
     th:nth-child(4), td:nth-child(4) {{ width: 18%; }}
 
-    .passengers-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
-    .pax-card {{ background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-width: 0; overflow: hidden; }}
-    .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; overflow-wrap: anywhere; }}
-    .pax-meta-row {{ display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; margin-bottom: 6px; }}
-    .pax-meta-row:last-child {{ margin-bottom: 0; }}
-    .pax-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }}
-    .pax-value {{ font-size: 12px; line-height: 1.35; font-weight: 600; }}
+    .passengers-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
 
-    .footer-note {{ color: var(--muted); font-size: 11px; line-height: 1.45; padding: 2px 2px 0; }}
-    .empty-state {{ color: var(--muted); font-size: 12px; }}
+    .pax-card {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }}
+
+    .pax-name {{
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      min-height: 34px;
+      overflow-wrap: anywhere;
+    }}
+
+    .pax-meta-row {{
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 6px;
+    }}
+
+    .pax-meta-row:last-child {{
+      margin-bottom: 0;
+    }}
+
+    .pax-label {{
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-top: 2px;
+    }}
+
+    .pax-value {{
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 600;
+    }}
+
+    .footer-note {{
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+      padding: 2px 2px 0;
+    }}
+
+    .empty-state {{
+      color: var(--muted);
+      font-size: 12px;
+    }}
 
     @page {{ size: A4; margin: 8mm; }}
 
@@ -448,7 +659,7 @@ def build_html(
     }}
   </style>
 </head>
-<body>
+<body class="theme-{e(theme_key)}">
   <div class="page">
     <header class="header">
       <div class="header-left">
@@ -553,15 +764,17 @@ def main() -> None:
     parser.add_argument("input", help="Path to enriched voucher JSON")
     parser.add_argument("-o", "--output-dir", default="rendered_vouchers", help="Output directory")
     parser.add_argument("--brand-logo", default=None, help="Optional path, URL or data URI for official brand logo")
+    parser.add_argument("--theme-key", default="default", help="Theme key for styling")
     parser.add_argument("--debug-logo", action="store_true", help="Print debug info for logo resolution")
     args = parser.parse_args()
 
-    args.brand_logo = args.brand_logo or "assets/logos/GEOBYPATAGONIK.png"
+    args.brand_logo = args.brand_logo or DEFAULT_BRAND_LOGO
 
     print(f"[DEBUG] input_json='{args.input}'")
     print(f"[DEBUG] output_dir='{args.output_dir}'")
     print(f"[DEBUG] BASE_DIR='{BASE_DIR}'")
     print(f"[DEBUG] brand_logo_arg='{args.brand_logo}'")
+    print(f"[DEBUG] theme_key='{args.theme_key}'")
 
     if not str(args.brand_logo).startswith(("http://", "https://", "data:")):
         resolved_brand_path = (BASE_DIR / args.brand_logo).resolve()
@@ -578,9 +791,10 @@ def main() -> None:
     for idx, voucher_payload in enumerate(vouchers, start=1):
         filename = build_output_filename(voucher_payload, idx)
         html_text = build_html(
-            voucher_payload,
-            output_dir,
-            args.brand_logo,
+            voucher_payload=voucher_payload,
+            output_dir=output_dir,
+            brand_logo=args.brand_logo,
+            theme_key=args.theme_key,
             debug=args.debug_logo,
         )
         (output_dir / filename).write_text(html_text, encoding="utf-8")
