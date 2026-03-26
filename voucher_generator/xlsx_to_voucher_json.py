@@ -5,10 +5,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from voucher_validator import validate_rows
-from xlsx_importer import read_effective_rows
-from voucher_model import build_canonical_voucher, canonical_to_payload
-
+from voucher_generator.voucher_validator import validate_rows
+from voucher_generator.xlsx_importer import read_effective_rows
+from voucher_generator.voucher_model import build_canonical_voucher, canonical_to_payload
 
 def build_voucher_blocks(rows: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
     blocks: List[List[Dict[str, Any]]] = []
@@ -62,6 +61,23 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     )
     return payloads
 
+def run_pipeline(input_path: Path, sheet_name: Optional[str] = None) -> Dict[str, Any]:
+    rows = read_effective_rows(input_path, sheet_name=sheet_name)
+
+    validation = validate_rows(rows)
+    valid_rows = validation["valid_rows"]
+    rows_with_errors = validation["rows_with_errors"]
+
+    if rows_with_errors:
+        raise ValueError("Validation errors found")
+
+    payloads = build_voucher_payloads(valid_rows)
+
+    return {
+        "rows": rows,
+        "validation": validation,
+        "payloads": payloads,
+    }
 
 def main() -> None:
     parser = argparse.ArgumentParser(
