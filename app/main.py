@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
@@ -39,32 +39,46 @@ def _load_sharepoint_sites() -> dict[str, dict]:
                     "library_name": item["library_name"],
                     "default_folder_path": item.get("default_folder_path", "/"),
                     "brand_logo": item.get("brand_logo"),
+                    "default_profile": item.get("default_profile", "default"),
                 }
             if result:
                 return result
         except Exception as e:
             raise RuntimeError(f"SHAREPOINT_SITES_JSON inválido: {e}")
 
-    # fallback a la config vieja para no romper compatibilidad
-    hostname = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
     site_path = os.getenv("SHAREPOINT_SITE_PATH", "/sites/GLOBALEVENTS2")
     library_name = os.getenv("SHAREPOINT_LIBRARY_NAME", "Documentos")
     folder_path = os.getenv("SHAREPOINT_FOLDER_PATH", "/General")
 
     return {
-        "default": {
-            "key": "default",
-            "label": "Default",
+        "globalevents2": {
+            "key": "globalevents2",
+            "label": "Global Events",
             "site_path": site_path,
             "library_name": library_name,
             "default_folder_path": folder_path,
             "brand_logo": None,
-        }
+            "default_profile": "default",
+        },
+        "mastercard": {
+            "key": "mastercard",
+            "label": "Mastercard",
+            "site_path": "/sites/MASTERCARD",
+            "library_name": "Documentos",
+            "default_folder_path": "/",
+            "brand_logo": "assets/logos/MASTERCARD.png",
+            "default_profile": "mastercard",
+        },
     }
 
 
 SHAREPOINT_HOSTNAME = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
 SHAREPOINT_SITES = _load_sharepoint_sites()
+
+AVAILABLE_PROFILES = [
+    {"key": "default", "label": "Default", "enabled": True},
+    {"key": "mastercard", "label": "Mastercard", "enabled": True},
+]
 
 
 app = FastAPI(title="Voucher Generator")
@@ -82,6 +96,7 @@ class SharePointRunRequest(BaseModel):
     destination_folder_id: str | None = None
     source_site_key: str | None = None
     destination_site_key: str | None = None
+    profile: str | None = None
 
 
 def get_graph_access_token_from_session(request: Request) -> str:
@@ -117,6 +132,22 @@ def get_site_config(site_key: str | None) -> dict:
         return SHAREPOINT_SITES["globalevents2"]
 
     return next(iter(SHAREPOINT_SITES.values()))
+
+
+def resolve_profile(profile: str | None, site_key: str | None = None) -> str:
+    requested = (profile or "").strip()
+    valid_keys = {item["key"] for item in AVAILABLE_PROFILES if item.get("enabled")}
+
+    if requested and requested in valid_keys:
+        return requested
+
+    site_cfg = get_site_config(site_key)
+    default_profile = site_cfg.get("default_profile", "default")
+
+    if default_profile in valid_keys:
+        return default_profile
+
+    return "default"
 
 
 def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None = None) -> dict:
@@ -203,17 +234,30 @@ def api_sharepoint_sites():
                 "library_name": cfg["library_name"],
                 "default_folder_path": cfg["default_folder_path"],
                 "brand_logo": cfg.get("brand_logo"),
+                "default_profile": cfg.get("default_profile", "default"),
             }
             for cfg in SHAREPOINT_SITES.values()
         ],
     }
 
 
+@app.get("/api/profiles")
+def api_profiles():
+    return {
+        "ok": True,
+        "profiles": AVAILABLE_PROFILES,
+        "default_profile": "default",
+    }
+
+
 @app.post("/api/local/run")
 async def api_local_run(
     file: UploadFile = File(...),
+    profile: str = Form(""),
 ):
     try:
+        resolved_profile = resolve_profile(profile, site_key="globalevents2")
+
         job_id = str(uuid4())
         jobs_root = Path("work/jobs").resolve()
         job_dir = (jobs_root / job_id).resolve()
@@ -231,9 +275,14 @@ async def api_local_run(
             jobs_root=jobs_root,
             brand_logo=None,
             pretty_json=True,
+            profile=resolved_profile,
         )
 
-        return result.to_dict()
+        response = result.to_dict()
+        response["mode"] = "local"
+        response["requested_profile"] = profile
+        response["resolved_profile"] = resolved_profile
+        return response
 
     except Exception as e:
         raise HTTPException(
@@ -287,6 +336,7 @@ def api_sharepoint_explore(
         "mode": "graph_sharepoint_site",
         "site_key": site_cfg["key"],
         "site_label": site_cfg["label"],
+        "default_profile": site_cfg.get("default_profile", "default"),
         "site": site,
         "drive": drive,
         "current_folder": current_folder,
@@ -301,6 +351,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
 
     source_site_key = payload.source_site_key
     destination_site_key = payload.destination_site_key or payload.source_site_key
+    resolved_profile = resolve_profile(payload.profile, site_key=source_site_key)
 
     try:
         source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
@@ -333,7 +384,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         )
 
     source_name = str(source_file.get("name", ""))
-    if not source_name.lower().endswith((".xlsx", ".xlsm")):
+    if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
         raise HTTPException(
             status_code=400,
             detail="El archivo seleccionado no es un Excel válido.",
@@ -398,6 +449,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             jobs_root=jobs_root,
             brand_logo=brand_logo,
             pretty_json=True,
+            profile=resolved_profile,
         )
     except Exception as e:
         raise HTTPException(
@@ -442,8 +494,11 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
                 }
 
     response["mode"] = "graph_sharepoint_site"
+    response["requested_profile"] = payload.profile
+    response["resolved_profile"] = resolved_profile
     response["source_site_key"] = source_site_cfg["key"]
     response["source_site_label"] = source_site_cfg["label"]
+    response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")
     response["destination_site_key"] = destination_site_cfg["key"] if destination_site_cfg else None
     response["destination_site_label"] = destination_site_cfg["label"] if destination_site_cfg else None
     response["source_site"] = source_site

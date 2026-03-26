@@ -85,6 +85,7 @@ pickSPFileBtn?.addEventListener("click", async () => {
   spBrowseMode = "source";
   currentModalSiteKey = sourceSiteSelect?.value || getDefaultSiteKey();
   if (modalSiteSelect) modalSiteSelect.value = currentModalSiteKey;
+  applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
   openSPModal();
   await loadSharePointFolder(null, true);
 });
@@ -128,11 +129,18 @@ selectCurrentFolderBtn?.addEventListener("click", async () => {
 
 modalSiteSelect?.addEventListener("change", async () => {
   currentModalSiteKey = modalSiteSelect.value;
+  if (spBrowseMode === "source") {
+    applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
+  }
   await loadSharePointFolder(null, true);
 });
 
 sourceSiteSelect?.addEventListener("change", () => {
-  if (selectedSourceSiteKey !== sourceSiteSelect.value) {
+  const selectedKey = sourceSiteSelect.value;
+
+  applyDefaultProfileForSite(selectedKey, "sharepoint");
+
+  if (selectedSourceSiteKey !== selectedKey) {
     selectedSourceFileId = null;
     selectedSourceFileName = null;
     selectedSourceSiteKey = null;
@@ -155,6 +163,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (sourceSiteSelect || destinationSiteSelect || modalSiteSelect) {
       await loadSharePointSites();
+      const defaultSite = sourceSiteSelect?.value || getDefaultSiteKey();
+      applyDefaultProfileForSite(defaultSite, "sharepoint");
     }
 
     syncPickedLabels();
@@ -168,6 +178,26 @@ function getDefaultSiteKey() {
     return "globalevents2";
   }
   return sharepointSites[0]?.key || null;
+}
+
+function getSiteConfig(siteKey) {
+  return sharepointSites.find((site) => site.key === siteKey) || null;
+}
+
+function applyDefaultProfileForSite(siteKey, mode = "sharepoint") {
+  const site = getSiteConfig(siteKey);
+  const defaultProfile = site?.default_profile || "default";
+
+  if (mode === "local") {
+    if (localProfileSelect && defaultProfile) {
+      localProfileSelect.value = defaultProfile;
+    }
+    return;
+  }
+
+  if (sharepointProfileSelect && defaultProfile) {
+    sharepointProfileSelect.value = defaultProfile;
+  }
 }
 
 async function loadProfiles() {
@@ -250,6 +280,13 @@ function switchMode(mode) {
   btnSP?.classList.toggle("active", !isLocal);
   localSection?.classList.toggle("hidden", !isLocal);
   spSection?.classList.toggle("hidden", isLocal);
+
+  if (isLocal) {
+    applyDefaultProfileForSite("globalevents2", "local");
+  } else {
+    const selectedKey = sourceSiteSelect?.value || getDefaultSiteKey();
+    applyDefaultProfileForSite(selectedKey, "sharepoint");
+  }
 }
 
 function openSPModal() {
@@ -544,9 +581,8 @@ async function runLocalPipeline() {
     return;
   }
 
-  const allowedExtensions = [".xlsx", ".xlsm", ".xls"];
   const lowerName = (file.name || "").toLowerCase();
-  const isValidExcel = allowedExtensions.some((ext) => lowerName.endsWith(ext));
+  const isValidExcel = ALLOWED_EXCEL_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
 
   if (!isValidExcel) {
     alert("El archivo seleccionado no es un Excel válido (.xlsx, .xlsm o .xls).");
@@ -597,6 +633,14 @@ async function runSharePointPipeline() {
 
   if (!selectedDestinationFolderId) {
     alert("Seleccioná una carpeta destino en SharePoint.");
+    return;
+  }
+
+  const lowerName = (selectedSourceFileName || "").toLowerCase();
+  const isValidExcel = ALLOWED_EXCEL_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+
+  if (!isValidExcel) {
+    alert("El archivo seleccionado no es un Excel válido.");
     return;
   }
 
@@ -760,6 +804,7 @@ function renderSharePointBrowser(items) {
           selectedSourceFileName = item.name;
           selectedSourceSiteKey = currentModalSiteKey;
           if (sourceSiteSelect) sourceSiteSelect.value = currentModalSiteKey;
+          applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
           syncPickedLabels();
         });
         actions.appendChild(pickBtn);
