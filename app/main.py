@@ -275,7 +275,7 @@ async def api_local_run(
             jobs_root=jobs_root,
             brand_logo=None,
             pretty_json=True,
-            profile=resolved_profile,
+            profile_name=resolved_profile,
         )
 
         response = result.to_dict()
@@ -449,7 +449,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             jobs_root=jobs_root,
             brand_logo=brand_logo,
             pretty_json=True,
-            profile=resolved_profile,
+            profile_name=resolved_profile,
         )
     except Exception as e:
         raise HTTPException(

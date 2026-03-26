@@ -11,9 +11,9 @@ from playwright.async_api import async_playwright
 async def html_to_pdf(html_file: Path, pdf_file: Path) -> None:
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-        headless=True,
-        args=["--no-sandbox", "--disable-dev-shm-usage"]
-    )
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         page = await browser.new_page()
 
         await page.goto(html_file.resolve().as_uri(), wait_until="networkidle")
@@ -22,11 +22,12 @@ async def html_to_pdf(html_file: Path, pdf_file: Path) -> None:
             path=str(pdf_file),
             format="A4",
             print_background=True,
+            prefer_css_page_size=True,
             margin={
-                "top": "12mm",
-                "right": "12mm",
-                "bottom": "12mm",
-                "left": "12mm",
+                "top": "0mm",
+                "right": "0mm",
+                "bottom": "0mm",
+                "left": "0mm",
             },
         )
 

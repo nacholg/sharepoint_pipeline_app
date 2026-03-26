@@ -8,12 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
-from voucher_generator.profiles.default_profile import (
-    FIELD_ALIASES,
-    REQUIRED_FIELDS,
-    HEADER_ROW,
-    START_ROW,
-)
+from voucher_generator.profiles import get_profile_config
+
 
 def clean_text(value: Any) -> Optional[str]:
     if value is None:
@@ -155,7 +151,7 @@ def normalize_header(value: Any) -> Optional[str]:
 def build_header_index(
     ws,
     merged_lookup,
-    header_row: int = HEADER_ROW,
+    header_row: int,
 ) -> Dict[str, int]:
     header_index: Dict[str, int] = {}
 
@@ -172,7 +168,7 @@ def resolve_columns(
     header_index: Dict[str, int],
     aliases: Dict[str, List[str]],
     required_fields: List[str],
-    header_row: int = HEADER_ROW,
+    header_row: int,
 ) -> Dict[str, int]:
     resolved: Dict[str, int] = {}
     missing_required: List[str] = []
@@ -216,9 +212,15 @@ def get_field_value(
 def read_effective_rows(
     xlsx_path: Path,
     sheet_name: Optional[str] = None,
-    start_row: int = START_ROW,
-    header_row: int = HEADER_ROW,
+    profile_name: str = "default",
 ) -> List[Dict[str, Any]]:
+    profile = get_profile_config(profile_name)
+
+    header_row = profile["header_row"]
+    start_row = profile["start_row"]
+    field_aliases = profile["field_aliases"]
+    required_fields = profile["required_fields"]
+
     wb = load_workbook(xlsx_path, data_only=True)
     ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
     merged_lookup = build_merged_lookup(ws)
@@ -226,8 +228,8 @@ def read_effective_rows(
     header_index = build_header_index(ws, merged_lookup, header_row=header_row)
     resolved_columns = resolve_columns(
         header_index=header_index,
-        aliases=FIELD_ALIASES,
-        required_fields=REQUIRED_FIELDS,
+        aliases=field_aliases,
+        required_fields=required_fields,
         header_row=header_row,
     )
 
@@ -328,6 +330,7 @@ def read_effective_rows(
                     date_of_birth=date_of_birth,
                     excel_row_number=excel_row,
                 ),
+                "profile_key": profile["key"],
             }
         )
 

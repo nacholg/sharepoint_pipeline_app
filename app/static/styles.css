@@ -1155,3 +1155,11 @@ select:focus {
     0 0 0 4px rgba(179, 139, 46, 0.14),
     0 0 12px rgba(179, 139, 46, 0.45);
 }
+
+.file-badge.invalid {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 0, 0, 0.1);
+  color: #ff6b6b;
+}

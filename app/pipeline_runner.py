@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
@@ -8,10 +7,9 @@ import sys
 import zipfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from app.config import settings
-from voucher_generator.profiles import get_profile_config
 
 
 @dataclass
@@ -38,28 +36,12 @@ class PipelineRunResult:
     zip_file: Optional[str] = None
     error: Optional[str] = None
 
-    profile_used: Optional[str] = None
-    pipeline_summary: Optional[dict[str, Any]] = None
-    warnings_file: Optional[str] = None
-    errors_file: Optional[str] = None
-    rows_file: Optional[str] = None
-    summary_file: Optional[str] = None
-
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-
-
-def _safe_read_json(path: Path) -> Optional[dict[str, Any] | list[Any]]:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def _zip_folder(folder: Path, zip_path: Path) -> Optional[Path]:
@@ -70,7 +52,6 @@ def _zip_folder(folder: Path, zip_path: Path) -> Optional[Path]:
         p for p in folder.rglob("*")
         if p.is_file() and p.resolve() != zip_path.resolve()
     ]
-
     if not files:
         return None
 
@@ -133,58 +114,21 @@ def _collect_outputs(job_dir: Path) -> List[str]:
         "voucher_payloads.json",
         "voucher_payloads_enriched.json",
         "hotel_cache.json",
-        "voucher_payloads.rows.json",
-        "voucher_payloads.warnings.json",
-        "voucher_payloads.errors.json",
-        "voucher_payloads.summary.json",
     ]:
         p = job_dir / name
         if p.exists():
             wanted.append(p)
 
-    for folder in ["rendered_vouchers", "rendered_pdfs"]:
-        d = job_dir / folder
-        if d.exists():
-            wanted.extend([p for p in d.rglob("*") if p.is_file()])
+    html_dir = job_dir / "rendered_vouchers"
+    pdf_dir = job_dir / "rendered_pdfs"
+
+    if html_dir.exists():
+        wanted.extend([p for p in html_dir.rglob("*") if p.is_file()])
+
+    if pdf_dir.exists():
+        wanted.extend([p for p in pdf_dir.rglob("*") if p.is_file()])
 
     return sorted(str(p.resolve()) for p in wanted)
-
-
-def _build_result(
-    *,
-    ok: bool,
-    job_id: str,
-    working_dir: Path,
-    input_file: Path,
-    steps: List[PipelineStepResult],
-    job_dir: Path,
-    profile: str,
-    error: Optional[str] = None,
-    zip_file: Optional[Path] = None,
-) -> PipelineRunResult:
-    summary_json = job_dir / "voucher_payloads.summary.json"
-    warnings_json = job_dir / "voucher_payloads.warnings.json"
-    errors_json = job_dir / "voucher_payloads.errors.json"
-    rows_json = job_dir / "voucher_payloads.rows.json"
-
-    pipeline_summary = _safe_read_json(summary_json)
-
-    return PipelineRunResult(
-        ok=ok,
-        job_id=job_id,
-        working_dir=str(working_dir.resolve()),
-        input_file=str(input_file.resolve()),
-        steps=steps,
-        generated_files=_collect_outputs(job_dir),
-        zip_file=str(zip_file.resolve()) if zip_file and zip_file.exists() else None,
-        error=error,
-        profile_used=profile,
-        pipeline_summary=pipeline_summary if isinstance(pipeline_summary, dict) else None,
-        warnings_file=str(warnings_json.resolve()) if warnings_json.exists() else None,
-        errors_file=str(errors_json.resolve()) if errors_json.exists() else None,
-        rows_file=str(rows_json.resolve()) if rows_json.exists() else None,
-        summary_file=str(summary_json.resolve()) if summary_json.exists() else None,
-    )
 
 
 def run_full_voucher_pipeline(
@@ -193,17 +137,16 @@ def run_full_voucher_pipeline(
     source_excel: Path,
     jobs_root: Optional[Path] = None,
     brand_logo: Optional[str] = None,
+    profile_name: Optional[str] = None,
+    profile: Optional[str] = None,
     pretty_json: bool = True,
-    profile: str = "default",
 ) -> PipelineRunResult:
+    if profile_name is None and profile is not None:
+        profile_name = profile
+
     project_root = Path(__file__).resolve().parent.parent
     generator_root = project_root / "voucher_generator"
     python_exe = Path(sys.executable)
-
-    # Cargar SIEMPRE al principio para evitar el error de variable no asignada
-    profile_config = get_profile_config(profile)
-    theme_key = profile_config.get("branding", {}).get("theme_key", "default")
-    profile_brand_logo = profile_config.get("branding", {}).get("brand_logo")
 
     if jobs_root is None:
         jobs_root = project_root / settings.JOBS_ROOT
@@ -213,6 +156,8 @@ def run_full_voucher_pipeline(
     jobs_root = jobs_root.resolve()
     _ensure_dir(jobs_root)
 
+    logos_dir = (generator_root / "assets" / "logos").resolve()
+
     if not generator_root.exists():
         return PipelineRunResult(
             ok=False,
@@ -220,7 +165,15 @@ def run_full_voucher_pipeline(
             working_dir=str(generator_root),
             input_file=str(source_excel),
             error=f"voucher_generator no existe: {generator_root}",
-            profile_used=profile,
+        )
+
+    if not logos_dir.exists():
+        return PipelineRunResult(
+            ok=False,
+            job_id=job_id,
+            working_dir=str(generator_root),
+            input_file=str(source_excel),
+            error=f"No existe la carpeta de logos: {logos_dir}",
         )
 
     if not source_excel.exists():
@@ -230,7 +183,6 @@ def run_full_voucher_pipeline(
             working_dir=str(generator_root),
             input_file=str(source_excel),
             error=f"Excel de entrada no existe: {source_excel}",
-            profile_used=profile,
         )
 
     job_dir = (jobs_root / job_id).resolve()
@@ -241,12 +193,11 @@ def run_full_voucher_pipeline(
     payload_json = (job_dir / "voucher_payloads.json").resolve()
     enriched_json = (job_dir / "voucher_payloads_enriched.json").resolve()
     hotel_cache = (job_dir / "hotel_cache.json").resolve()
-    html_dir = (job_dir / "rendered_vouchers").resolve()
-    pdf_dir = (job_dir / "rendered_pdfs").resolve()
+    rendered_html_dir = (job_dir / "rendered_vouchers").resolve()
+    rendered_pdf_dir = (job_dir / "rendered_pdfs").resolve()
 
     steps: List[PipelineStepResult] = []
 
-    # STEP 1
     cmd_1 = [
         str(python_exe),
         "-m",
@@ -254,28 +205,25 @@ def run_full_voucher_pipeline(
         str(local_excel),
         "-o",
         str(payload_json),
-        "--profile",
-        profile,
-        "--debug-rows",
     ]
     if pretty_json:
         cmd_1.append("--pretty")
+    if profile_name:
+        cmd_1.extend(["--profile", profile_name])
 
     step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=project_root)
     steps.append(step_1)
     if not step_1.ok:
-        return _build_result(
+        return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=job_dir,
-            input_file=local_excel,
+            working_dir=str(job_dir),
+            input_file=str(local_excel),
             steps=steps,
-            job_dir=job_dir,
-            profile=profile,
+            generated_files=_collect_outputs(job_dir),
             error="Falló xlsx_to_voucher_json.py",
         )
 
-    # STEP 2
     cmd_2 = [
         str(python_exe),
         "-m",
@@ -285,92 +233,92 @@ def run_full_voucher_pipeline(
         str(enriched_json),
         "--cache",
         str(hotel_cache),
+        "--logos-dir",
+        str(logos_dir),
     ]
 
     step_2 = _run_step("enrich_hotels", cmd_2, cwd=project_root)
     steps.append(step_2)
     if not step_2.ok:
-        return _build_result(
+        return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=job_dir,
-            input_file=local_excel,
+            working_dir=str(job_dir),
+            input_file=str(local_excel),
             steps=steps,
-            job_dir=job_dir,
-            profile=profile,
+            generated_files=_collect_outputs(job_dir),
             error="Falló enrich_hotels.py",
         )
 
-    # prioridad: profile > site > settings
-    final_brand_logo = profile_brand_logo or brand_logo or settings.BRAND_LOGO
-
-    if not final_brand_logo:
-        final_brand_logo = "assets/logos/GEOBYPATAGONIK.png"
-
-    # STEP 3
     cmd_3 = [
         str(python_exe),
         "-m",
         "voucher_generator.render_vouchers_html",
         str(enriched_json),
         "-o",
-        str(html_dir),
-        "--theme-key",
-        theme_key,
+        str(rendered_html_dir),
     ]
 
-    if final_brand_logo:
-        cmd_3.extend(["--brand-logo", str(final_brand_logo)])
+    if profile_name:
+        cmd_3.extend(["--profile", profile_name])
 
-    step_3 = _run_step("render_html", cmd_3, cwd=project_root)
+    logo_to_use = brand_logo  # solo override explícito
+    if logo_to_use:
+        logo_path = Path(logo_to_use)
+        if (
+            not logo_path.is_absolute()
+            and not str(logo_to_use).startswith(("http://", "https://", "data:"))
+        ):
+            logo_path = (generator_root / logo_path).resolve()
+        cmd_3.extend(["--brand-logo", str(logo_path)])
+        
+    step_3 = _run_step("render_vouchers_html", cmd_3, cwd=project_root)
     steps.append(step_3)
     if not step_3.ok:
-        return _build_result(
+        return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=job_dir,
-            input_file=local_excel,
+            working_dir=str(job_dir),
+            input_file=str(local_excel),
             steps=steps,
-            job_dir=job_dir,
-            profile=profile,
+            generated_files=_collect_outputs(job_dir),
             error="Falló render_vouchers_html.py",
         )
 
-    # STEP 4
     cmd_4 = [
         str(python_exe),
         "-m",
         "voucher_generator.render_vouchers_pdf",
-        str(html_dir),
+        str(rendered_html_dir),
         "-o",
-        str(pdf_dir),
+        str(rendered_pdf_dir),
     ]
 
-    step_4 = _run_step("render_pdf", cmd_4, cwd=project_root)
+    step_4 = _run_step("render_vouchers_pdf", cmd_4, cwd=project_root)
     steps.append(step_4)
     if not step_4.ok:
-        return _build_result(
+        return PipelineRunResult(
             ok=False,
             job_id=job_id,
-            working_dir=job_dir,
-            input_file=local_excel,
+            working_dir=str(job_dir),
+            input_file=str(local_excel),
             steps=steps,
-            job_dir=job_dir,
-            profile=profile,
+            generated_files=_collect_outputs(job_dir),
             error="Falló render_vouchers_pdf.py",
         )
 
-    zip_path = job_dir / "artifacts.zip"
-    zip_result = _zip_folder(job_dir, zip_path)
+    generated_files = _collect_outputs(job_dir)
 
-    return _build_result(
+    zip_path = job_dir / "artifacts.zip"
+    created_zip = _zip_folder(job_dir, zip_path)
+
+    return PipelineRunResult(
         ok=True,
         job_id=job_id,
-        working_dir=job_dir,
-        input_file=local_excel,
+        working_dir=str(job_dir),
+        input_file=str(local_excel),
         steps=steps,
-        job_dir=job_dir,
-        profile=profile,
+        generated_files=generated_files,
+        zip_file=str(created_zip.resolve()) if created_zip else None,
         error=None,
-        zip_file=zip_result,
     )
