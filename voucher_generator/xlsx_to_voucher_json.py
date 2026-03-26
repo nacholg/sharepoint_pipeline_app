@@ -1,9 +1,9 @@
-
 from __future__ import annotations
 
 import argparse
 import json
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -11,29 +11,49 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from openpyxl import load_workbook
 
 
-# Expected layout based on the operational spreadsheet.
-# Row 3 contains headers. Data starts on row 4.
-COL = {
-    "row_number": 1,   # "#"
-    "group_label": 6,
-    "last_name": 7,
-    "first_name": 8,
-    "mail": 9,
-    "phone": 11,
-    "nationality": 12,
-    "date_of_birth": 14,
-    "passport_number": 15,
-    "passport_expiration": 16,
-    "remarks": 18,
-    "food_restrictions": 19,
-    "qty": 36,
-    "destination": 39,
-    "hotel_name": 38,
-    "room": 37,
-    "check_in": 40,
-    "check_out": 41,
-    "nights": 42,
+# Operational spreadsheet layout
+HEADER_ROW = 3
+START_ROW = 4
+
+# Internal field names -> accepted header aliases in Excel
+FIELD_ALIASES: Dict[str, List[str]] = {
+    "row_number": ["#", "NRO", "ROW NUMBER", "ROW #", "PASSENGER #"],
+    "group_label": ["GROUP LABEL", "GROUP", "LABEL"],
+    "last_name": ["TRAVELER LAST NAME", "LAST NAME", "SURNAME", "APELLIDO"],
+    "first_name": ["TRAVELER FIRST NAME", "FIRST NAME", "NAME", "NOMBRE"],
+    "mail": ["MAIL", "EMAIL", "E-MAIL"],
+    "phone": ["TELEFONO", "TELEFONO ", "PHONE", "PHONE NUMBER", "CELLPHONE"],
+    "nationality": ["NATIONALITY", "NACIONALIDAD"],
+    "date_of_birth": ["DATE OF BIRTH", "DOB", "BIRTH DATE", "FECHA DE NACIMIENTO"],
+    "passport_number": ["PASSPORT NUMBER", "PASSPORT", "PASSPORT NO", "NRO PASAPORTE"],
+    "passport_expiration": [
+        "EXPIRATION DATE",
+        "EXPIRATION DATE ",
+        "PASSPORT EXPIRATION",
+        "PASSPORT EXPIRY",
+        "VENCIMIENTO PASAPORTE",
+    ],
+    "remarks": ["REMARKS", "COMMENTS", "OBSERVATIONS", "OBSERVACIONES"],
+    "food_restrictions": ["FOOD RESTRICTIONS", "FOOD", "DIETARY RESTRICTIONS"],
+    "qty": ["QTY", "PAX", "PAX QTY", "QUANTITY"],
+    "room": ["HAB", "ROOM", "ROOM CATEGORY", "ROOM TYPE"],
+    "hotel_name": ["HOTEL NAME", "HOTEL", "HOTEL NAME RAW"],
+    "destination": ["DESTINATION", "CITY", "DESTINO"],
+    "check_in": ["CHECK IN HOTEL", "CHECK IN", "IN", "ARRIVAL"],
+    "check_out": ["CHECK OUT HOTEL", "CHECK OUT", "OUT", "DEPARTURE"],
+    "nights": ["ROOM NIGHTS", "NIGHTS", "NIGHTS QTY"],
 }
+
+# Required for this stage so the import fails early with a clear message
+REQUIRED_FIELDS = [
+    "row_number",
+    "qty",
+    "room",
+    "hotel_name",
+    "destination",
+    "check_in",
+    "check_out",
+]
 
 
 # -------- Normalization helpers --------
@@ -113,6 +133,18 @@ def normalize_key_text(value: Any) -> Optional[str]:
     return text.upper()
 
 
+def normalize_header(value: Any) -> Optional[str]:
+    text = clean_text(value)
+    if not text:
+        return None
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.upper()
+    text = re.sub(r"[^\w\s#]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
+
+
 def to_title_case(value: Any) -> Optional[str]:
     text = clean_text(value)
     if not text:
@@ -138,7 +170,6 @@ def build_passenger_key(
             normalize_date(date_of_birth) or "NO-DOB",
         ]
     )
-    # Keep row number to avoid collapsing different travelers with the same or missing data.
     return f"{natural_key}|ROW-{excel_row_number}"
 
 
@@ -161,7 +192,9 @@ def get_effective_cell_value(ws, merged_lookup, row: int, col: int) -> Any:
     return ws.cell(row, col).value
 
 
-def get_merge_anchor_id(merged_lookup, row: int, col: int) -> Optional[str]:
+def get_merge_anchor_id(merged_lookup, row: int, col: Optional[int]) -> Optional[str]:
+    if not col:
+        return None
     merge_bounds = merged_lookup.get((row, col))
     if not merge_bounds:
         return None
@@ -169,27 +202,96 @@ def get_merge_anchor_id(merged_lookup, row: int, col: int) -> Optional[str]:
     return f"R{min_row}C{min_col}:R{max_row}C{max_col}"
 
 
+# -------- Header resolution --------
+def build_header_index(
+    ws,
+    merged_lookup,
+    header_row: int = HEADER_ROW,
+) -> Dict[str, int]:
+    header_index: Dict[str, int] = {}
+
+    for col in range(1, ws.max_column + 1):
+        raw_header = get_effective_cell_value(ws, merged_lookup, header_row, col)
+        normalized = normalize_header(raw_header)
+        if normalized and normalized not in header_index:
+            header_index[normalized] = col
+
+    return header_index
+
+
+def resolve_columns(
+    header_index: Dict[str, int],
+    aliases: Dict[str, List[str]],
+    required_fields: List[str],
+) -> Dict[str, int]:
+    resolved: Dict[str, int] = {}
+    missing_required: List[str] = []
+
+    for field_name, candidates in aliases.items():
+        for candidate in candidates:
+            normalized_candidate = normalize_header(candidate)
+            if normalized_candidate and normalized_candidate in header_index:
+                resolved[field_name] = header_index[normalized_candidate]
+                break
+
+        if field_name in required_fields and field_name not in resolved:
+            missing_required.append(field_name)
+
+    if missing_required:
+        details = []
+        for field_name in missing_required:
+            aliases_text = ", ".join(aliases.get(field_name, []))
+            details.append(f"- {field_name}: expected one of [{aliases_text}]")
+        raise ValueError(
+            "Missing required columns in header row "
+            f"{HEADER_ROW}:\n" + "\n".join(details)
+        )
+
+    return resolved
+
+
+def get_field_value(
+    ws,
+    merged_lookup,
+    row: int,
+    resolved_columns: Dict[str, int],
+    field_name: str,
+) -> Any:
+    col = resolved_columns.get(field_name)
+    if not col:
+        return None
+    return get_effective_cell_value(ws, merged_lookup, row, col)
+
+
 # -------- Row extraction --------
 def read_effective_rows(
     xlsx_path: Path,
     sheet_name: Optional[str] = None,
-    start_row: int = 4,
+    start_row: int = START_ROW,
+    header_row: int = HEADER_ROW,
 ) -> List[Dict[str, Any]]:
     wb = load_workbook(xlsx_path, data_only=True)
     ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
     merged_lookup = build_merged_lookup(ws)
 
+    header_index = build_header_index(ws, merged_lookup, header_row=header_row)
+    resolved_columns = resolve_columns(
+        header_index=header_index,
+        aliases=FIELD_ALIASES,
+        required_fields=REQUIRED_FIELDS,
+    )
+
     rows: List[Dict[str, Any]] = []
 
     for excel_row in range(start_row, ws.max_row + 1):
-        raw_first_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["first_name"])
-        raw_last_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["last_name"])
-        raw_destination = get_effective_cell_value(ws, merged_lookup, excel_row, COL["destination"])
-        raw_hotel_name = get_effective_cell_value(ws, merged_lookup, excel_row, COL["hotel_name"])
-        raw_room = get_effective_cell_value(ws, merged_lookup, excel_row, COL["room"])
-        raw_check_in = get_effective_cell_value(ws, merged_lookup, excel_row, COL["check_in"])
-        raw_check_out = get_effective_cell_value(ws, merged_lookup, excel_row, COL["check_out"])
-        raw_qty = get_effective_cell_value(ws, merged_lookup, excel_row, COL["qty"])
+        raw_first_name = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "first_name")
+        raw_last_name = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "last_name")
+        raw_destination = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "destination")
+        raw_hotel_name = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "hotel_name")
+        raw_room = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "room")
+        raw_check_in = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "check_in")
+        raw_check_out = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "check_out")
+        raw_qty = get_field_value(ws, merged_lookup, excel_row, resolved_columns, "qty")
 
         first_name = clean_text(raw_first_name)
         last_name = clean_text(raw_last_name)
@@ -203,22 +305,31 @@ def read_effective_rows(
         has_passenger = bool(first_name or last_name)
         has_voucher_context = any([destination, hotel_name, room, check_in, check_out, qty])
 
-        # Skip fully blank / trailing rows.
         if not has_passenger and not has_voucher_context:
             continue
 
-        qty_merge_anchor = get_merge_anchor_id(merged_lookup, excel_row, COL["qty"])
-        row_number_merge_anchor = get_merge_anchor_id(merged_lookup, excel_row, COL["row_number"])
+        qty_merge_anchor = get_merge_anchor_id(
+            merged_lookup,
+            excel_row,
+            resolved_columns.get("qty"),
+        )
+        row_number_merge_anchor = get_merge_anchor_id(
+            merged_lookup,
+            excel_row,
+            resolved_columns.get("row_number"),
+        )
 
         source_row_number = normalize_int(
-            get_effective_cell_value(ws, merged_lookup, excel_row, COL["row_number"])
+            get_field_value(ws, merged_lookup, excel_row, resolved_columns, "row_number")
         )
-        group_label = clean_text(get_effective_cell_value(ws, merged_lookup, excel_row, COL["group_label"]))
+        group_label = clean_text(
+            get_field_value(ws, merged_lookup, excel_row, resolved_columns, "group_label")
+        )
         date_of_birth = normalize_date(
-            get_effective_cell_value(ws, merged_lookup, excel_row, COL["date_of_birth"])
+            get_field_value(ws, merged_lookup, excel_row, resolved_columns, "date_of_birth")
         )
         passport_number = clean_text(
-            get_effective_cell_value(ws, merged_lookup, excel_row, COL["passport_number"])
+            get_field_value(ws, merged_lookup, excel_row, resolved_columns, "passport_number")
         )
 
         rows.append(
@@ -230,19 +341,25 @@ def read_effective_rows(
                 "first_name": first_name,
                 "last_name": last_name,
                 "full_name": " ".join([p for p in [first_name, last_name] if p]) or None,
-                "mail": normalize_email(get_effective_cell_value(ws, merged_lookup, excel_row, COL["mail"])),
-                "phone": normalize_phone(get_effective_cell_value(ws, merged_lookup, excel_row, COL["phone"])),
+                "mail": normalize_email(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "mail")
+                ),
+                "phone": normalize_phone(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "phone")
+                ),
                 "nationality": clean_text(
-                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["nationality"])
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "nationality")
                 ),
                 "date_of_birth": date_of_birth,
                 "passport_number": passport_number,
                 "passport_expiration": normalize_date(
-                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["passport_expiration"])
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "passport_expiration")
                 ),
-                "remarks": clean_text(get_effective_cell_value(ws, merged_lookup, excel_row, COL["remarks"])),
+                "remarks": clean_text(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "remarks")
+                ),
                 "food_restrictions": clean_text(
-                    get_effective_cell_value(ws, merged_lookup, excel_row, COL["food_restrictions"])
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "food_restrictions")
                 ),
                 "qty": qty,
                 "qty_merge_anchor": qty_merge_anchor,
@@ -251,7 +368,9 @@ def read_effective_rows(
                 "room": room,
                 "check_in": check_in,
                 "check_out": check_out,
-                "nights": normalize_int(get_effective_cell_value(ws, merged_lookup, excel_row, COL["nights"])),
+                "nights": normalize_int(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "nights")
+                ),
                 "passenger_key": build_passenger_key(
                     passport_number=passport_number,
                     last_name=last_name,
@@ -276,7 +395,6 @@ def build_voucher_blocks(rows: List[Dict[str, Any]]) -> List[List[Dict[str, Any]
         qty_anchor = row.get("qty_merge_anchor")
 
         if qty_anchor:
-            # Any merged QTY range is one voucher block across all affected rows.
             block_key = f"MERGED:{qty_anchor}"
             if current_block and current_block_key != block_key:
                 blocks.append(current_block)
@@ -285,7 +403,6 @@ def build_voucher_blocks(rows: List[Dict[str, Any]]) -> List[List[Dict[str, Any]
             current_block.append(row)
             continue
 
-        # Non-merged QTY means one voucher per physical row.
         if current_block:
             blocks.append(current_block)
             current_block = []
@@ -358,7 +475,6 @@ def pad_passengers(passengers: List[Dict[str, Any]], qty: int, block_rows: List[
 
 
 def choose_block_header(block_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    # Prefer the first row in the block; merged cells are already expanded.
     return sorted(block_rows, key=lambda r: r["excel_row_number"])[0]
 
 
