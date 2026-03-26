@@ -8,16 +8,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
-try:
-    from profiles.default_profile import FIELD_ALIASES, REQUIRED_FIELDS, HEADER_ROW, START_ROW
-except ImportError:
-    from voucher_generator.profiles.default_profile import (
-        FIELD_ALIASES,
-        REQUIRED_FIELDS,
-        HEADER_ROW,
-        START_ROW,
-    )
-
+from voucher_generator.profiles.default_profile import (
+    FIELD_ALIASES,
+    REQUIRED_FIELDS,
+    HEADER_ROW,
+    START_ROW,
+)
 
 def clean_text(value: Any) -> Optional[str]:
     if value is None:

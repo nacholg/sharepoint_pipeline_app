@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 
-from xlsx_importer import clean_text
+from voucher_generator.xlsx_importer import clean_text
 
 
 def to_title_case(value: Any) -> Optional[str]:

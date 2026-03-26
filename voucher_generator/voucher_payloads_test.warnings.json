@@ -1,0 +1,66 @@
+[
+  {
+    "row_index": 7,
+    "warnings": [
+      "missing passport"
+    ],
+    "row": {
+      "excel_row_number": 11,
+      "source_row_number": 1,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "first_name": "Noemi María",
+      "last_name": "Diaz",
+      "full_name": "Noemi María Diaz",
+      "mail": "noemidiaz14@gmail.com",
+      "phone": "011-1558797545",
+      "nationality": "Argentina",
+      "date_of_birth": "1953-03-14",
+      "passport_number": null,
+      "passport_expiration": null,
+      "remarks": null,
+      "food_restrictions": null,
+      "qty": 1,
+      "qty_merge_anchor": "R11C36:R12C36",
+      "destination": "Punta Cana",
+      "hotel_name": "ROYALTON BAVARO",
+      "room": "DBL KING",
+      "check_in": "2026-04-20",
+      "check_out": "2026-04-26",
+      "nights": 6,
+      "passenger_key": "DIAZ|NOEMI MARÍA|1953-03-14|ROW-11"
+    }
+  },
+  {
+    "row_index": 8,
+    "warnings": [
+      "missing passport"
+    ],
+    "row": {
+      "excel_row_number": 12,
+      "source_row_number": 2,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "first_name": "Héctor Ruben",
+      "last_name": "Rodríguez",
+      "full_name": "Héctor Ruben Rodríguez",
+      "mail": null,
+      "phone": null,
+      "nationality": "Argentina",
+      "date_of_birth": "1950-12-04",
+      "passport_number": null,
+      "passport_expiration": null,
+      "remarks": "Hipertenso",
+      "food_restrictions": "Diabetico",
+      "qty": 1,
+      "qty_merge_anchor": "R11C36:R12C36",
+      "destination": "Punta Cana",
+      "hotel_name": "ROYALTON BAVARO",
+      "room": "DBL KING",
+      "check_in": "2026-04-20",
+      "check_out": "2026-04-26",
+      "nights": 6,
+      "passenger_key": "RODRÍGUEZ|HÉCTOR RUBEN|1950-12-04|ROW-12"
+    }
+  }
+]
