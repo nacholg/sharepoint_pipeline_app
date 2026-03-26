@@ -3,39 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voucher Generator</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260325-2" />
+  <title>Voucher Pipeline</title>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    <div class="bg-grid"></div>
-
-    <header class="topbar">
+    <header class="topbar card">
       <div class="brand-block">
-        <div class="brand-mark">VG</div>
+        <div class="brand-mark">VP</div>
         <div>
+          <small>Pipeline premium</small>
           <h1>Voucher Generator</h1>
-          <p class="brand-subtitle">Premium Pipeline Console</p>
         </div>
       </div>
 
       <div class="topbar-actions">
         {% if user %}
-          <div class="user-pill success">
-            <span class="user-dot"></span>
+          <div class="user-pill">
+            <div class="user-avatar">{{ user.name[:1] if user.name else "U" }}</div>
             <div>
-              <strong>{{ user.name or "Usuario autenticado" }}</strong>
+              <strong>{{ user.name }}</strong>
               <small>{{ user.email }}</small>
             </div>
           </div>
-          <a class="btn ghost" href="/auth/logout">Logout</a>
+          <a class="btn secondary" href="/auth/logout">Logout</a>
         {% else %}
           <div class="user-pill">
-            <span class="user-dot"></span>
+            <div class="user-avatar">M</div>
             <div>
-              <strong>No autenticado</strong>
+              <strong>SharePoint</strong>
               <small>Conectá tu cuenta Microsoft</small>
             </div>
           </div>
@@ -88,7 +84,14 @@
           <div class="form-grid">
             <label class="field">
               <span>Excel de entrada</span>
-              <input type="file" id="fileInput" accept=".xlsx,.xlsm" />
+              <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" />
+            </label>
+
+            <label class="field">
+              <span>Cliente / Profile</span>
+              <select id="localProfileSelect">
+                <option value="default">Default</option>
+              </select>
             </label>
           </div>
 
@@ -123,55 +126,68 @@
                 <span>Site destino</span>
                 <select id="destinationSiteSelect"></select>
               </label>
+
+              <label class="field">
+                <span>Cliente / Profile</span>
+                <select id="sharepointProfileSelect">
+                  <option value="default">Default</option>
+                </select>
+              </label>
             </div>
 
-            <div class="sp-summary-grid">
-              <div class="result-kpi">
-                <span>Excel seleccionado</span>
-                <strong id="selectedSourceLabel">Sin seleccionar</strong>
+            <div class="sp-picker-grid">
+              <div class="picker-card">
+                <div class="picker-header">
+                  <div>
+                    <span class="eyebrow">Origen</span>
+                    <h4>Excel desde SharePoint</h4>
+                  </div>
+                  <button id="pickSPFileBtn" class="btn secondary" type="button">
+                    Elegir archivo
+                  </button>
+                </div>
+                <p id="selectedSourceLabel" class="picker-label">Sin seleccionar</p>
               </div>
-              <div class="result-kpi">
-                <span>Carpeta destino</span>
-                <strong id="selectedDestLabel">Sin seleccionar</strong>
+
+              <div class="picker-card">
+                <div class="picker-header">
+                  <div>
+                    <span class="eyebrow">Destino</span>
+                    <h4>Carpeta de salida</h4>
+                  </div>
+                  <button id="pickSPFolderBtn" class="btn secondary" type="button">
+                    Elegir carpeta
+                  </button>
+                </div>
+                <p id="selectedDestLabel" class="picker-label">Sin seleccionar</p>
               </div>
             </div>
 
             <div class="panel-actions">
-              <button id="pickSPFileBtn" class="btn secondary large" type="button">
-                Elegir archivo de SharePoint
-              </button>
-              <button id="pickSPFolderBtn" class="btn secondary large" type="button">
-                Elegir carpeta destino
-              </button>
               <button id="runSPBtn" class="btn primary large" type="button">
-                Ejecutar desde SharePoint
+                Ejecutar pipeline SharePoint
               </button>
-            </div>
-          {% else %}
-            <div class="panel-actions">
-              <a class="btn primary large" href="/auth/login">Login SharePoint</a>
             </div>
           {% endif %}
         </div>
       </section>
 
-      <section id="progressCard" class="card hidden">
+      <section id="statusCard" class="card">
         <div class="section-head">
           <div>
             <span class="eyebrow">Pipeline status</span>
             <h3>Estado de ejecución</h3>
           </div>
-          <div id="pipelineStatusBadge" class="status-badge neutral">Esperando</div>
+          <div id="statusBadge" class="status-badge idle">Idle</div>
         </div>
 
-        <div class="progress-wrap">
-          <div class="progress-meta">
-            <span id="progressLabel">Listo para ejecutar</span>
-            <span id="progressPercent">0%</span>
-          </div>
-          <div class="progress-bar">
-            <div id="progressFill"></div>
-          </div>
+        <div class="progress-meta">
+          <div id="progressLabel">Esperando ejecución</div>
+          <div id="progressPercent">0%</div>
+        </div>
+
+        <div class="progress-bar">
+          <div id="progressFill"></div>
         </div>
 
         <div id="steps" class="steps-list"></div>
@@ -231,13 +247,11 @@
           <div><strong>Excel:</strong> <span id="spPickedSourceInline">Sin seleccionar</span></div>
           <div><strong>Destino:</strong> <span id="spPickedDestInline">Sin seleccionar</span></div>
         </div>
-        <button id="confirmSPSelectionBtn" class="btn primary" type="button">
-          Confirmar selección
-        </button>
+        <button id="confirmSPSelectionBtn" class="btn primary" type="button">Confirmar</button>
       </div>
     </div>
   </div>
 
-  <script src="/static/app.js?v=20260325-2"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>
