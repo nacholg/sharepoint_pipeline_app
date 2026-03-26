@@ -6,6 +6,8 @@ const API = {
   profiles: "/api/profiles",
 };
 
+const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
+
 const userDataEl = document.getElementById("user-data");
 const currentUser = userDataEl ? JSON.parse(userDataEl.textContent) : null;
 
@@ -173,9 +175,7 @@ async function loadProfiles() {
     const response = await fetch(API.profiles);
     const data = await response.json();
 
-    if (!response.ok || !data?.ok) {
-      return;
-    }
+    if (!response.ok || !data?.ok) return;
 
     availableProfiles = Array.isArray(data.profiles) ? data.profiles : [];
     const defaultProfile = data.default_profile || "default";
@@ -300,7 +300,7 @@ function syncPickedLabels() {
 
 function resetUI(label = "Esperando ejecución") {
   statusBadge.textContent = "Idle";
-  statusBadge.className = "status-badge idle";
+  statusBadge.className = "status-badge neutral";
   progressLabel.textContent = label;
   progressPercent.textContent = "0%";
   progressFill.style.width = "0%";
@@ -337,24 +337,23 @@ function escapeHtml(value) {
 
 function renderStep(step) {
   const wrap = document.createElement("div");
-  wrap.className = "step-card";
+  wrap.className = `step-item ${step.ok ? "success" : "error"}`;
 
-  const statusClass = step.ok ? "success-dot" : "error-dot";
   const output = [step.stdout, step.stderr].filter(Boolean).join("\n").trim();
 
   wrap.innerHTML = `
-    <div class="step-header">
-      <div class="step-title-row">
-        <span class="step-dot ${statusClass}"></span>
-        <h4>${escapeHtml(step.name)}</h4>
+    <div class="step-bullet"></div>
+    <div class="step-body">
+      <div class="step-head">
+        <div class="step-title">${escapeHtml(step.name)}</div>
+        <div class="step-state">Return code: ${escapeHtml(step.returncode)}</div>
       </div>
-      <div class="step-meta">Return code: ${escapeHtml(step.returncode)}</div>
+      ${
+        output
+          ? `<pre class="log-block">${escapeHtml(output)}</pre>`
+          : `<div class="muted-text">Sin salida</div>`
+      }
     </div>
-    ${
-      output
-        ? `<pre class="step-output">${escapeHtml(output)}</pre>`
-        : `<div class="step-empty">Sin salida</div>`
-    }
   `;
 
   return wrap;
@@ -363,20 +362,88 @@ function renderStep(step) {
 function renderFatalError(error) {
   setFinishedState(false);
   stepsEl.innerHTML = `
-    <div class="step-card">
-      <div class="step-header">
-        <div class="step-title-row">
-          <span class="step-dot error-dot"></span>
-          <h4>Error fatal</h4>
+    <div class="step-item error">
+      <div class="step-bullet"></div>
+      <div class="step-body">
+        <div class="step-head">
+          <div class="step-title">Error fatal</div>
         </div>
+        <pre class="log-block">${escapeHtml(error?.message || String(error))}</pre>
       </div>
-      <pre class="step-output">${escapeHtml(error?.message || String(error))}</pre>
     </div>
   `;
 
   resultCard.classList.remove("hidden");
   resultContent.innerHTML = `
-    <div class="notice danger">${escapeHtml(error?.message || String(error))}</div>
+    <div class="error-banner">${escapeHtml(error?.message || String(error))}</div>
+  `;
+}
+
+function buildSummaryGrid(result) {
+  const summary = result.pipeline_summary || {};
+  const resolvedProfile = result.resolved_profile || result.profile_used || "-";
+
+  const totalRows = summary.total_rows ?? "-";
+  const validRows = summary.valid_rows ?? "-";
+  const errors = summary.errors ?? "-";
+  const warnings = summary.warnings ?? "-";
+  const vouchers = summary.vouchers ?? "-";
+
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span>Profile</span>
+        <strong>${escapeHtml(resolvedProfile)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Rows procesadas</span>
+        <strong>${escapeHtml(totalRows)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Rows válidas</span>
+        <strong>${escapeHtml(validRows)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Warnings</span>
+        <strong>${escapeHtml(warnings)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Errors</span>
+        <strong>${escapeHtml(errors)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Vouchers</span>
+        <strong>${escapeHtml(vouchers)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function buildDebugFilesGrid(result) {
+  const debugItems = [
+    { label: "Summary JSON", value: result.summary_file },
+    { label: "Rows JSON", value: result.rows_file },
+    { label: "Warnings JSON", value: result.warnings_file },
+    { label: "Errors JSON", value: result.errors_file },
+  ].filter((x) => !!x.value);
+
+  if (!debugItems.length) {
+    return `<p class="muted-text">No hay artifacts de debug expuestos.</p>`;
+  }
+
+  return `
+    <div class="debug-grid">
+      ${debugItems
+        .map(
+          (item) => `
+            <div class="debug-card">
+              <span>${escapeHtml(item.label)}</span>
+              <code>${escapeHtml(item.value)}</code>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
   `;
 }
 
@@ -392,14 +459,14 @@ function renderResult(result, mode) {
     }
   } else {
     stepsEl.innerHTML = `
-      <div class="step-card">
-        <div class="step-header">
-          <div class="step-title-row">
-            <span class="step-dot ${result.ok ? "success-dot" : "error-dot"}"></span>
-            <h4>${result.ok ? "Sin pasos detallados" : "Error final"}</h4>
+      <div class="step-item ${result.ok ? "success" : "error"}">
+        <div class="step-bullet"></div>
+        <div class="step-body">
+          <div class="step-head">
+            <div class="step-title">${result.ok ? "Sin pasos detallados" : "Error final"}</div>
           </div>
+          <pre class="log-block">${escapeHtml(result.error || "Sin detalles")}</pre>
         </div>
-        <pre class="step-output">${escapeHtml(result.error || "Sin detalles")}</pre>
       </div>
     `;
   }
@@ -408,40 +475,13 @@ function renderResult(result, mode) {
 
   const generatedFiles = Array.isArray(result.generated_files) ? result.generated_files : [];
   const uploadedFiles = Array.isArray(result.uploaded_files) ? result.uploaded_files : [];
-  const summary = result.pipeline_summary || {};
-  const resolvedProfile = result.resolved_profile || result.profile_used || "-";
 
   resultContent.innerHTML = `
-    <div class="result-meta-grid">
-      <div class="result-meta-card">
-        <div class="result-meta-label">Job ID</div>
-        <div class="result-meta-value">${escapeHtml(result.job_id || "-")}</div>
-      </div>
-      <div class="result-meta-card">
-        <div class="result-meta-label">Modo</div>
-        <div class="result-meta-value">${escapeHtml(mode || result.mode || "-")}</div>
-      </div>
-      <div class="result-meta-card">
-        <div class="result-meta-label">Profile</div>
-        <div class="result-meta-value">${escapeHtml(resolvedProfile)}</div>
-      </div>
-      <div class="result-meta-card">
-        <div class="result-meta-label">Vouchers</div>
-        <div class="result-meta-value">${escapeHtml(summary.vouchers ?? "-")}</div>
-      </div>
-      <div class="result-meta-card">
-        <div class="result-meta-label">Rows procesadas</div>
-        <div class="result-meta-value">${escapeHtml(summary.total_rows ?? "-")}</div>
-      </div>
-      <div class="result-meta-card">
-        <div class="result-meta-label">Warnings</div>
-        <div class="result-meta-value">${escapeHtml(summary.warnings ?? "-")}</div>
-      </div>
-    </div>
+    ${buildSummaryGrid(result)}
 
     ${
       result.error
-        ? `<div class="notice danger">${escapeHtml(result.error)}</div>`
+        ? `<div class="error-banner">${escapeHtml(result.error)}</div>`
         : ""
     }
 
@@ -449,12 +489,12 @@ function renderResult(result, mode) {
       <h4>Archivos generados</h4>
       ${
         generatedFiles.length
-          ? `<ul class="result-list">
+          ? `<ul class="file-list">
               ${generatedFiles
-                .map((file) => `<li><code>${escapeHtml(file)}</code></li>`)
+                .map((file) => `<li class="file-name"><code>${escapeHtml(file)}</code></li>`)
                 .join("")}
             </ul>`
-          : `<p class="muted">No hay archivos generados.</p>`
+          : `<p class="muted-text">No hay archivos generados.</p>`
       }
     </div>
 
@@ -467,24 +507,29 @@ function renderResult(result, mode) {
         : ""
     }
 
+    <div class="result-section">
+      <h4>Artifacts de debug</h4>
+      ${buildDebugFilesGrid(result)}
+    </div>
+
     ${
       uploadedFiles.length
         ? `<div class="result-section">
             <h4>Uploads a SharePoint</h4>
-            <ul class="result-list">
+            <ul class="file-list">
               ${uploadedFiles
                 .map((item) => {
                   const name = item.name || item.displayName || "archivo";
                   const error = item.upload_error;
-                  return `<li>${escapeHtml(name)}${
-                    error ? ` — <span class="danger-text">${escapeHtml(error)}</span>` : ""
+                  return `<li class="file-name">${escapeHtml(name)}${
+                    error ? ` — <span class="error-text">${escapeHtml(error)}</span>` : ""
                   }</li>`;
                 })
                 .join("")}
             </ul>
           </div>`
         : mode === "sharepoint"
-          ? `<div class="result-section"><h4>Uploads a SharePoint</h4><p class="muted">No hubo uploads individuales.</p></div>`
+          ? `<div class="result-section"><h4>Uploads a SharePoint</h4><p class="muted-text">No hubo uploads individuales.</p></div>`
           : ""
     }
   `;
@@ -647,39 +692,82 @@ function renderSharePointBrowser(items) {
 
   spModalBody.innerHTML = "";
 
+  const list = document.createElement("div");
+  list.className = "browser-list";
+
   for (const item of items) {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "browser-item";
+    const row = document.createElement("div");
+    row.className = "browser-row";
 
     const isFolder = !!item.is_folder;
     const isFile = !!item.is_file;
 
     row.innerHTML = `
-      <div class="browser-item-main">
-        <span class="browser-item-icon">${isFolder ? "📁" : "📄"}</span>
-        <div>
-          <div class="browser-item-title">${escapeHtml(item.name || "Sin nombre")}</div>
-          <div class="browser-item-meta">${isFolder ? "Carpeta" : "Archivo"}</div>
+      <div class="browser-main">
+        <div class="browser-name">
+          <span class="browser-icon">${isFolder ? "📁" : "📄"}</span>
+          <span>${escapeHtml(item.name || "Sin nombre")}</span>
         </div>
+        <div class="browser-meta">${isFolder ? "Carpeta" : "Archivo"}</div>
       </div>
+      <div class="browser-actions"></div>
     `;
 
-    row.addEventListener("click", async () => {
-      if (isFolder) {
+    const actions = row.querySelector(".browser-actions");
+
+    if (isFolder) {
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "btn secondary small";
+      openBtn.textContent = "Abrir";
+      openBtn.addEventListener("click", async () => {
         await loadSharePointFolder(item.id);
-        return;
-      }
+      });
+      actions.appendChild(openBtn);
 
-      if (spBrowseMode === "source" && isFile) {
-        selectedSourceFileId = item.id;
-        selectedSourceFileName = item.name;
-        selectedSourceSiteKey = currentModalSiteKey;
-        if (sourceSiteSelect) sourceSiteSelect.value = currentModalSiteKey;
-        syncPickedLabels();
+      if (spBrowseMode === "dest") {
+        const useBtn = document.createElement("button");
+        useBtn.type = "button";
+        useBtn.className = "btn primary small";
+        useBtn.textContent = "Usar carpeta";
+        useBtn.addEventListener("click", () => {
+          selectedDestinationFolderId = item.id;
+          selectedDestinationFolderName = item.name;
+          selectedDestinationSiteKey = currentModalSiteKey;
+          if (destinationSiteSelect) destinationSiteSelect.value = currentModalSiteKey;
+          syncPickedLabels();
+        });
+        actions.appendChild(useBtn);
       }
-    });
+    }
 
-    spModalBody.appendChild(row);
+    if (isFile && spBrowseMode === "source") {
+      const name = (item.name || "").toLowerCase();
+      const isExcel = ALLOWED_EXCEL_EXTENSIONS.some((ext) => name.endsWith(ext));
+
+      if (!isExcel) {
+        const badge = document.createElement("span");
+        badge.className = "file-badge invalid";
+        badge.textContent = "No válido";
+        actions.appendChild(badge);
+      } else {
+        const pickBtn = document.createElement("button");
+        pickBtn.type = "button";
+        pickBtn.className = "btn primary small";
+        pickBtn.textContent = "Elegir archivo";
+        pickBtn.addEventListener("click", () => {
+          selectedSourceFileId = item.id;
+          selectedSourceFileName = item.name;
+          selectedSourceSiteKey = currentModalSiteKey;
+          if (sourceSiteSelect) sourceSiteSelect.value = currentModalSiteKey;
+          syncPickedLabels();
+        });
+        actions.appendChild(pickBtn);
+      }
+    }
+
+    list.appendChild(row);
   }
+
+  spModalBody.appendChild(list);
 }
