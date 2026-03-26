@@ -42,6 +42,6 @@ PROFILE_CONFIG = {
     ],
     "branding": {
         "theme_key": "default",
-        "brand_logo": None,
+        "brand_logo": "assets/logos/GEOBYPATAGONIK.png",
     },
 }
