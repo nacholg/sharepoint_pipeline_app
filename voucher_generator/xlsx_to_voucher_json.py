@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from voucher_validator import validate_rows
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -213,7 +214,25 @@ def main() -> None:
     output_path = Path(args.output) if args.output else input_path.with_suffix(".voucher_payloads.json")
 
     rows = read_effective_rows(input_path, sheet_name=args.sheet)
-    payloads = build_voucher_payloads(rows)
+
+    validation = validate_rows(rows)
+
+    valid_rows = validation["valid_rows"]
+    rows_with_errors = validation["rows_with_errors"]
+    rows_with_warnings = validation["rows_with_warnings"]
+
+    print(f"Rows processed: {len(rows)}")
+    print(f"Valid rows: {len(valid_rows)}")
+    print(f"Rows with errors: {len(rows_with_errors)}")
+    print(f"Rows with warnings: {len(rows_with_warnings)}")
+
+    # Si hay errores, abortamos
+    if rows_with_errors:
+        print("\nERRORS FOUND:")
+        for err in rows_with_errors[:5]:
+            print(f"- Row {err['row_index']}: {err['errors']}")
+        raise SystemExit("Aborting due to validation errors")
+    payloads = build_voucher_payloads(valid_rows)
 
     output_path.write_text(
         json.dumps(payloads, ensure_ascii=False, indent=2 if args.pretty else None),
