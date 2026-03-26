@@ -76,11 +76,16 @@ def main() -> None:
         action="store_true",
         help="Also emit a .rows.json file with normalized rows for debugging.",
     )
+    parser.add_argument(
+        "--profile",
+        default="default",
+        help="Profile name (default, future clients, etc.)"
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
     output_path = Path(args.output) if args.output else input_path.with_suffix(".voucher_payloads.json")
-
+    
     rows = read_effective_rows(input_path, sheet_name=args.sheet)
 
     validation = validate_rows(rows)

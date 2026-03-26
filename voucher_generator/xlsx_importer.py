@@ -8,47 +8,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
-
-HEADER_ROW = 3
-START_ROW = 4
-
-FIELD_ALIASES: Dict[str, List[str]] = {
-    "row_number": ["#", "NRO", "ROW NUMBER", "ROW #", "PASSENGER #"],
-    "group_label": ["GROUP LABEL", "GROUP", "LABEL"],
-    "last_name": ["TRAVELER LAST NAME", "LAST NAME", "SURNAME", "APELLIDO"],
-    "first_name": ["TRAVELER FIRST NAME", "FIRST NAME", "NAME", "NOMBRE"],
-    "mail": ["MAIL", "EMAIL", "E-MAIL"],
-    "phone": ["TELEFONO", "TELEFONO ", "PHONE", "PHONE NUMBER", "CELLPHONE"],
-    "nationality": ["NATIONALITY", "NACIONALIDAD"],
-    "date_of_birth": ["DATE OF BIRTH", "DOB", "BIRTH DATE", "FECHA DE NACIMIENTO"],
-    "passport_number": ["PASSPORT NUMBER", "PASSPORT", "PASSPORT NO", "NRO PASAPORTE"],
-    "passport_expiration": [
-        "EXPIRATION DATE",
-        "EXPIRATION DATE ",
-        "PASSPORT EXPIRATION",
-        "PASSPORT EXPIRY",
-        "VENCIMIENTO PASAPORTE",
-    ],
-    "remarks": ["REMARKS", "COMMENTS", "OBSERVATIONS", "OBSERVACIONES"],
-    "food_restrictions": ["FOOD RESTRICTIONS", "FOOD", "DIETARY RESTRICTIONS"],
-    "qty": ["QTY", "PAX", "PAX QTY", "QUANTITY"],
-    "room": ["HAB", "ROOM", "ROOM CATEGORY", "ROOM TYPE"],
-    "hotel_name": ["HOTEL NAME", "HOTEL", "HOTEL NAME RAW"],
-    "destination": ["DESTINATION", "CITY", "DESTINO"],
-    "check_in": ["CHECK IN HOTEL", "CHECK IN", "IN", "ARRIVAL"],
-    "check_out": ["CHECK OUT HOTEL", "CHECK OUT", "OUT", "DEPARTURE"],
-    "nights": ["ROOM NIGHTS", "NIGHTS", "NIGHTS QTY"],
-}
-
-REQUIRED_FIELDS = [
-    "row_number",
-    "qty",
-    "room",
-    "hotel_name",
-    "destination",
-    "check_in",
-    "check_out",
-]
+try:
+    from profiles.default_profile import FIELD_ALIASES, REQUIRED_FIELDS, HEADER_ROW, START_ROW
+except ImportError:
+    from voucher_generator.profiles.default_profile import (
+        FIELD_ALIASES,
+        REQUIRED_FIELDS,
+        HEADER_ROW,
+        START_ROW,
+    )
 
 
 def clean_text(value: Any) -> Optional[str]:
