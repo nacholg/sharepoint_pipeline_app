@@ -7,22 +7,15 @@ import json
 import mimetypes
 import os
 import re
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from importlib import import_module
 
 from voucher_generator.themes.theme_registry import get_theme_config
 
-
-
 BASE_DIR = Path(__file__).resolve().parent
 
-
 DEFAULT_PROFILE_KEY = "default"
-PROFILE_MODULES = {
-    "default": "profiles.default_profile",
-    "mastercard": "profiles.mastercard_profile",
-}
 
 
 def clean_filename(value: str) -> str:
@@ -45,6 +38,73 @@ def display_or_pending(value: Any, pending: str = "Pending") -> str:
     return e(value) if value not in (None, "") else pending
 
 
+def nbsp(text: str) -> str:
+    return text.replace(" ", "&nbsp;")
+
+
+def no_break_text(value: Any) -> str:
+    if value in (None, ""):
+        return ""
+    text = html.escape(str(value).strip())
+    return nbsp(text)
+
+
+def no_break_phone(value: Any) -> str:
+    if value in (None, ""):
+        return ""
+    text = html.escape(str(value).strip())
+    text = text.replace(" ", "&nbsp;")
+    text = text.replace("-", "&#8209;")
+    return text
+
+
+def no_break_iso_date(value: Any) -> str:
+    if value in (None, ""):
+        return ""
+
+    text = str(value).strip()
+
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        year, month, day = text.split("-")
+        month_map = {
+            "01": "Jan",
+            "02": "Feb",
+            "03": "Mar",
+            "04": "Apr",
+            "05": "May",
+            "06": "Jun",
+            "07": "Jul",
+            "08": "Aug",
+            "09": "Sep",
+            "10": "Oct",
+            "11": "Nov",
+            "12": "Dec",
+        }
+        month_label = month_map.get(month, month)
+        formatted = f"{day} {month_label} {year}"
+        return html.escape(formatted)
+
+    return html.escape(text)
+
+
+def format_fact_value(label: str, value: Any) -> str:
+    raw_label = (label or "").strip().lower()
+
+    if value in (None, ""):
+        return "-"
+
+    if raw_label in {"city", "country", "destination"}:
+        return e(value)
+
+    if raw_label in {"phone", "telephone"}:
+        return no_break_phone(value)
+
+    if raw_label in {"check in", "check-out", "check out", "date"}:
+        return no_break_iso_date(value)
+
+    return e(value)
+
+
 def file_to_data_uri(path: Path) -> Optional[str]:
     try:
         if not path.exists() or not path.is_file():
@@ -57,7 +117,12 @@ def file_to_data_uri(path: Path) -> Optional[str]:
         return None
 
 
-def resolve_logo_src(value: Optional[str], output_dir: Path, debug: bool = False, label: str = "logo") -> Optional[str]:
+def resolve_logo_src(
+    value: Optional[str],
+    output_dir: Path,
+    debug: bool = False,
+    label: str = "logo",
+) -> Optional[str]:
     if not value:
         if debug:
             print(f"[DEBUG] {label}: no value provided")
@@ -111,29 +176,34 @@ def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False)
 
 
 def load_profile_config(profile_name: str | None) -> dict:
-    profile_key = (profile_name or "default").strip().lower()
+    profile_key = (profile_name or DEFAULT_PROFILE_KEY).strip().lower()
     module_name = f"voucher_generator.profiles.{profile_key}_profile"
 
     try:
         module = import_module(module_name)
     except ModuleNotFoundError as exc:
-        if profile_key != "default":
+        if profile_key != DEFAULT_PROFILE_KEY:
             module = import_module("voucher_generator.profiles.default_profile")
         else:
             raise exc
 
     return getattr(module, "PROFILE_CONFIG")
 
+
 def passenger_cards(passengers: List[Dict[str, Any]]) -> str:
     cards: List[str] = []
     for pax in passengers:
+        nationality = no_break_text(pax.get("nationality")) or "-"
+        passport_number = e(pax.get("passport_number")) if pax.get("passport_number") not in (None, "") else "-"
+        passport_expiration = no_break_iso_date(pax.get("passport_expiration")) or "-"
+
         cards.append(
             f"""
             <article class="pax-card">
               <div class="pax-name">{e(pax.get('full_name') or 'Passenger')}</div>
-              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value text-safe">{display_or_pending(pax.get('nationality'), '-')}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value text-safe">{display_or_pending(pax.get('passport_number'), '-')}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value text-safe">{display_or_pending(pax.get('passport_expiration'), '-')}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value text-safe">{nationality}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value text-safe">{passport_number}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value text-safe">{passport_expiration}</span></div>
             </article>
             """
         )
@@ -158,13 +228,13 @@ def room_rows(rooms: List[Dict[str, Any]]) -> str:
 
 def summary_tiles(stay: Dict[str, Any]) -> str:
     items = [
-        ("Check-in", stay.get("check_in")),
-        ("Check-out", stay.get("check_out")),
-        ("Nights", stay.get("nights")),
-        ("Meals", stay.get("meal_plan") or stay.get("meals")),
+        ("Check-in", no_break_iso_date(stay.get("check_in")) or "-"),
+        ("Check-out", no_break_iso_date(stay.get("check_out")) or "-"),
+        ("Nights", e(stay.get("nights")) if stay.get("nights") not in (None, "") else "-"),
+        ("Meals", e(stay.get("meal_plan") or stay.get("meals")) if (stay.get("meal_plan") or stay.get("meals")) not in (None, "") else "-"),
     ]
     return "\n".join(
-        f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value text-wrap">{display_or_pending(value, "-")}</div></div>'
+        f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value">{value}</div></div>'
         for label, value in items
     )
 
@@ -199,7 +269,6 @@ def build_html(
     debug: bool = False,
 ) -> str:
     voucher = voucher_payload.get("voucher", {})
-    destination = voucher_payload.get("destination", {})
     hotel = voucher_payload.get("hotel", {})
     stay = voucher_payload.get("stay", {})
     rooms = voucher_payload.get("rooms", [])
@@ -239,6 +308,13 @@ def build_html(
         hotel.get("country"),
     ]
     hotel_meta = " · ".join(str(part) for part in subtitle_parts if part)
+
+    city_html = format_fact_value("City", hotel.get("city"))
+    country_html = format_fact_value("Country", hotel.get("country"))
+    phone_html = format_fact_value("Phone", hotel.get("phone"))
+    conf_html = e(voucher.get("confirmation_number")) if voucher.get("confirmation_number") not in (None, "") else "Pending"
+    issue_date_html = no_break_iso_date(voucher.get("issue_date")) or "Pending"
+    voucher_code_html = e(voucher.get("voucher_code")) if voucher.get("voucher_code") not in (None, "") else "Pending"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -342,7 +418,7 @@ def build_html(
       color: var(--white);
       padding: var(--header-padding);
       display: grid;
-      grid-template-columns: minmax(0, 1fr) var(--header-meta-width) var(--logo-box-width);
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: var(--header-gap);
       align-items: stretch;
     }}
@@ -382,14 +458,18 @@ def build_html(
       line-height: 1.35;
       opacity: 0.90;
       max-width: 100%;
-      white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      white-space: normal;
+      word-break: break-word;
     }}
 
     .header-meta {{
       width: var(--header-meta-width);
-      min-width: var(--header-meta-width);
+      max-width: var(--header-meta-width);
+      min-width: 0;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
@@ -420,14 +500,15 @@ def build_html(
       line-height: 1.16;
       overflow: hidden;
       display: -webkit-box;
-      -webkit-line-clamp: 4;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       word-break: break-word;
     }}
 
     .logo-box {{
       width: var(--logo-box-width);
-      min-width: var(--logo-box-width);
+      max-width: var(--logo-box-width);
+      min-width: 0;
       background: var(--white);
       border-radius: var(--radius-lg);
       display: flex;
@@ -439,8 +520,10 @@ def build_html(
     }}
 
     .brand-box-logo {{
-      width: 100%;
-      height: var(--brand-logo-height);
+      max-width: 100%;
+      max-height: var(--brand-logo-height);
+      width: auto;
+      height: auto;
       object-fit: contain;
       display: block;
     }}
@@ -459,66 +542,356 @@ def build_html(
       letter-spacing: 0.12em;
     }}
 
-    .hotel-logo {{ width: 100%; height: 58px; object-fit: contain; display: block; }}
-    .hotel-logo-placeholder {{ color: var(--navy); border: 1px dashed var(--placeholder); border-radius: 12px; width: 100%; height: 58px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; }}
+    .hotel-logo {{
+      width: 100%;
+      height: 58px;
+      object-fit: contain;
+      display: block;
+    }}
 
-    .body {{ padding: var(--body-padding); display: grid; gap: var(--panel-gap); }}
+    .hotel-logo-placeholder {{
+      color: var(--navy);
+      border: 1px dashed var(--placeholder);
+      border-radius: 12px;
+      width: 100%;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }}
 
-    .top-grid {{ display: grid; grid-template-columns: var(--top-grid-left) var(--top-grid-right); gap: var(--panel-gap); }}
-    .panel {{ background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; min-width: 0; }}
-    .section-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--section-title); margin-bottom: 10px; font-weight: 700; }}
+    .body {{
+      padding: var(--body-padding);
+      display: grid;
+      gap: var(--panel-gap);
+    }}
 
-    .hotel-card {{ display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 16px; align-items: start; }}
-    .hotel-name {{ font-size: 24px; line-height: 1.02; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 10px; overflow-wrap: anywhere; }}
-    .hotel-address {{ font-size: 13px; line-height: 1.45; margin-bottom: 14px; color: var(--hotel-address); overflow-wrap: anywhere; }}
-    .hotel-mini-logo {{ border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--white); display: flex; align-items: center; justify-content: center; padding: 10px; height: 118px; overflow: hidden; }}
-    .hotel-mini-logo .hotel-logo, .hotel-mini-logo .hotel-logo-placeholder {{ height: 44px; }}
+    .top-grid {{
+      display: grid;
+      grid-template-columns: var(--top-grid-left) var(--top-grid-right);
+      gap: var(--panel-gap);
+    }}
 
-    .facts {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }}
-    .fact-label {{ font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }}
-    .fact-value {{ font-size: 12.5px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      min-width: 0;
+    }}
 
-    .summary-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
-    .summary-tile {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; min-height: 84px; overflow: hidden; }}
-    .tile-label {{ font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }}
-    .tile-value {{ font-size: 17px; line-height: 1.08; font-weight: 800; }}
+    .section-title {{
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--section-title);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }}
 
-    .table-wrap {{ overflow: hidden; border-radius: var(--radius-xs); border: 1px solid var(--line); background: var(--white); }}
-    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
-    th, td {{ padding: 10px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--table-row); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }}
-    th {{ font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); background: var(--table-head); }}
+    .hotel-card {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 128px;
+      gap: 14px;
+      align-items: start;
+    }}
+
+    .hotel-name {{
+      font-size: 23px;
+      line-height: 1.08;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+      word-break: normal;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }}
+
+    .hotel-address {{
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 16px;
+      color: var(--hotel-address);
+      overflow-wrap: break-word;
+      word-break: normal;
+    }}
+
+    .hotel-mini-logo {{
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      height: 104px;
+      overflow: hidden;
+    }}
+
+    .hotel-mini-logo .hotel-logo {{
+      max-width: 100%;
+      max-height: 62px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }}
+
+    .hotel-mini-logo .hotel-logo-placeholder {{
+      width: 100%;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }}
+
+    .facts {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }}
+
+    .fact-label {{
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }}
+
+    .fact-value {{
+      font-size: 12.5px;
+      line-height: 1.35;
+      font-weight: 600;
+      overflow-wrap: normal;
+      word-break: keep-all;
+      hyphens: none;
+    }}
+
+    .summary-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+
+    .summary-tile {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      min-height: 90px;
+      overflow: hidden;
+    }}
+
+    .tile-label {{
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }}
+
+    .tile-value {{
+      font-size: 15px;
+      line-height: 1.16;
+      font-weight: 800;
+      overflow-wrap: normal;
+      word-break: normal;
+      white-space: normal;
+      hyphens: none;
+    }}
+
+    .table-wrap {{
+      overflow: hidden;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--line);
+      background: var(--white);
+    }}
+
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }}
+
+    th, td {{
+      padding: 10px 10px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--table-row);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+
+    th {{
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      background: var(--table-head);
+    }}
+
     tbody tr:last-child td {{ border-bottom: none; }}
     th:nth-child(1), td:nth-child(1) {{ width: 12%; }}
     th:nth-child(2), td:nth-child(2) {{ width: 30%; }}
     th:nth-child(3), td:nth-child(3) {{ width: 40%; }}
     th:nth-child(4), td:nth-child(4) {{ width: 18%; }}
 
-    .passengers-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
-    .pax-card {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; min-width: 0; overflow: hidden; }}
-    .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; overflow-wrap: anywhere; }}
-    .pax-meta-row {{ display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; margin-bottom: 6px; }}
+    .passengers-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+
+    .pax-card {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }}
+
+    .pax-name {{
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      min-height: 34px;
+      overflow-wrap: anywhere;
+    }}
+
+    .pax-meta-row {{
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 6px;
+    }}
+
     .pax-meta-row:last-child {{ margin-bottom: 0; }}
-    .pax-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }}
-    .pax-value {{ font-size: 12px; line-height: 1.35; font-weight: 600; }}
 
-    .footer-note {{color: var(--hotel-address); background: var(--footer-bg); border: 1px solid var(--line); border-radius: var(--radius-md); font-size: 11px; line-height: 1.55; padding: 14px 16px; margin-top: 4px;}}
-    .empty-state {{ color: var(--muted); font-size: 12px; }}
+    .pax-label {{
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-top: 2px;
+    }}
 
-    @page {{ size: A4; margin: var(--print-page-margin); }}
+    .pax-value {{
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 600;
+      overflow-wrap: break-word;
+      word-break: normal;
+    }}
+
+    .footer-note {{
+      color: var(--hotel-address);
+      background: var(--footer-bg);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      font-size: 11px;
+      line-height: 1.55;
+      padding: 14px 16px;
+      margin-top: 4px;
+    }}
+
+    .empty-state {{
+      color: var(--muted);
+      font-size: 12px;
+    }}
+
+    @page {{
+      size: A4;
+      margin: var(--print-page-margin);
+    }}
 
     @media print {{
-      body {{ background: #fff; padding: 0; }}
-      .page {{ box-shadow: none; border-radius: 0; border: none; width: auto; min-height: auto; }}
-      .header {{ grid-template-columns: minmax(0, 1fr) var(--print-header-meta-width) var(--print-logo-box-width); gap: var(--print-header-gap); padding: var(--print-header-padding); }}
-      .header-meta {{ width: var(--print-header-meta-width); min-width: var(--print-header-meta-width); gap: 6px; }}
-      .meta-box {{ min-height: var(--meta-box-min-height-print); padding: 10px 8px; border-radius: var(--radius-sm); }}
-      .meta-label {{ font-size: 9px; }}
-      .meta-value {{ font-size: 10px; }}
-      .logo-box {{ width: var(--print-logo-box-width); min-width: var(--print-logo-box-width); min-height: var(--print-logo-box-min-height); }}
-      .brand-box-logo, .brand-box-placeholder {{ height: var(--brand-logo-height-print); }}
-      .header-title {{ font-size: var(--header-title-size-print); }}
-      .header-subtitle {{ font-size: var(--header-subtitle-size-print); }}
-      .panel, .meta-box, .summary-tile, .pax-card, .table-wrap, .logo-box {{ break-inside: avoid; page-break-inside: avoid; }}
+      body {{
+        background: #fff;
+        padding: 0;
+      }}
+
+      .tile-value {{
+        font-size: 14px;
+        line-height: 1.18;
+        white-space: normal;
+      }}
+
+      .page {{
+        box-shadow: none;
+        border-radius: 0;
+        border: none;
+        width: auto;
+        min-height: auto;
+      }}
+
+      .header {{
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: var(--print-header-gap);
+        padding: var(--print-header-padding);
+      }}
+
+      .header-meta {{
+        width: var(--print-header-meta-width);
+        max-width: var(--print-header-meta-width);
+        min-width: 0;
+        gap: 6px;
+      }}
+
+      .meta-box {{
+        min-height: var(--meta-box-min-height-print);
+        padding: 10px 8px;
+        border-radius: var(--radius-sm);
+      }}
+
+      .meta-label {{
+        font-size: 9px;
+      }}
+
+      .meta-value {{
+        font-size: 10px;
+      }}
+
+      .logo-box {{
+        width: var(--print-logo-box-width);
+        max-width: var(--print-logo-box-width);
+        min-width: 0;
+        min-height: var(--print-logo-box-min-height);
+      }}
+
+      .brand-box-logo {{
+        max-width: 100%;
+        max-height: var(--brand-logo-height-print);
+        width: auto;
+        height: auto;
+      }}
+
+      .brand-box-placeholder {{
+        height: var(--brand-logo-height-print);
+      }}
+
+      .header-title {{
+        font-size: var(--header-title-size-print);
+      }}
+
+      .header-subtitle {{
+        font-size: var(--header-subtitle-size-print);
+      }}
+
+      .panel, .meta-box, .summary-tile, .pax-card, .table-wrap, .logo-box {{
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }}
     }}
   </style>
 </head>
@@ -534,15 +907,15 @@ def build_html(
       <div class="header-meta">
         <div class="meta-box">
           <div class="meta-label">Conf. nbr.</div>
-          <div class="meta-value">{display_or_pending(voucher.get('confirmation_number'))}</div>
+          <div class="meta-value">{conf_html}</div>
         </div>
         <div class="meta-box">
           <div class="meta-label">Date</div>
-          <div class="meta-value">{display_or_pending(voucher.get('issue_date'))}</div>
+          <div class="meta-value">{issue_date_html}</div>
         </div>
         <div class="meta-box">
           <div class="meta-label">Voucher code</div>
-          <div class="meta-value">{display_or_pending(voucher.get('voucher_code'))}</div>
+          <div class="meta-value">{voucher_code_html}</div>
         </div>
       </div>
 
@@ -562,15 +935,15 @@ def build_html(
               <div class="facts">
                 <div>
                   <div class="fact-label">City</div>
-                  <div class="fact-value text-wrap">{display_or_pending(hotel.get('city'), '-')}</div>
+                  <div class="fact-value">{city_html}</div>
                 </div>
                 <div>
                   <div class="fact-label">Country</div>
-                  <div class="fact-value text-wrap">{display_or_pending(hotel.get('country'), '-')}</div>
+                  <div class="fact-value">{country_html}</div>
                 </div>
                 <div>
                   <div class="fact-label">Phone</div>
-                  <div class="fact-value text-wrap">{display_or_pending(hotel.get('phone'), '-')}</div>
+                  <div class="fact-value">{phone_html}</div>
                 </div>
               </div>
             </div>
@@ -632,7 +1005,7 @@ def main() -> None:
 
     profile_config = load_profile_config(args.profile)
     branding = profile_config.get("branding", {})
-    brand_logo = args.brand_logo or branding.get("brand_logo") or "assets/logos/GEOBYPATAGONIK.png"
+    brand_logo = args.brand_logo or branding.get("brand_logo")
 
     print(f"[DEBUG] input_json='{args.input}'")
     print(f"[DEBUG] output_dir='{args.output_dir}'")
@@ -641,7 +1014,7 @@ def main() -> None:
     print(f"[DEBUG] theme_key='{branding.get('theme_key', DEFAULT_PROFILE_KEY)}'")
     print(f"[DEBUG] brand_logo_arg='{brand_logo}'")
 
-    if not str(brand_logo).startswith(("http://", "https://", "data:")):
+    if brand_logo and not str(brand_logo).startswith(("http://", "https://", "data:")):
         resolved_brand_path = (BASE_DIR / brand_logo).resolve()
         print(f"[DEBUG] brand_logo_resolved='{resolved_brand_path}'")
         print(f"[DEBUG] brand_logo_exists={resolved_brand_path.exists()}")
