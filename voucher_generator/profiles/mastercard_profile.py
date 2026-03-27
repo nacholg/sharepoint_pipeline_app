@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from voucher_generator.profiles import deep_merge_dict
+from voucher_generator.profiles.utils import deep_merge_dict
 from voucher_generator.profiles.default_profile import PROFILE_CONFIG as DEFAULT_PROFILE_CONFIG
 
 
