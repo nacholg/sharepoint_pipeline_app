@@ -1,0 +1,16 @@
+{
+  "key": "client_demo",
+  "label": "Client Demo",
+  "branding": {
+    "theme_key": "default",
+    "brand_logo": "assets/logos/CLIENT_DEMO.png"
+  },
+  "copy": {
+    "voucher_kicker": "Event Voucher",
+    "footer_note": "Please verify all operational details before sending the final document."
+  },
+  "rendering": {
+    "header_mode": "event_destination",
+    "show_hotel_logo": true
+  }
+}
