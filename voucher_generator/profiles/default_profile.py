@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from copy import deepcopy
+
 
 PROFILE_CONFIG = {
     "key": "default",
@@ -49,5 +53,9 @@ PROFILE_CONFIG = {
     "branding": {
         "theme_key": "default",
         "brand_logo": "assets/logos/GEOBYPATAGONIK.png",
+    },
+    "rendering": {
+        "header_mode": "event_destination",
+        "show_hotel_logo": True,
     },
 }
