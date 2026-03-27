@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional
 from voucher_generator.themes.theme_registry import get_theme_config
 
 BASE_DIR = Path(__file__).resolve().parent
-
 DEFAULT_PROFILE_KEY = "default"
 
 
@@ -36,17 +35,6 @@ def e(value: Any) -> str:
 
 def display_or_pending(value: Any, pending: str = "Pending") -> str:
     return e(value) if value not in (None, "") else pending
-
-
-def nbsp(text: str) -> str:
-    return text.replace(" ", "&nbsp;")
-
-
-def no_break_text(value: Any) -> str:
-    if value in (None, ""):
-        return ""
-    text = html.escape(str(value).strip())
-    return nbsp(text)
 
 
 def no_break_phone(value: Any) -> str:
@@ -147,7 +135,10 @@ def resolve_logo_src(
         print(f"[DEBUG] {label}: raw='{value}'")
         print(f"[DEBUG] {label}: BASE_DIR='{BASE_DIR}'")
         print(f"[DEBUG] {label}: resolved='{candidate}'")
-        print(f"[DEBUG] {label}: exists={candidate.exists()} is_file={candidate.is_file() if candidate.exists() else False}")
+        print(
+            f"[DEBUG] {label}: exists={candidate.exists()} "
+            f"is_file={candidate.is_file() if candidate.exists() else False}"
+        )
 
     data_uri = file_to_data_uri(candidate)
     if data_uri:
@@ -193,17 +184,19 @@ def load_profile_config(profile_name: str | None) -> dict:
 def passenger_cards(passengers: List[Dict[str, Any]]) -> str:
     cards: List[str] = []
     for pax in passengers:
-        nationality = no_break_text(pax.get("nationality")) or "-"
-        passport_number = e(pax.get("passport_number")) if pax.get("passport_number") not in (None, "") else "-"
-        passport_expiration = no_break_iso_date(pax.get("passport_expiration")) or "-"
+        nationality_html = display_or_pending(pax.get("nationality"), "-")
+        passport_html = display_or_pending(pax.get("passport_number"), "-")
+        expiration_html = display_or_pending(pax.get("passport_expiration"), "-")
+        if pax.get("passport_expiration") not in (None, ""):
+            expiration_html = no_break_iso_date(pax.get("passport_expiration"))
 
         cards.append(
             f"""
             <article class="pax-card">
               <div class="pax-name">{e(pax.get('full_name') or 'Passenger')}</div>
-              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value text-safe">{nationality}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value text-safe">{passport_number}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value text-safe">{passport_expiration}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value">{nationality_html}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value">{passport_html}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value">{expiration_html}</span></div>
             </article>
             """
         )
@@ -228,10 +221,10 @@ def room_rows(rooms: List[Dict[str, Any]]) -> str:
 
 def summary_tiles(stay: Dict[str, Any]) -> str:
     items = [
-        ("Check-in", no_break_iso_date(stay.get("check_in")) or "-"),
-        ("Check-out", no_break_iso_date(stay.get("check_out")) or "-"),
-        ("Nights", e(stay.get("nights")) if stay.get("nights") not in (None, "") else "-"),
-        ("Meals", e(stay.get("meal_plan") or stay.get("meals")) if (stay.get("meal_plan") or stay.get("meals")) not in (None, "") else "-"),
+        ("Check-in", no_break_iso_date(stay.get("check_in")) if stay.get("check_in") else "-"),
+        ("Check-out", no_break_iso_date(stay.get("check_out")) if stay.get("check_out") else "-"),
+        ("Nights", display_or_pending(stay.get("nights"), "-")),
+        ("Meals", display_or_pending(stay.get("meal_plan") or stay.get("meals"), "-")),
     ]
     return "\n".join(
         f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value">{value}</div></div>'
@@ -274,7 +267,7 @@ def build_html(
     rooms = voucher_payload.get("rooms", [])
     passengers = voucher_payload.get("passengers", [])
 
-    branding = profile_config.get("branding", {})
+    branding = profile_config.get("branding", {}) or {}
     theme_key = branding.get("theme_key") or DEFAULT_PROFILE_KEY
     theme = get_theme_config(theme_key)
     colors = theme["colors"]
@@ -302,19 +295,26 @@ def build_html(
     )
 
     hotel_name = hotel.get("display_name") or hotel.get("name") or "Hotel"
-    subtitle_parts = [
-        rooms[0].get("room_category") if rooms else None,
-        hotel.get("city"),
-        hotel.get("country"),
-    ]
-    hotel_meta = " · ".join(str(part) for part in subtitle_parts if part)
+    header_title = e(
+        voucher_payload.get("event_name")
+        or hotel.get("display_name")
+        or hotel.get("name")
+        or "Hotel Voucher"
+    )
+    city = hotel.get("city")
+    country = hotel.get("country")
+    subtitle_parts = [p for p in [city, country] if p]
+    header_subtitle = e(" · ".join(subtitle_parts))
+    conf_html = display_or_pending(voucher_payload.get("confirmation_number"))
+    issue_date_html = (
+        no_break_iso_date(voucher.get("issue_date"))
+        if voucher.get("issue_date") not in (None, "")
+        else "Pending"
+    )
 
-    city_html = format_fact_value("City", hotel.get("city"))
-    country_html = format_fact_value("Country", hotel.get("country"))
-    phone_html = format_fact_value("Phone", hotel.get("phone"))
-    conf_html = e(voucher.get("confirmation_number")) if voucher.get("confirmation_number") not in (None, "") else "Pending"
-    issue_date_html = no_break_iso_date(voucher.get("issue_date")) or "Pending"
-    voucher_code_html = e(voucher.get("voucher_code")) if voucher.get("voucher_code") not in (None, "") else "Pending"
+    city_html = format_fact_value("city", hotel.get("city"))
+    country_html = format_fact_value("country", hotel.get("country"))
+    phone_html = format_fact_value("phone", hotel.get("phone"))
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -670,7 +670,7 @@ def build_html(
       line-height: 1.35;
       font-weight: 600;
       overflow-wrap: normal;
-      word-break: keep-all;
+      word-break: normal;
       hyphens: none;
     }}
 
@@ -699,11 +699,10 @@ def build_html(
 
     .tile-value {{
       font-size: 15px;
-      line-height: 1.16;
+      line-height: 1.18;
       font-weight: 800;
       overflow-wrap: normal;
       word-break: normal;
-      white-space: normal;
       hyphens: none;
     }}
 
@@ -821,12 +820,6 @@ def build_html(
         padding: 0;
       }}
 
-      .tile-value {{
-        font-size: 14px;
-        line-height: 1.18;
-        white-space: normal;
-      }}
-
       .page {{
         box-shadow: none;
         border-radius: 0;
@@ -888,6 +881,11 @@ def build_html(
         font-size: var(--header-subtitle-size-print);
       }}
 
+      .tile-value {{
+        font-size: 14px;
+        line-height: 1.2;
+      }}
+
       .panel, .meta-box, .summary-tile, .pax-card, .table-wrap, .logo-box {{
         break-inside: avoid;
         page-break-inside: avoid;
@@ -900,8 +898,8 @@ def build_html(
     <header class="header">
       <div class="header-left">
         <div class="voucher-kicker">Hotel Voucher</div>
-        <div class="header-title">{e(hotel_name)}</div>
-        <div class="header-subtitle">{e(hotel_meta)}</div>
+        <div class="header-title">{header_title}</div>
+        <div class="header-subtitle">{header_subtitle}</div>
       </div>
 
       <div class="header-meta">
@@ -915,7 +913,7 @@ def build_html(
         </div>
         <div class="meta-box">
           <div class="meta-label">Voucher code</div>
-          <div class="meta-value">{voucher_code_html}</div>
+          <div class="meta-value">{display_or_pending(voucher.get('voucher_code'))}</div>
         </div>
       </div>
 
@@ -1004,7 +1002,7 @@ def main() -> None:
     args = parser.parse_args()
 
     profile_config = load_profile_config(args.profile)
-    branding = profile_config.get("branding", {})
+    branding = profile_config.get("branding", {}) or {}
     brand_logo = args.brand_logo or branding.get("brand_logo")
 
     print(f"[DEBUG] input_json='{args.input}'")
@@ -1018,7 +1016,10 @@ def main() -> None:
         resolved_brand_path = (BASE_DIR / brand_logo).resolve()
         print(f"[DEBUG] brand_logo_resolved='{resolved_brand_path}'")
         print(f"[DEBUG] brand_logo_exists={resolved_brand_path.exists()}")
-        print(f"[DEBUG] brand_logo_is_file={resolved_brand_path.is_file() if resolved_brand_path.exists() else False}")
+        print(
+            f"[DEBUG] brand_logo_is_file="
+            f"{resolved_brand_path.is_file() if resolved_brand_path.exists() else False}"
+        )
 
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)

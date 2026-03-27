@@ -30,6 +30,12 @@ PROFILE_CONFIG = {
         "check_in": ["CHECK IN HOTEL", "CHECK IN", "IN", "ARRIVAL"],
         "check_out": ["CHECK OUT HOTEL", "CHECK OUT", "OUT", "DEPARTURE"],
         "nights": ["ROOM NIGHTS", "NIGHTS", "NIGHTS QTY"],
+        "confirmation_number": [
+            "CONFIRMATION",
+            "CONFIRMATION NUMBER",
+            "CONF NBR",
+            "CONFIRMATION NBR",
+        ],
     },
     "required_fields": [
         "row_number",

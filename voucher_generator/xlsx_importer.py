@@ -225,6 +225,8 @@ def read_effective_rows(
     ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
     merged_lookup = build_merged_lookup(ws)
 
+    event_name = clean_text(ws.cell(row=1, column=1).value)
+
     header_index = build_header_index(ws, merged_lookup, header_row=header_row)
     resolved_columns = resolve_columns(
         header_index=header_index,
@@ -283,6 +285,9 @@ def read_effective_rows(
         passport_number = clean_text(
             get_field_value(ws, merged_lookup, excel_row, resolved_columns, "passport_number")
         )
+        confirmation_number = clean_text(
+            get_field_value(ws, merged_lookup, excel_row, resolved_columns, "confirmation_number")
+        )
 
         rows.append(
             {
@@ -290,6 +295,7 @@ def read_effective_rows(
                 "source_row_number": source_row_number,
                 "row_number_merge_anchor": row_number_merge_anchor,
                 "group_label": group_label,
+                "event_name": event_name,
                 "first_name": first_name,
                 "last_name": last_name,
                 "full_name": " ".join([p for p in [first_name, last_name] if p]) or None,
@@ -313,6 +319,7 @@ def read_effective_rows(
                 "food_restrictions": clean_text(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "food_restrictions")
                 ),
+                "confirmation_number": confirmation_number,
                 "qty": qty,
                 "qty_merge_anchor": qty_merge_anchor,
                 "destination": destination,

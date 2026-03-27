@@ -48,7 +48,13 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     for voucher_index, block_rows in enumerate(blocks, start=1):
         canonical = build_canonical_voucher(block_rows, voucher_index)
-        payloads.append(canonical_to_payload(canonical))
+        payload = canonical_to_payload(canonical)
+
+        first_row = block_rows[0] if block_rows else {}
+        payload["event_name"] = first_row.get("event_name")
+        payload["confirmation_number"] = first_row.get("confirmation_number")
+
+        payloads.append(payload)
 
     payloads.sort(
         key=lambda p: (
