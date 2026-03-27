@@ -3,6 +3,10 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 
+
+from voucher_generator.profiles.utils import deep_merge_dict
+from voucher_generator.profiles.profile_validator import assert_valid_profile_config
+
 from voucher_generator.profiles.client_demo_profile import PROFILE_CONFIG as CLIENT_DEMO_PROFILE_CONFIG
 from voucher_generator.profiles.default_profile import PROFILE_CONFIG as DEFAULT_PROFILE_CONFIG
 from voucher_generator.profiles.json_loader import load_json_profiles
@@ -18,10 +22,22 @@ PYTHON_PROFILES = {
 
 JSON_PROFILES = load_json_profiles(BASE_DIR)
 
-PROFILE_REGISTRY = {
-    **PYTHON_PROFILES,
-    **JSON_PROFILES,
-}
+PROFILE_REGISTRY = {}
+
+# primero cargar python profiles
+for key, base_profile in PYTHON_PROFILES.items():
+    PROFILE_REGISTRY[key] = deepcopy(base_profile)
+
+# luego aplicar overrides JSON
+for key, json_profile in JSON_PROFILES.items():
+    base_profile = PROFILE_REGISTRY.get(key, deepcopy(DEFAULT_PROFILE_CONFIG))
+
+    merged_profile = deep_merge_dict(base_profile, json_profile)
+
+    # 🔥 VALIDAR EL RESULTADO FINAL
+    assert_valid_profile_config(merged_profile, base_dir=BASE_DIR)
+
+    PROFILE_REGISTRY[key] = merged_profile
 
 
 def get_profile_config(profile_name: str | None) -> dict:

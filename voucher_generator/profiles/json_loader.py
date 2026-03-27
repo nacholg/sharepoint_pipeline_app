@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
+from voucher_generator.profiles.profile_validator import assert_valid_profile_config
 
 def load_json_profiles(base_dir: Path) -> Dict[str, Dict[str, Any]]:
     profiles_dir = base_dir / "config" / "profiles"
@@ -22,6 +23,7 @@ def load_json_profiles(base_dir: Path) -> Dict[str, Dict[str, Any]]:
                 continue
 
             profiles[key] = data
+            #assert_valid_profile_config(data, base_dir=base_dir)
 
         except Exception as e:
             print(f"[WARN] Failed loading profile {file}: {e}")
