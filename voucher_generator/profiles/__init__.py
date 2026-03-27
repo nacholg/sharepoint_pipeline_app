@@ -20,7 +20,7 @@ JSON_PROFILES = load_json_profiles(BASE_DIR)
 
 PROFILE_REGISTRY = {
     **PYTHON_PROFILES,
-    **JSON_PROFILES,  # JSON pisa Python si comparte key
+    **JSON_PROFILES,
 }
 
 

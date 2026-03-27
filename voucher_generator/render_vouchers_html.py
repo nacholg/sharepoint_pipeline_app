@@ -114,6 +114,7 @@ def resolve_logo_src(
     if not value:
         if debug:
             print(f"[DEBUG] {label}: no value provided")
+            print("[DEBUG] logo path final:", brand_logo_path)
         return None
 
     value = str(value).strip()
@@ -1014,6 +1015,8 @@ def main() -> None:
     print(f"[DEBUG] profile='{args.profile}'")
     print(f"[DEBUG] theme_key='{branding.get('theme_key', DEFAULT_PROFILE_KEY)}'")
     print(f"[DEBUG] brand_logo_arg='{brand_logo}'")
+    print("[DEBUG] profile branding:", profile_config["branding"])
+    
 
     if brand_logo and not str(brand_logo).startswith(("http://", "https://", "data:")):
         resolved_brand_path = (BASE_DIR / brand_logo).resolve()
@@ -1023,6 +1026,8 @@ def main() -> None:
             f"[DEBUG] brand_logo_is_file="
             f"{resolved_brand_path.is_file() if resolved_brand_path.exists() else False}"
         )
+        
+        
 
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)

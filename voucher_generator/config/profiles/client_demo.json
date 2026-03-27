@@ -1,13 +1,13 @@
 {
   "key": "client_demo",
-  "label": "Client Demo",
+  "label": "Client Demo JSON",
   "branding": {
     "theme_key": "default",
     "brand_logo": "assets/logos/CLIENT_DEMO.png"
   },
   "copy": {
-    "voucher_kicker": "Event Voucher",
-    "footer_note": "Please verify all operational details before sending the final document."
+    "voucher_kicker": "Event Voucher JSON",
+    "footer_note": "JSON profile active."
   },
   "rendering": {
     "header_mode": "event_destination",
