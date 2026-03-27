@@ -58,4 +58,8 @@ PROFILE_CONFIG = {
         "header_mode": "event_destination",
         "show_hotel_logo": True,
     },
+    "copy": {
+    "voucher_kicker": "Hotel Voucher",
+    "footer_note": "Issued for travel operations. Please verify passenger documentation, rooming, and hotel details before dispatching the final voucher.",
+},
 }

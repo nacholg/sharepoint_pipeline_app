@@ -274,6 +274,9 @@ def build_html(
     fonts = theme["fonts"]
     radius = theme["radius"]
     layout = theme["layout"]
+    copy_config = profile_config.get("copy", {}) or {}
+    voucher_kicker = copy_config.get("voucher_kicker", "Hotel Voucher")
+    footer_note = copy_config.get("footer_note", "")
 
     brand_logo_src = resolve_logo_src(
         brand_logo or branding.get("brand_logo"),
@@ -897,7 +900,7 @@ def build_html(
   <div class="page">
     <header class="header">
       <div class="header-left">
-        <div class="voucher-kicker">Hotel Voucher</div>
+        <div class="voucher-kicker">{e(voucher_kicker)}</div>
         <div class="header-title">{header_title}</div>
         <div class="header-subtitle">{header_subtitle}</div>
       </div>
@@ -985,7 +988,7 @@ def build_html(
         </div>
       </section>
 
-      <div class="footer-note">Issued for travel operations. Please verify passenger documentation, rooming, and hotel details before dispatching the final voucher.</div>
+      <div class="footer-note">{e(footer_note)}</div>
     </main>
   </div>
 </body>
