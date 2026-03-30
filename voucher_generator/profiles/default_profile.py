@@ -6,6 +6,7 @@ from copy import deepcopy
 PROFILE_CONFIG = {
     "key": "default",
     "label": "Default",
+    "language": "es",
     "header_row": 3,
     "start_row": 4,
     "field_aliases": {
@@ -59,7 +60,7 @@ PROFILE_CONFIG = {
         "show_hotel_logo": True,
     },
     "copy": {
-    "voucher_kicker": "Hotel Voucher",
-    "footer_note": "Issued for travel operations. Please verify passenger documentation, rooming, and hotel details before dispatching the final voucher.",
-},
+        "voucher_kicker": "Voucher de Hotel",
+        "footer_note": "Emitido para operación de viajes. Verificar documentación, rooming y datos del hotel antes del envío final.",
+    },
 }

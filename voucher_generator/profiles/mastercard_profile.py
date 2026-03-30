@@ -9,6 +9,7 @@ PROFILE_CONFIG = deep_merge_dict(
     {
         "key": "mastercard",
         "label": "Mastercard",
+        "language": "es",
         "branding": {
             "theme_key": "mastercard",
             "brand_logo": "assets/logos/MASTERCARD.png",

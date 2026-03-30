@@ -68,6 +68,7 @@ BASE_THEME: Dict[str, Any] = {
 
 THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     "default": deepcopy(BASE_THEME),
+
     "mastercard": {
         **deepcopy(BASE_THEME),
         "colors": {
@@ -98,37 +99,48 @@ THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
             "header_title_size_print": "27px",
         },
     },
-     "banco_guayaquil": {
-        **deepcopy(BASE_THEME),
-        "colors": {
-            **deepcopy(BASE_THEME["colors"]),
-            "navy": "#160F41",                  # Magno
-            "navy_2": "#D2006E",               # Roma
-            "paper": "#f7f6fb",
-            "panel": "#ffffff",
-            "line": "#ddd8ea",
-            "text": "#160F41",                 # Magno
-            "muted": "#6d6488",
-            "page_bg": "#f2eff7",
-            "border": "#ddd8ea",
-            "header_gradient_end": "#A31A61", # Malbec
-            "hotel_address": "#4a3f74",
-            "table_head": "#f4eff8",
-            "table_row": "#eee7f4",
-            "placeholder": "#d7cfe4",
-            "overlay": "rgba(255,255,255,0.12)",
-            "overlay_border": "rgba(255,255,255,0.24)",
-            "shadow": "rgba(22, 15, 65, 0.10)",
-            "section_title": "#A31A61",       # Malbec
-            "footer_bg": "#ece6f4",
-        },
-        "layout": {
-            **deepcopy(BASE_THEME["layout"]),
-            "header_title_size": "30px",
-            "header_title_size_print": "27px",
-        },
-    },
+
+    "banco_guayaquil": deepcopy(BASE_THEME),
 }
+
+THEME_REGISTRY["banco_guayaquil"]["colors"].update({
+    "navy": "#D2006E",
+    "navy_2": "#A31A61",
+    "paper": "#ffffff",
+    "panel": "#fff7fb",
+    "page_bg": "#f7f3f6",
+    "border": "#ead9e3",
+    "line": "#edd0df",
+    "text": "#160F41",
+    "muted": "#7a4a67",
+    "section_title": "#A31A61",
+    "hotel_address": "#4a3a5f",
+    "header_gradient_end": "#A31A61",
+    "table_head": "#fceaf3",
+    "table_row": "#f4d7e5",
+    "footer_bg": "#fdf2f8",
+    "placeholder": "#d9a8c4",
+    "overlay": "rgba(255,255,255,0.16)",
+    "overlay_border": "rgba(255,255,255,0.28)",
+    "shadow": "rgba(22, 15, 65, 0.12)",
+})
+
+THEME_REGISTRY["banco_guayaquil"]["fonts"].update({
+    "family": "Inter, Arial, Helvetica, sans-serif",
+})
+
+THEME_REGISTRY["banco_guayaquil"]["layout"].update({
+    "logo_box_width": 220,
+    "logo_box_min_height": 108,
+    "brand_logo_height": 82,
+    "brand_logo_height_print": 72,
+    "print_logo_box_width": 200,
+    "print_logo_box_min_height": 98,
+    "header_title_size": "30px",
+    "header_title_size_print": "27px",
+    "header_subtitle_size": "13px",
+    "header_subtitle_size_print": "12px",
+})
 
 
 def get_theme_config(theme_key: str | None) -> Dict[str, Any]:

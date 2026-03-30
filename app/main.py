@@ -20,6 +20,7 @@ from app.routes.jobs import router as jobs_router
 from app.routes.ui import router as ui_router
 from app.services.sharepoint_graph import GraphSharePointService
 from app.token_store import get_user_token
+from voucher_generator.profiles import list_profile_configs
 
 load_dotenv()
 
@@ -75,12 +76,13 @@ def _load_sharepoint_sites() -> dict[str, dict]:
 
 SHAREPOINT_HOSTNAME = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
 SHAREPOINT_SITES = _load_sharepoint_sites()
-
 AVAILABLE_PROFILES = [
-    {"key": "default", "label": "Default", "enabled": True},
-    {"key": "mastercard", "label": "Mastercard", "enabled": True},
-    {"key": "banco_guayaquil", "label": "Banco Guayaquil", "enabled": True},
-
+    {
+        "key": p.get("key"),
+        "label": p.get("label", p.get("key")),
+        "enabled": True,
+    }
+    for p in list_profile_configs()
 ]
 
 

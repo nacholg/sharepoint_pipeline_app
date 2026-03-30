@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from voucher_generator.themes.theme_registry import get_theme_config
+from voucher_generator.i18n import get_translations, normalize_language
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROFILE_KEY = "default"
@@ -33,8 +34,8 @@ def e(value: Any) -> str:
     return html.escape(str(value))
 
 
-def display_or_pending(value: Any, pending: str = "Pending") -> str:
-    return e(value) if value not in (None, "") else pending
+def display_or_pending(value: Any, pending: str = "Pendiente") -> str:
+    return e(value) if value not in (None, "") else e(pending)
 
 
 def no_break_phone(value: Any) -> str:
@@ -46,7 +47,7 @@ def no_break_phone(value: Any) -> str:
     return text
 
 
-def no_break_iso_date(value: Any) -> str:
+def no_break_iso_date(value: Any, language: str = "es") -> str:
     if value in (None, ""):
         return ""
 
@@ -54,20 +55,26 @@ def no_break_iso_date(value: Any) -> str:
 
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
         year, month, day = text.split("-")
-        month_map = {
-            "01": "Jan",
-            "02": "Feb",
-            "03": "Mar",
-            "04": "Apr",
-            "05": "May",
-            "06": "Jun",
-            "07": "Jul",
-            "08": "Aug",
-            "09": "Sep",
-            "10": "Oct",
-            "11": "Nov",
-            "12": "Dec",
+
+        month_maps = {
+            "es": {
+                "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
+                "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
+                "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dic",
+            },
+            "en": {
+                "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
+                "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
+                "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
+            },
+            "pt": {
+                "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+                "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+                "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+            },
         }
+
+        month_map = month_maps.get(language, month_maps["es"])
         month_label = month_map.get(month, month)
         formatted = f"{day} {month_label} {year}"
         return html.escape(formatted)
@@ -75,11 +82,11 @@ def no_break_iso_date(value: Any) -> str:
     return html.escape(text)
 
 
-def format_fact_value(label: str, value: Any) -> str:
+def format_fact_value(label: str, value: Any, t: dict[str, str], language: str) -> str:
     raw_label = (label or "").strip().lower()
 
     if value in (None, ""):
-        return "-"
+        return e(t["empty"])
 
     if raw_label in {"city", "country", "destination"}:
         return e(value)
@@ -88,7 +95,7 @@ def format_fact_value(label: str, value: Any) -> str:
         return no_break_phone(value)
 
     if raw_label in {"check in", "check-out", "check out", "date"}:
-        return no_break_iso_date(value)
+        return no_break_iso_date(value, language=language)
 
     return e(value)
 
@@ -114,7 +121,6 @@ def resolve_logo_src(
     if not value:
         if debug:
             print(f"[DEBUG] {label}: no value provided")
-            print("[DEBUG] logo path final:", brand_logo_path)
         return None
 
     value = str(value).strip()
@@ -182,50 +188,50 @@ def load_profile_config(profile_name: str | None) -> dict:
     return getattr(module, "PROFILE_CONFIG")
 
 
-def passenger_cards(passengers: List[Dict[str, Any]]) -> str:
+def passenger_cards(passengers: List[Dict[str, Any]], t: dict[str, str], language: str) -> str:
     cards: List[str] = []
     for pax in passengers:
-        nationality_html = display_or_pending(pax.get("nationality"), "-")
-        passport_html = display_or_pending(pax.get("passport_number"), "-")
-        expiration_html = display_or_pending(pax.get("passport_expiration"), "-")
+        nationality_html = display_or_pending(pax.get("nationality"), t["empty"])
+        passport_html = display_or_pending(pax.get("passport_number"), t["empty"])
+        expiration_html = display_or_pending(pax.get("passport_expiration"), t["empty"])
         if pax.get("passport_expiration") not in (None, ""):
-            expiration_html = no_break_iso_date(pax.get("passport_expiration"))
+            expiration_html = no_break_iso_date(pax.get("passport_expiration"), language=language)
 
         cards.append(
             f"""
             <article class="pax-card">
-              <div class="pax-name">{e(pax.get('full_name') or 'Passenger')}</div>
-              <div class="pax-meta-row"><span class="pax-label">Nationality</span><span class="pax-value">{nationality_html}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Passport</span><span class="pax-value">{passport_html}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">Exp.</span><span class="pax-value">{expiration_html}</span></div>
+              <div class="pax-name">{e(pax.get('full_name') or t['passenger_fallback'])}</div>
+              <div class="pax-meta-row"><span class="pax-label">{e(t["nationality"])}</span><span class="pax-value">{nationality_html}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">{e(t["passport"])}</span><span class="pax-value">{passport_html}</span></div>
+              <div class="pax-meta-row"><span class="pax-label">{e(t["passport_expiry"])}</span><span class="pax-value">{expiration_html}</span></div>
             </article>
             """
         )
-    return "\n".join(cards) or '<div class="empty-state">No passengers loaded.</div>'
+    return "\n".join(cards) or f'<div class="empty-state">{e(t["no_passengers_loaded"])}</div>'
 
 
-def room_rows(rooms: List[Dict[str, Any]]) -> str:
+def room_rows(rooms: List[Dict[str, Any]], t: dict[str, str]) -> str:
     rows: List[str] = []
     for room in rooms:
         rows.append(
             f"""
             <tr>
-              <td>{display_or_pending(room.get('room_count'), '-')}</td>
-              <td class="text-wrap">{display_or_pending(room.get('room_category'), '-')}</td>
-              <td class="text-wrap">{display_or_pending(room.get('additional_info'), '-')}</td>
-              <td>{display_or_pending(room.get('pax_count'), '-')}</td>
+              <td>{display_or_pending(room.get('room_count'), t['empty'])}</td>
+              <td class="text-wrap">{display_or_pending(room.get('room_category'), t['empty'])}</td>
+              <td class="text-wrap">{display_or_pending(room.get('additional_info'), t['empty'])}</td>
+              <td>{display_or_pending(room.get('pax_count'), t['empty'])}</td>
             </tr>
             """
         )
-    return "\n".join(rows) or '<tr><td colspan="4">No rooming details available.</td></tr>'
+    return "\n".join(rows) or f'<tr><td colspan="4">{e(t["no_rooming_details"])}</td></tr>'
 
 
-def summary_tiles(stay: Dict[str, Any]) -> str:
+def summary_tiles(stay: Dict[str, Any], t: dict[str, str], language: str) -> str:
     items = [
-        ("Check-in", no_break_iso_date(stay.get("check_in")) if stay.get("check_in") else "-"),
-        ("Check-out", no_break_iso_date(stay.get("check_out")) if stay.get("check_out") else "-"),
-        ("Nights", display_or_pending(stay.get("nights"), "-")),
-        ("Meals", display_or_pending(stay.get("meal_plan") or stay.get("meals"), "-")),
+        (t["check_in"], no_break_iso_date(stay.get("check_in"), language=language) if stay.get("check_in") else e(t["empty"])),
+        (t["check_out"], no_break_iso_date(stay.get("check_out"), language=language) if stay.get("check_out") else e(t["empty"])),
+        (t["nights"], display_or_pending(stay.get("nights"), t["empty"])),
+        (t["meals"], display_or_pending(stay.get("meal_plan") or stay.get("meals"), t["empty"])),
     ]
     return "\n".join(
         f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value">{value}</div></div>'
@@ -276,8 +282,12 @@ def build_html(
     radius = theme["radius"]
     layout = theme["layout"]
     copy_config = profile_config.get("copy", {}) or {}
-    voucher_kicker = copy_config.get("voucher_kicker", "Hotel Voucher")
-    footer_note = copy_config.get("footer_note", "")
+
+    language = normalize_language(profile_config.get("language"))
+    t = get_translations(language)
+
+    voucher_kicker = copy_config.get("voucher_kicker") or t["voucher_kicker"]
+    footer_note = copy_config.get("footer_note") or t["footer_note"]
 
     brand_logo_src = resolve_logo_src(
         brand_logo or branding.get("brand_logo"),
@@ -288,14 +298,14 @@ def build_html(
     header_brand_logo_html = (
         f'<img class="brand-box-logo" src="{e(brand_logo_src)}" alt="Brand logo">'
         if brand_logo_src
-        else '<div class="brand-box-placeholder">BRAND LOGO</div>'
+        else f'<div class="brand-box-placeholder">{e(t["brand_logo_placeholder"])}</div>'
     )
 
     hotel_src = hotel_logo_src(hotel, output_dir, debug=debug)
     hotel_logo_html = (
         f'<img class="hotel-logo" src="{e(hotel_src)}" alt="Hotel logo">'
         if hotel_src
-        else '<div class="hotel-logo-placeholder">HOTEL LOGO</div>'
+        else f'<div class="hotel-logo-placeholder">{e(t["hotel_logo_placeholder"])}</div>'
     )
 
     hotel_name = hotel.get("display_name") or hotel.get("name") or "Hotel"
@@ -303,25 +313,25 @@ def build_html(
         voucher_payload.get("event_name")
         or hotel.get("display_name")
         or hotel.get("name")
-        or "Hotel Voucher"
+        or voucher_kicker
     )
     city = hotel.get("city")
     country = hotel.get("country")
     subtitle_parts = [p for p in [city, country] if p]
     header_subtitle = e(" · ".join(subtitle_parts))
-    conf_html = display_or_pending(voucher_payload.get("confirmation_number"))
+    conf_html = display_or_pending(voucher_payload.get("confirmation_number"), t["pending"])
     issue_date_html = (
-        no_break_iso_date(voucher.get("issue_date"))
+        no_break_iso_date(voucher.get("issue_date"), language=language)
         if voucher.get("issue_date") not in (None, "")
-        else "Pending"
+        else e(t["pending"])
     )
 
-    city_html = format_fact_value("city", hotel.get("city"))
-    country_html = format_fact_value("country", hotel.get("country"))
-    phone_html = format_fact_value("phone", hotel.get("phone"))
+    city_html = format_fact_value("city", hotel.get("city"), t, language)
+    country_html = format_fact_value("country", hotel.get("country"), t, language)
+    phone_html = format_fact_value("phone", hotel.get("phone"), t, language)
 
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{e(language)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -773,7 +783,7 @@ def build_html(
 
     .pax-meta-row {{
       display: grid;
-      grid-template-columns: 72px minmax(0, 1fr);
+      grid-template-columns: minmax(80px, max-content) minmax(0, 1fr);
       gap: 8px;
       align-items: start;
       margin-bottom: 6px;
@@ -908,16 +918,16 @@ def build_html(
 
       <div class="header-meta">
         <div class="meta-box">
-          <div class="meta-label">Conf. nbr.</div>
+          <div class="meta-label">{e(t["conf_number"])}</div>
           <div class="meta-value">{conf_html}</div>
         </div>
         <div class="meta-box">
-          <div class="meta-label">Date</div>
+          <div class="meta-label">{e(t["date"])}</div>
           <div class="meta-value">{issue_date_html}</div>
         </div>
         <div class="meta-box">
-          <div class="meta-label">Voucher code</div>
-          <div class="meta-value">{display_or_pending(voucher.get('voucher_code'))}</div>
+          <div class="meta-label">{e(t["voucher_code"])}</div>
+          <div class="meta-value">{display_or_pending(voucher.get('voucher_code'), t['pending'])}</div>
         </div>
       </div>
 
@@ -929,22 +939,22 @@ def build_html(
     <main class="body">
       <section class="top-grid">
         <section class="panel">
-          <div class="section-title">Hotel / Address</div>
+          <div class="section-title">{e(t["hotel_address"])}</div>
           <div class="hotel-card">
             <div>
-              <div class="hotel-name text-wrap">{display_or_pending(hotel.get('display_name') or hotel.get('name'))}</div>
-              <div class="hotel-address text-wrap">{display_or_pending(hotel.get('address'), '-')}</div>
+              <div class="hotel-name text-wrap">{display_or_pending(hotel.get('display_name') or hotel.get('name'), t['empty'])}</div>
+              <div class="hotel-address text-wrap">{display_or_pending(hotel.get('address'), t['empty'])}</div>
               <div class="facts">
                 <div>
-                  <div class="fact-label">City</div>
+                  <div class="fact-label">{e(t["city"])}</div>
                   <div class="fact-value">{city_html}</div>
                 </div>
                 <div>
-                  <div class="fact-label">Country</div>
+                  <div class="fact-label">{e(t["country"])}</div>
                   <div class="fact-value">{country_html}</div>
                 </div>
                 <div>
-                  <div class="fact-label">Phone</div>
+                  <div class="fact-label">{e(t["phone"])}</div>
                   <div class="fact-value">{phone_html}</div>
                 </div>
               </div>
@@ -956,36 +966,36 @@ def build_html(
         </section>
 
         <section class="panel">
-          <div class="section-title">Stay Summary</div>
+          <div class="section-title">{e(t["stay_summary"])}</div>
           <div class="summary-grid">
-            {summary_tiles(stay)}
+            {summary_tiles(stay, t, language)}
           </div>
         </section>
       </section>
 
       <section class="panel">
-        <div class="section-title">Room Details</div>
+        <div class="section-title">{e(t["room_details"])}</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Rooms</th>
-                <th>Category</th>
-                <th>Additional info</th>
-                <th>Passengers</th>
+                <th>{e(t["rooms"])}</th>
+                <th>{e(t["category"])}</th>
+                <th>{e(t["additional_info"])}</th>
+                <th>{e(t["passengers"])}</th>
               </tr>
             </thead>
             <tbody>
-              {room_rows(rooms)}
+              {room_rows(rooms, t)}
             </tbody>
           </table>
         </div>
       </section>
 
       <section class="panel">
-        <div class="section-title">Passengers</div>
+        <div class="section-title">{e(t["passengers"])}</div>
         <div class="passengers-grid">
-          {passenger_cards(passengers)}
+          {passenger_cards(passengers, t, language)}
         </div>
       </section>
 
@@ -1014,9 +1024,9 @@ def main() -> None:
     print(f"[DEBUG] BASE_DIR='{BASE_DIR}'")
     print(f"[DEBUG] profile='{args.profile}'")
     print(f"[DEBUG] theme_key='{branding.get('theme_key', DEFAULT_PROFILE_KEY)}'")
+    print(f"[DEBUG] language='{normalize_language(profile_config.get('language'))}'")
     print(f"[DEBUG] brand_logo_arg='{brand_logo}'")
     print("[DEBUG] profile branding:", profile_config["branding"])
-    
 
     if brand_logo and not str(brand_logo).startswith(("http://", "https://", "data:")):
         resolved_brand_path = (BASE_DIR / brand_logo).resolve()
@@ -1026,8 +1036,6 @@ def main() -> None:
             f"[DEBUG] brand_logo_is_file="
             f"{resolved_brand_path.is_file() if resolved_brand_path.exists() else False}"
         )
-        
-        
 
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)

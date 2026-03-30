@@ -1,34 +1,52 @@
 from __future__ import annotations
 
-CLIENTS: dict[str, dict] = {
+from typing import Any
+
+from voucher_generator.profile_catalog import load_profiles_map
+
+
+PROFILES_MAP = load_profiles_map()
+
+
+BASE_CLIENTS = {
     "globalevents2": {
-        "key": "globalevents2",
-        "label": "Global Events",
         "site_key": "globalevents2",
         "source_site_key": "globalevents2",
         "destination_site_key": "globalevents2",
         "default_folder_path": "/General",
-        "brand_logo": None,
-        "default_profile": "default",
     },
     "mastercard": {
-        "key": "mastercard",
-        "label": "Mastercard",
         "site_key": "mastercard",
         "source_site_key": "mastercard",
         "destination_site_key": "mastercard",
         "default_folder_path": "/",
-        "brand_logo": "assets/logos/MASTERCARD.png",
-        "default_profile": "mastercard",
     },
-     "banco_guayaquil": {
-        "key": "banco_guayaquil",
-        "label": "Banco Guayaquil",
+    "banco_guayaquil": {
         "site_key": "globalevents2",
         "source_site_key": "globalevents2",
         "destination_site_key": "globalevents2",
         "default_folder_path": "/General",
-        "brand_logo": "assets/logos/banco_guayaquil_logo.png",
-        "default_profile": "banco_guayaquil",
     },
 }
+
+
+def build_clients() -> dict[str, dict[str, Any]]:
+    clients: dict[str, dict[str, Any]] = {}
+
+    for key, base in BASE_CLIENTS.items():
+        profile = PROFILES_MAP.get(key, {})
+
+        clients[key] = {
+            "key": key,
+            "label": profile.get("label", key),
+            "default_profile": key,
+            "brand_logo": (
+                profile.get("branding", {}).get("brand_logo")
+            ),
+            **base,
+        }
+
+    return clients
+
+
+CLIENTS = build_clients()
