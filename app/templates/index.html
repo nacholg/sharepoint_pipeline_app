@@ -79,10 +79,23 @@
           </div>
         </div>
 
-        <div class="form-grid" style="margin-bottom: 20px;">
+        <div class="form-grid" style="margin-bottom: 20px; align-items: end;">
           <label class="field">
             <span>Cliente</span>
             <select id="clientSelect"></select>
+          </label>
+
+          <label class="field">
+            <span>Idioma</span>
+            <select id="languageSelect">
+              <option value="">Automático (perfil / fallback español)</option>
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+            </select>
+            <small class="field-help">
+              El idioma elegido acá tiene prioridad sobre el idioma definido en el profile.
+            </small>
           </label>
 
           <div class="field">

@@ -103,6 +103,7 @@ class SharePointRunRequest(BaseModel):
     destination_site_key: str | None = None
     profile: str | None = None
     client_key: str | None = None
+    language: str | None = None
 
 
 def get_graph_access_token_from_session(request: Request) -> str:
@@ -164,6 +165,20 @@ def resolve_profile(profile: str | None, site_key: str | None = None) -> str:
         return default_profile
 
     return "default"
+
+SUPPORTED_LANGUAGES = {"es", "en", "pt"}
+DEFAULT_LANGUAGE = "es"
+
+
+def normalize_language(language: str | None) -> str | None:
+    value = (language or "").strip().lower()
+    if not value:
+        return None
+    return value if value in SUPPORTED_LANGUAGES else None
+
+
+def resolve_language(language: str | None) -> str:
+    return normalize_language(language) or DEFAULT_LANGUAGE
 
 
 def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None = None) -> dict:
@@ -280,6 +295,7 @@ async def api_local_run(
     file: UploadFile = File(...),
     profile: str = Form(""),
     client_key: str = Form(""),
+    language: str = Form(""),
 ):
     try:
         client_cfg = get_client_config(client_key or None)
@@ -288,6 +304,7 @@ async def api_local_run(
             site_key=client_cfg.get("site_key"),
         )
         brand_logo = client_cfg.get("brand_logo")
+        resolved_language = resolve_language(language)
 
         job_id = str(uuid4())
         jobs_root = Path("work/jobs").resolve()
@@ -307,6 +324,7 @@ async def api_local_run(
             brand_logo=brand_logo,
             pretty_json=True,
             profile_name=resolved_profile,
+            language=resolved_language,
         )
 
         response = result.to_dict()
@@ -315,6 +333,8 @@ async def api_local_run(
         response["resolved_profile"] = resolved_profile
         response["client_key"] = client_cfg["key"]
         response["client_label"] = client_cfg["label"]
+        response["requested_language"] = normalize_language(language)
+        response["resolved_language"] = resolved_language
         return response
 
     except Exception as e:
@@ -395,6 +415,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         payload.profile or client_cfg.get("default_profile"),
         site_key=source_site_key,
     )
+    resolved_language = resolve_language(payload.language)
 
     try:
         source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
@@ -493,6 +514,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             brand_logo=brand_logo,
             pretty_json=True,
             profile_name=resolved_profile,
+            language=resolved_language,
         )
     except Exception as e:
         raise HTTPException(
@@ -541,6 +563,8 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     response["resolved_profile"] = resolved_profile
     response["client_key"] = client_cfg["key"]
     response["client_label"] = client_cfg["label"]
+    response["requested_language"] = normalize_language(payload.language)
+    response["resolved_language"] = resolved_language
     response["source_site_key"] = source_site_cfg["key"]
     response["source_site_label"] = source_site_cfg["label"]
     response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")

@@ -140,6 +140,7 @@ def run_full_voucher_pipeline(
     profile_name: Optional[str] = None,
     profile: Optional[str] = None,
     pretty_json: bool = True,
+    language: Optional[str] = None,
 ) -> PipelineRunResult:
     if profile_name is None and profile is not None:
         profile_name = profile
@@ -261,6 +262,9 @@ def run_full_voucher_pipeline(
 
     if profile_name:
         cmd_3.extend(["--profile", profile_name])
+
+    if language:
+        cmd_3.extend(["--lang", language])
 
     logo_to_use = brand_logo  # solo override explícito
     if logo_to_use:

@@ -9,6 +9,13 @@ const API = {
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
 
+// 🔹 NUEVO: selector de idioma
+const languageSelect = document.getElementById("languageSelect");
+
+function getSelectedLanguage() {
+  return languageSelect?.value || "";
+}
+
 const userDataEl = document.getElementById("user-data");
 const currentUser = userDataEl ? JSON.parse(userDataEl.textContent) : null;
 
@@ -531,6 +538,7 @@ function renderFatalError(error) {
 function buildSummaryGrid(result) {
   const summary = result.pipeline_summary || {};
   const resolvedProfile = result.resolved_profile || result.profile_used || "-";
+  const language = result.language || "-";
 
   const totalRows = summary.total_rows ?? "-";
   const validRows = summary.valid_rows ?? "-";
@@ -547,6 +555,10 @@ function buildSummaryGrid(result) {
       <div class="summary-card">
         <span>Profile</span>
         <strong>${escapeHtml(resolvedProfile)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Idioma</span>
+        <strong>${escapeHtml(language)}</strong>
       </div>
       <div class="summary-card">
         <span>Rows procesadas</span>
@@ -693,6 +705,7 @@ async function runLocalPipeline() {
 
   const file = fileInput?.files?.[0];
   const selectedProfile = localProfileSelect?.value || "default";
+  const language = getSelectedLanguage(); // 👈 NUEVO
 
   if (!file) {
     alert("Seleccioná un archivo Excel.");
@@ -715,6 +728,9 @@ async function runLocalPipeline() {
     formData.append("file", file);
     formData.append("profile", selectedProfile);
     formData.append("client_key", selectedClient?.key || "");
+
+    // 🔹 NUEVO
+    formData.append("language", language);
 
     const response = await fetch(API.localRun, {
       method: "POST",
@@ -746,6 +762,7 @@ async function runSharePointPipeline() {
   if (!requireSelectedClient()) return;
 
   const selectedProfile = sharepointProfileSelect?.value || "default";
+  const language = getSelectedLanguage(); // 👈 NUEVO
 
   if (!selectedSourceFileId) {
     alert("Seleccioná un Excel de origen en SharePoint.");
@@ -776,6 +793,9 @@ async function runSharePointPipeline() {
       destination_site_key: destinationSiteSelect?.value || selectedDestinationSiteKey || null,
       profile: selectedProfile,
       client_key: selectedClient?.key || null,
+
+      // 🔹 NUEVO
+      language: language,
     };
 
     const response = await fetch(API.sharepointRun, {

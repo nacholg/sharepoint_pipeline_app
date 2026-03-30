@@ -267,6 +267,7 @@ def build_html(
     profile_config: Dict[str, Any],
     brand_logo: Optional[str],
     debug: bool = False,
+    language_override: Optional[str] = None,
 ) -> str:
     voucher = voucher_payload.get("voucher", {})
     hotel = voucher_payload.get("hotel", {})
@@ -283,7 +284,8 @@ def build_html(
     layout = theme["layout"]
     copy_config = profile_config.get("copy", {}) or {}
 
-    language = normalize_language(profile_config.get("language"))
+    profile_lang = normalize_language(profile_config.get("language"))
+    language = language_override or profile_lang or "es"
     t = get_translations(language)
 
     voucher_kicker = copy_config.get("voucher_kicker") or t["voucher_kicker"]
@@ -1013,18 +1015,26 @@ def main() -> None:
     parser.add_argument("--profile", default=DEFAULT_PROFILE_KEY, help="Profile key, for example default or mastercard")
     parser.add_argument("--brand-logo", default=None, help="Optional path, URL or data URI for official brand logo")
     parser.add_argument("--debug-logo", action="store_true", help="Print debug info for logo resolution")
+    parser.add_argument("--lang", dest="lang", choices=["es", "en", "pt"], help="Override language from UI")
+
     args = parser.parse_args()
 
     profile_config = load_profile_config(args.profile)
     branding = profile_config.get("branding", {}) or {}
     brand_logo = args.brand_logo or branding.get("brand_logo")
 
+    profile_lang = normalize_language(profile_config.get("language"))
+    cli_lang = normalize_language(args.lang)
+    language = cli_lang or profile_lang or "es"
+
     print(f"[DEBUG] input_json='{args.input}'")
     print(f"[DEBUG] output_dir='{args.output_dir}'")
     print(f"[DEBUG] BASE_DIR='{BASE_DIR}'")
     print(f"[DEBUG] profile='{args.profile}'")
     print(f"[DEBUG] theme_key='{branding.get('theme_key', DEFAULT_PROFILE_KEY)}'")
-    print(f"[DEBUG] language='{normalize_language(profile_config.get('language'))}'")
+    print(f"[DEBUG] profile_language='{profile_lang}'")
+    print(f"[DEBUG] cli_language='{cli_lang}'")
+    print(f"[DEBUG] resolved_language='{language}'")
     print(f"[DEBUG] brand_logo_arg='{brand_logo}'")
     print("[DEBUG] profile branding:", profile_config["branding"])
 
@@ -1051,6 +1061,7 @@ def main() -> None:
             profile_config=profile_config,
             brand_logo=brand_logo,
             debug=args.debug_logo,
+            language_override=language,
         )
         (output_dir / filename).write_text(html_text, encoding="utf-8")
         print(f"[DEBUG] wrote_html='{output_dir / filename}'")
