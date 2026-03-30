@@ -67,6 +67,32 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return payloads
 
 
+def build_summary(
+    *,
+    profile_name: str,
+    rows: List[Dict[str, Any]],
+    valid_rows: List[Dict[str, Any]],
+    rows_with_errors: List[Dict[str, Any]],
+    rows_with_warnings: List[Dict[str, Any]],
+    payloads: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "profile_used": profile_name,
+        "total_rows": len(rows),
+        "valid_rows": len(valid_rows),
+        "errors": len(rows_with_errors),
+        "warnings": len(rows_with_warnings),
+        "vouchers": len(payloads),
+    }
+
+
+def write_json(path: Path, data: Any, *, pretty: bool = True) -> None:
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2 if pretty else None),
+        encoding="utf-8",
+    )
+
+
 def run_pipeline(
     input_path: Path,
     sheet_name: Optional[str] = None,
@@ -81,17 +107,27 @@ def run_pipeline(
     validation = validate_rows(rows)
     valid_rows = validation["valid_rows"]
     rows_with_errors = validation["rows_with_errors"]
+    rows_with_warnings = validation["rows_with_warnings"]
 
     if rows_with_errors:
         raise ValueError("Validation errors found")
 
     payloads = build_voucher_payloads(valid_rows)
+    summary = build_summary(
+        profile_name=profile_name,
+        rows=rows,
+        valid_rows=valid_rows,
+        rows_with_errors=rows_with_errors,
+        rows_with_warnings=rows_with_warnings,
+        payloads=payloads,
+    )
 
     return {
         "rows": rows,
         "validation": validation,
         "payloads": payloads,
         "profile_used": profile_name,
+        "pipeline_summary": summary,
     }
 
 
@@ -107,7 +143,7 @@ def main() -> None:
     parser.add_argument(
         "--debug-rows",
         action="store_true",
-        help="Also emit .rows.json / .warnings.json / .errors.json / .summary.json",
+        help="Also emit .rows.json in addition to summary/errors/warnings.",
     )
     args = parser.parse_args()
 
@@ -131,57 +167,44 @@ def main() -> None:
     print(f"Rows with warnings: {len(rows_with_warnings)}")
     print(f"Profile used: {args.profile}")
 
+    payloads: List[Dict[str, Any]] = []
+    if not rows_with_errors:
+        payloads = build_voucher_payloads(valid_rows)
+
+    summary = build_summary(
+        profile_name=args.profile,
+        rows=rows,
+        valid_rows=valid_rows,
+        rows_with_errors=rows_with_errors,
+        rows_with_warnings=rows_with_warnings,
+        payloads=payloads,
+    )
+
+    # Siempre escribir summary / warnings / errors
+    summary_path = output_path.with_suffix(".summary.json")
+    write_json(summary_path, summary)
+    print(f"Summary: {summary_path}")
+
+    warnings_path = output_path.with_suffix(".warnings.json")
+    write_json(warnings_path, rows_with_warnings)
+    print(f"Warning rows: {warnings_path}")
+
+    errors_path = output_path.with_suffix(".errors.json")
+    write_json(errors_path, rows_with_errors)
+    print(f"Error rows: {errors_path}")
+
+    if args.debug_rows:
+        debug_rows_path = output_path.with_suffix(".rows.json")
+        write_json(debug_rows_path, rows)
+        print(f"Debug rows: {debug_rows_path}")
+
     if rows_with_errors:
         print("\nERRORS FOUND:")
         for err in rows_with_errors[:5]:
             print(f"- Row {err['row_index']}: {err['errors']}")
         raise SystemExit("Aborting due to validation errors")
 
-    payloads = build_voucher_payloads(valid_rows)
-
-    output_path.write_text(
-        json.dumps(payloads, ensure_ascii=False, indent=2 if args.pretty else None),
-        encoding="utf-8",
-    )
-
-    if args.debug_rows:
-        debug_path = output_path.with_suffix(".rows.json")
-        debug_path.write_text(
-            json.dumps(rows, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        print(f"Debug rows: {debug_path}")
-
-        if rows_with_errors:
-            debug_errors_path = output_path.with_suffix(".errors.json")
-            debug_errors_path.write_text(
-                json.dumps(rows_with_errors, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            print(f"Error rows: {debug_errors_path}")
-
-        if rows_with_warnings:
-            debug_warnings_path = output_path.with_suffix(".warnings.json")
-            debug_warnings_path.write_text(
-                json.dumps(rows_with_warnings, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            print(f"Warning rows: {debug_warnings_path}")
-
-        summary = {
-            "profile_used": args.profile,
-            "total_rows": len(rows),
-            "valid_rows": len(valid_rows),
-            "errors": len(rows_with_errors),
-            "warnings": len(rows_with_warnings),
-            "vouchers": len(payloads),
-        }
-        summary_path = output_path.with_suffix(".summary.json")
-        summary_path.write_text(
-            json.dumps(summary, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        print(f"Summary: {summary_path}")
+    write_json(output_path, payloads, pretty=args.pretty)
 
     print(f"Voucher payloads generated: {len(payloads)}")
     print(f"Output: {output_path}")

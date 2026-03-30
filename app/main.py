@@ -85,7 +85,6 @@ AVAILABLE_PROFILES = [
     for p in list_profile_configs()
 ]
 
-
 app = FastAPI(title="Voucher Generator")
 app.add_middleware(SessionMiddleware, secret_key=settings.APP_SECRET_KEY)
 
@@ -165,6 +164,7 @@ def resolve_profile(profile: str | None, site_key: str | None = None) -> str:
         return default_profile
 
     return "default"
+
 
 SUPPORTED_LANGUAGES = {"es", "en", "pt"}
 DEFAULT_LANGUAGE = "es"
@@ -335,6 +335,8 @@ async def api_local_run(
         response["client_label"] = client_cfg["label"]
         response["requested_language"] = normalize_language(language)
         response["resolved_language"] = resolved_language
+        response["language"] = response.get("language") or resolved_language
+        response["profile_used"] = response.get("profile_used") or resolved_profile
         return response
 
     except Exception as e:
@@ -565,6 +567,8 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     response["client_label"] = client_cfg["label"]
     response["requested_language"] = normalize_language(payload.language)
     response["resolved_language"] = resolved_language
+    response["language"] = response.get("language") or resolved_language
+    response["profile_used"] = response.get("profile_used") or resolved_profile
     response["source_site_key"] = source_site_cfg["key"]
     response["source_site_label"] = source_site_cfg["label"]
     response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")

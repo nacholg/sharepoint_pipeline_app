@@ -9,7 +9,7 @@ const API = {
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
 
-// 🔹 NUEVO: selector de idioma
+// selector de idioma
 const languageSelect = document.getElementById("languageSelect");
 
 function getSelectedLanguage() {
@@ -546,6 +546,24 @@ function buildSummaryGrid(result) {
   const warnings = summary.warnings ?? "-";
   const vouchers = summary.vouchers ?? "-";
 
+  const validation = result.validation || {};
+  const preflightErrors = Array.isArray(validation.errors) ? validation.errors.length : 0;
+  const preflightWarnings = Array.isArray(validation.warnings) ? validation.warnings.length : 0;
+
+  const excelErrors =
+    typeof summary.errors === "number" ? summary.errors : 0;
+  const excelWarnings =
+    typeof summary.warnings === "number" ? summary.warnings : 0;
+
+  const totalValidationErrors = preflightErrors + excelErrors;
+  const totalValidationWarnings = preflightWarnings + excelWarnings;
+
+  const validationStatus = totalValidationErrors
+    ? `${totalValidationErrors} errores`
+    : totalValidationWarnings
+      ? `${totalValidationWarnings} warnings`
+      : "OK";
+
   return `
     <div class="summary-grid">
       <div class="summary-card">
@@ -559,6 +577,10 @@ function buildSummaryGrid(result) {
       <div class="summary-card">
         <span>Idioma</span>
         <strong>${escapeHtml(language)}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Validación</span>
+        <strong>${escapeHtml(validationStatus)}</strong>
       </div>
       <div class="summary-card">
         <span>Rows procesadas</span>
@@ -612,6 +634,45 @@ function buildDebugFilesGrid(result) {
   `;
 }
 
+function renderValidationBlock(validation) {
+  if (!validation) return "";
+
+  const errors = Array.isArray(validation.errors) ? validation.errors : [];
+  const warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
+
+  if (!errors.length && !warnings.length) return "";
+
+  const errorHtml = errors.length
+    ? `
+      <div class="validation-group validation-errors">
+        <div class="validation-title">Errores de validación</div>
+        <ul>
+          ${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}
+        </ul>
+      </div>
+    `
+    : "";
+
+  const warningHtml = warnings.length
+    ? `
+      <div class="validation-group validation-warnings">
+        <div class="validation-title">Warnings</div>
+        <ul>
+          ${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}
+        </ul>
+      </div>
+    `
+    : "";
+
+  return `
+    <section class="result-card validation-card">
+      <h3>Validación previa</h3>
+      ${errorHtml}
+      ${warningHtml}
+    </section>
+  `;
+}
+
 function renderResult(result, mode) {
   setFinishedState(!!result.ok);
 
@@ -640,9 +701,11 @@ function renderResult(result, mode) {
 
   const generatedFiles = Array.isArray(result.generated_files) ? result.generated_files : [];
   const uploadedFiles = Array.isArray(result.uploaded_files) ? result.uploaded_files : [];
+  const validationHtml = renderValidationBlock(result.validation);
 
   resultContent.innerHTML = `
     ${buildSummaryGrid(result)}
+    ${validationHtml}
 
     ${
       result.error
@@ -705,7 +768,7 @@ async function runLocalPipeline() {
 
   const file = fileInput?.files?.[0];
   const selectedProfile = localProfileSelect?.value || "default";
-  const language = getSelectedLanguage(); // 👈 NUEVO
+  const language = getSelectedLanguage();
 
   if (!file) {
     alert("Seleccioná un archivo Excel.");
@@ -728,8 +791,6 @@ async function runLocalPipeline() {
     formData.append("file", file);
     formData.append("profile", selectedProfile);
     formData.append("client_key", selectedClient?.key || "");
-
-    // 🔹 NUEVO
     formData.append("language", language);
 
     const response = await fetch(API.localRun, {
@@ -746,6 +807,7 @@ async function runLocalPipeline() {
           error: data?.detail || "Error ejecutando pipeline local.",
           steps: [],
           generated_files: [],
+          validation: data?.validation || null,
         },
         "local"
       );
@@ -762,7 +824,7 @@ async function runSharePointPipeline() {
   if (!requireSelectedClient()) return;
 
   const selectedProfile = sharepointProfileSelect?.value || "default";
-  const language = getSelectedLanguage(); // 👈 NUEVO
+  const language = getSelectedLanguage();
 
   if (!selectedSourceFileId) {
     alert("Seleccioná un Excel de origen en SharePoint.");
@@ -793,8 +855,6 @@ async function runSharePointPipeline() {
       destination_site_key: destinationSiteSelect?.value || selectedDestinationSiteKey || null,
       profile: selectedProfile,
       client_key: selectedClient?.key || null,
-
-      // 🔹 NUEVO
       language: language,
     };
 
@@ -815,6 +875,7 @@ async function runSharePointPipeline() {
           error: data?.detail || "Error ejecutando pipeline SharePoint.",
           steps: [],
           generated_files: [],
+          validation: data?.validation || null,
         },
         "sharepoint"
       );
@@ -957,4 +1018,27 @@ function renderSharePointBrowser(items) {
   }
 
   spModalBody.appendChild(list);
+}
+
+function getCombinedValidation(result) {
+  const preflight = result.validation || {};
+  const summary = result.pipeline_summary || {};
+
+  const errors = Array.isArray(preflight.errors) ? [...preflight.errors] : [];
+  const warnings = Array.isArray(preflight.warnings) ? [...preflight.warnings] : [];
+
+  const excelErrorCount =
+    typeof summary.errors === "number" ? summary.errors : 0;
+  const excelWarningCount =
+    typeof summary.warnings === "number" ? summary.warnings : 0;
+
+  if (excelErrorCount > 0) {
+    errors.push(`Excel con ${excelErrorCount} filas con error.`);
+  }
+
+  if (excelWarningCount > 0) {
+    warnings.push(`Excel con ${excelWarningCount} filas con warning.`);
+  }
+
+  return { errors, warnings };
 }

@@ -1163,3 +1163,45 @@ select:focus {
   background: rgba(255, 0, 0, 0.1);
   color: #ff6b6b;
 }
+
+.validation-card {
+  margin-top: 16px;
+}
+
+.validation-group {
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+
+.validation-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.validation-errors {
+  background: #fff1f1;
+  border: 1px solid #f1c7c7;
+}
+
+.validation-errors .validation-title {
+  color: #a12626;
+}
+
+.validation-warnings {
+  background: #fff9eb;
+  border: 1px solid #ead7a4;
+}
+
+.validation-warnings .validation-title {
+  color: #8a6a00;
+}
+
+.validation-group ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.validation-group li {
+  margin: 6px 0;
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -7,9 +8,10 @@ import sys
 import zipfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.config import settings
+from voucher_generator.profiles import get_profile_config
 
 
 @dataclass
@@ -26,6 +28,16 @@ class PipelineStepResult:
 
 
 @dataclass
+class PipelineValidationResult:
+    ok: bool
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
 class PipelineRunResult:
     ok: bool
     job_id: str
@@ -35,6 +47,16 @@ class PipelineRunResult:
     generated_files: List[str] = field(default_factory=list)
     zip_file: Optional[str] = None
     error: Optional[str] = None
+    validation: Optional[dict] = None
+
+    pipeline_summary: Optional[dict] = None
+    summary_file: Optional[str] = None
+    warnings_file: Optional[str] = None
+    errors_file: Optional[str] = None
+    rows_file: Optional[str] = None
+
+    profile_used: Optional[str] = None
+    language: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -119,6 +141,16 @@ def _collect_outputs(job_dir: Path) -> List[str]:
         if p.exists():
             wanted.append(p)
 
+    for suffix in [
+        "voucher_payloads.summary.json",
+        "voucher_payloads.warnings.json",
+        "voucher_payloads.errors.json",
+        "voucher_payloads.rows.json",
+    ]:
+        p = job_dir / suffix
+        if p.exists():
+            wanted.append(p)
+
     html_dir = job_dir / "rendered_vouchers"
     pdf_dir = job_dir / "rendered_pdfs"
 
@@ -129,6 +161,82 @@ def _collect_outputs(job_dir: Path) -> List[str]:
         wanted.extend([p for p in pdf_dir.rglob("*") if p.is_file()])
 
     return sorted(str(p.resolve()) for p in wanted)
+
+
+def _is_valid_excel_file(path: Path) -> bool:
+    return path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}
+
+
+def _read_json_if_exists(path: Path) -> Optional[Any]:
+    if not path.exists() or not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _preflight_validate_pipeline(
+    *,
+    source_excel: Path,
+    generator_root: Path,
+    logos_dir: Path,
+    profile_name: Optional[str],
+    brand_logo: Optional[str],
+    language: Optional[str],
+) -> PipelineValidationResult:
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    if not generator_root.exists():
+        errors.append(f"voucher_generator no existe: {generator_root}")
+
+    if not logos_dir.exists():
+        errors.append(f"No existe la carpeta de logos: {logos_dir}")
+
+    if not source_excel.exists():
+        errors.append(f"Excel de entrada no existe: {source_excel}")
+    else:
+        if not source_excel.is_file():
+            errors.append(f"La ruta de entrada no es un archivo: {source_excel}")
+        if not _is_valid_excel_file(source_excel):
+            errors.append(
+                f"El archivo de entrada debe ser Excel (.xlsx, .xlsm o .xls): {source_excel.name}"
+            )
+
+    if language:
+        normalized_language = language.strip().lower()
+        if normalized_language not in {"es", "en", "pt"}:
+            errors.append(
+                f"Idioma inválido '{language}'. Valores permitidos: es, en, pt."
+            )
+
+    if profile_name:
+        try:
+            profile_config = get_profile_config(profile_name)
+            if not profile_config:
+                errors.append(f"No se pudo cargar el profile: {profile_name}")
+        except Exception as exc:
+            errors.append(f"Profile inválido '{profile_name}': {exc}")
+
+    if brand_logo:
+        raw_logo = str(brand_logo).strip()
+        if not raw_logo:
+            warnings.append("Se recibió brand_logo vacío; se ignorará.")
+        elif not raw_logo.startswith(("http://", "https://", "data:")):
+            logo_path = Path(raw_logo)
+            if not logo_path.is_absolute():
+                logo_path = (generator_root / logo_path).resolve()
+            if not logo_path.exists():
+                errors.append(f"Brand logo override no existe: {logo_path}")
+            elif not logo_path.is_file():
+                errors.append(f"Brand logo override no es archivo: {logo_path}")
+
+    return PipelineValidationResult(
+        ok=len(errors) == 0,
+        errors=errors,
+        warnings=warnings,
+    )
 
 
 def run_full_voucher_pipeline(
@@ -145,6 +253,8 @@ def run_full_voucher_pipeline(
     if profile_name is None and profile is not None:
         profile_name = profile
 
+    resolved_language = (language or "es").strip().lower() if language else "es"
+
     project_root = Path(__file__).resolve().parent.parent
     generator_root = project_root / "voucher_generator"
     python_exe = Path(sys.executable)
@@ -158,32 +268,27 @@ def run_full_voucher_pipeline(
     _ensure_dir(jobs_root)
 
     logos_dir = (generator_root / "assets" / "logos").resolve()
+    source_excel = Path(source_excel).resolve()
 
-    if not generator_root.exists():
+    validation = _preflight_validate_pipeline(
+        source_excel=source_excel,
+        generator_root=generator_root,
+        logos_dir=logos_dir,
+        profile_name=profile_name,
+        brand_logo=brand_logo,
+        language=resolved_language,
+    )
+
+    if not validation.ok:
         return PipelineRunResult(
             ok=False,
             job_id=job_id,
             working_dir=str(generator_root),
             input_file=str(source_excel),
-            error=f"voucher_generator no existe: {generator_root}",
-        )
-
-    if not logos_dir.exists():
-        return PipelineRunResult(
-            ok=False,
-            job_id=job_id,
-            working_dir=str(generator_root),
-            input_file=str(source_excel),
-            error=f"No existe la carpeta de logos: {logos_dir}",
-        )
-
-    if not source_excel.exists():
-        return PipelineRunResult(
-            ok=False,
-            job_id=job_id,
-            working_dir=str(generator_root),
-            input_file=str(source_excel),
-            error=f"Excel de entrada no existe: {source_excel}",
+            error="Falló validación previa del pipeline",
+            validation=validation.to_dict(),
+            profile_used=profile_name,
+            language=resolved_language,
         )
 
     job_dir = (jobs_root / job_id).resolve()
@@ -196,6 +301,11 @@ def run_full_voucher_pipeline(
     hotel_cache = (job_dir / "hotel_cache.json").resolve()
     rendered_html_dir = (job_dir / "rendered_vouchers").resolve()
     rendered_pdf_dir = (job_dir / "rendered_pdfs").resolve()
+
+    summary_file_path = payload_json.with_suffix(".summary.json")
+    warnings_file_path = payload_json.with_suffix(".warnings.json")
+    errors_file_path = payload_json.with_suffix(".errors.json")
+    rows_file_path = payload_json.with_suffix(".rows.json")
 
     steps: List[PipelineStepResult] = []
 
@@ -211,6 +321,7 @@ def run_full_voucher_pipeline(
         cmd_1.append("--pretty")
     if profile_name:
         cmd_1.extend(["--profile", profile_name])
+    cmd_1.append("--debug-rows")
 
     step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=project_root)
     steps.append(step_1)
@@ -223,6 +334,14 @@ def run_full_voucher_pipeline(
             steps=steps,
             generated_files=_collect_outputs(job_dir),
             error="Falló xlsx_to_voucher_json.py",
+            validation=validation.to_dict(),
+            pipeline_summary=_read_json_if_exists(summary_file_path),
+            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+            profile_used=profile_name,
+            language=resolved_language,
         )
 
     cmd_2 = [
@@ -249,6 +368,14 @@ def run_full_voucher_pipeline(
             steps=steps,
             generated_files=_collect_outputs(job_dir),
             error="Falló enrich_hotels.py",
+            validation=validation.to_dict(),
+            pipeline_summary=_read_json_if_exists(summary_file_path),
+            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+            profile_used=profile_name,
+            language=resolved_language,
         )
 
     cmd_3 = [
@@ -263,10 +390,10 @@ def run_full_voucher_pipeline(
     if profile_name:
         cmd_3.extend(["--profile", profile_name])
 
-    if language:
-        cmd_3.extend(["--lang", language])
+    if resolved_language:
+        cmd_3.extend(["--lang", resolved_language])
 
-    logo_to_use = brand_logo  # solo override explícito
+    logo_to_use = brand_logo
     if logo_to_use:
         logo_path = Path(logo_to_use)
         if (
@@ -275,7 +402,7 @@ def run_full_voucher_pipeline(
         ):
             logo_path = (generator_root / logo_path).resolve()
         cmd_3.extend(["--brand-logo", str(logo_path)])
-        
+
     step_3 = _run_step("render_vouchers_html", cmd_3, cwd=project_root)
     steps.append(step_3)
     if not step_3.ok:
@@ -287,6 +414,14 @@ def run_full_voucher_pipeline(
             steps=steps,
             generated_files=_collect_outputs(job_dir),
             error="Falló render_vouchers_html.py",
+            validation=validation.to_dict(),
+            pipeline_summary=_read_json_if_exists(summary_file_path),
+            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+            profile_used=profile_name,
+            language=resolved_language,
         )
 
     cmd_4 = [
@@ -309,6 +444,14 @@ def run_full_voucher_pipeline(
             steps=steps,
             generated_files=_collect_outputs(job_dir),
             error="Falló render_vouchers_pdf.py",
+            validation=validation.to_dict(),
+            pipeline_summary=_read_json_if_exists(summary_file_path),
+            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+            profile_used=profile_name,
+            language=resolved_language,
         )
 
     generated_files = _collect_outputs(job_dir)
@@ -325,4 +468,12 @@ def run_full_voucher_pipeline(
         generated_files=generated_files,
         zip_file=str(created_zip.resolve()) if created_zip else None,
         error=None,
+        validation=validation.to_dict(),
+        pipeline_summary=_read_json_if_exists(summary_file_path),
+        summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+        warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+        errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+        rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+        profile_used=profile_name,
+        language=resolved_language,
     )
