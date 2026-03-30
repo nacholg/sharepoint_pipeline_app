@@ -23,7 +23,6 @@ def load_json_profiles(base_dir: Path) -> Dict[str, Dict[str, Any]]:
                 continue
 
             profiles[key] = data
-            #assert_valid_profile_config(data, base_dir=base_dir)
 
         except Exception as e:
             print(f"[WARN] Failed loading profile {file}: {e}")
