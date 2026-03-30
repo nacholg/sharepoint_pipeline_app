@@ -72,6 +72,27 @@
       </section>
 
       <section class="card">
+        <div class="panel-header" style="margin-bottom: 18px;">
+          <div>
+            <h3>Cliente</h3>
+            <p>Seleccioná el cliente para aplicar automáticamente site, profile y branding por defecto.</p>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom: 20px;">
+          <label class="field">
+            <span>Cliente</span>
+            <select id="clientSelect"></select>
+          </label>
+
+          <div class="field">
+            <span>Configuración activa</span>
+            <div id="clientMeta" class="picker-card" style="min-height: 86px;">
+              Sin selección
+            </div>
+          </div>
+        </div>
+
         <div class="mode-switch" role="tablist" aria-label="Origen del pipeline">
           <button id="btnLocal" class="mode-btn active" type="button">Local</button>
           <button id="btnSP" class="mode-btn" type="button">SharePoint</button>

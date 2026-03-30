@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.client_registry import CLIENTS
 from app.config import settings
 from app.pipeline_runner import run_full_voucher_pipeline
 from app.routes.auth_routes import router as auth_router
@@ -78,6 +79,8 @@ SHAREPOINT_SITES = _load_sharepoint_sites()
 AVAILABLE_PROFILES = [
     {"key": "default", "label": "Default", "enabled": True},
     {"key": "mastercard", "label": "Mastercard", "enabled": True},
+    {"key": "banco_guayaquil", "label": "Banco Guayaquil", "enabled": True},
+
 ]
 
 
@@ -97,6 +100,7 @@ class SharePointRunRequest(BaseModel):
     source_site_key: str | None = None
     destination_site_key: str | None = None
     profile: str | None = None
+    client_key: str | None = None
 
 
 def get_graph_access_token_from_session(request: Request) -> str:
@@ -132,6 +136,16 @@ def get_site_config(site_key: str | None) -> dict:
         return SHAREPOINT_SITES["globalevents2"]
 
     return next(iter(SHAREPOINT_SITES.values()))
+
+
+def get_client_config(client_key: str | None) -> dict:
+    if client_key and client_key in CLIENTS:
+        return CLIENTS[client_key]
+
+    if "globalevents2" in CLIENTS:
+        return CLIENTS["globalevents2"]
+
+    return next(iter(CLIENTS.values()))
 
 
 def resolve_profile(profile: str | None, site_key: str | None = None) -> str:
@@ -221,6 +235,15 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
     }
 
 
+@app.get("/api/clients")
+def api_clients():
+    return {
+        "ok": True,
+        "clients": list(CLIENTS.values()),
+        "default_client": "globalevents2" if "globalevents2" in CLIENTS else next(iter(CLIENTS.keys()), None),
+    }
+
+
 @app.get("/api/sharepoint/sites")
 def api_sharepoint_sites():
     return {
@@ -254,9 +277,15 @@ def api_profiles():
 async def api_local_run(
     file: UploadFile = File(...),
     profile: str = Form(""),
+    client_key: str = Form(""),
 ):
     try:
-        resolved_profile = resolve_profile(profile, site_key="globalevents2")
+        client_cfg = get_client_config(client_key or None)
+        resolved_profile = resolve_profile(
+            profile or client_cfg.get("default_profile"),
+            site_key=client_cfg.get("site_key"),
+        )
+        brand_logo = client_cfg.get("brand_logo")
 
         job_id = str(uuid4())
         jobs_root = Path("work/jobs").resolve()
@@ -273,7 +302,7 @@ async def api_local_run(
             job_id=job_id,
             source_excel=local_excel_path,
             jobs_root=jobs_root,
-            brand_logo=None,
+            brand_logo=brand_logo,
             pretty_json=True,
             profile_name=resolved_profile,
         )
@@ -282,6 +311,8 @@ async def api_local_run(
         response["mode"] = "local"
         response["requested_profile"] = profile
         response["resolved_profile"] = resolved_profile
+        response["client_key"] = client_cfg["key"]
+        response["client_label"] = client_cfg["label"]
         return response
 
     except Exception as e:
@@ -349,9 +380,19 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     access_token = get_graph_access_token_from_session(request)
     graph = GraphSharePointService(access_token)
 
-    source_site_key = payload.source_site_key
-    destination_site_key = payload.destination_site_key or payload.source_site_key
-    resolved_profile = resolve_profile(payload.profile, site_key=source_site_key)
+    client_cfg = get_client_config(payload.client_key)
+
+    source_site_key = payload.source_site_key or client_cfg.get("source_site_key") or client_cfg.get("site_key")
+    destination_site_key = (
+        payload.destination_site_key
+        or client_cfg.get("destination_site_key")
+        or client_cfg.get("site_key")
+        or source_site_key
+    )
+    resolved_profile = resolve_profile(
+        payload.profile or client_cfg.get("default_profile"),
+        site_key=source_site_key,
+    )
 
     try:
         source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
@@ -440,7 +481,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             detail=f"No se pudo descargar el Excel desde SharePoint Graph: {e}",
         )
 
-    brand_logo = source_site_cfg.get("brand_logo")
+    brand_logo = client_cfg.get("brand_logo") or source_site_cfg.get("brand_logo")
 
     try:
         result = run_full_voucher_pipeline(
@@ -496,6 +537,8 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     response["mode"] = "graph_sharepoint_site"
     response["requested_profile"] = payload.profile
     response["resolved_profile"] = resolved_profile
+    response["client_key"] = client_cfg["key"]
+    response["client_label"] = client_cfg["label"]
     response["source_site_key"] = source_site_cfg["key"]
     response["source_site_label"] = source_site_cfg["label"]
     response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")

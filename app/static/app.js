@@ -4,6 +4,7 @@ const API = {
   sharepointSites: "/api/sharepoint/sites",
   sharepointExplore: "/api/sharepoint/explore",
   profiles: "/api/profiles",
+  clients: "/api/clients",
 };
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
@@ -23,6 +24,9 @@ const runSPBtn = document.getElementById("runSPBtn");
 
 const localProfileSelect = document.getElementById("localProfileSelect");
 const sharepointProfileSelect = document.getElementById("sharepointProfileSelect");
+
+const clientSelect = document.getElementById("clientSelect");
+const clientMeta = document.getElementById("clientMeta");
 
 const sourceSiteSelect = document.getElementById("sourceSiteSelect");
 const destinationSiteSelect = document.getElementById("destinationSiteSelect");
@@ -60,6 +64,8 @@ const spPickedDestInline = document.getElementById("spPickedDestInline");
 
 let sharepointSites = [];
 let availableProfiles = [];
+let availableClients = [];
+let selectedClient = null;
 
 let selectedSourceFileId = null;
 let selectedSourceFileName = null;
@@ -159,14 +165,14 @@ destinationSiteSelect?.addEventListener("change", () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    await loadClients();
     await loadProfiles();
 
     if (sourceSiteSelect || destinationSiteSelect || modalSiteSelect) {
       await loadSharePointSites();
-      const defaultSite = sourceSiteSelect?.value || getDefaultSiteKey();
-      applyDefaultProfileForSite(defaultSite, "sharepoint");
     }
 
+    restoreDefaultClientSelection();
     syncPickedLabels();
   } catch (error) {
     console.error("Init error:", error);
@@ -184,6 +190,10 @@ function getSiteConfig(siteKey) {
   return sharepointSites.find((site) => site.key === siteKey) || null;
 }
 
+function getClientConfig(clientKey) {
+  return availableClients.find((client) => client.key === clientKey) || null;
+}
+
 function applyDefaultProfileForSite(siteKey, mode = "sharepoint") {
   const site = getSiteConfig(siteKey);
   const defaultProfile = site?.default_profile || "default";
@@ -198,6 +208,92 @@ function applyDefaultProfileForSite(siteKey, mode = "sharepoint") {
   if (sharepointProfileSelect && defaultProfile) {
     sharepointProfileSelect.value = defaultProfile;
   }
+}
+
+async function loadClients() {
+  const response = await fetch(API.clients);
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error("No se pudieron cargar los clientes");
+  }
+
+  availableClients = Array.isArray(data.clients) ? data.clients : [];
+
+  if (!clientSelect) return;
+
+  clientSelect.innerHTML = "";
+
+  for (const client of availableClients) {
+    const opt = document.createElement("option");
+    opt.value = client.key;
+    opt.textContent = client.label;
+    clientSelect.appendChild(opt);
+  }
+
+  clientSelect.addEventListener("change", onClientChange);
+}
+
+function restoreDefaultClientSelection() {
+  if (!clientSelect || !availableClients.length) return;
+
+  const saved = localStorage.getItem("voucherClientKey");
+  const fallback =
+    saved && availableClients.some((c) => c.key === saved)
+      ? saved
+      : availableClients[0].key;
+
+  clientSelect.value = fallback;
+  onClientChange({ target: clientSelect });
+}
+
+function onClientChange(event) {
+  const clientKey = event.target.value;
+  selectedClient = getClientConfig(clientKey);
+
+  if (!selectedClient) return;
+
+  localStorage.setItem("voucherClientKey", selectedClient.key);
+
+  if (clientMeta) {
+    clientMeta.innerHTML = `
+      <div><strong>Cliente:</strong> ${escapeHtml(selectedClient.label)}</div>
+      <div><strong>Site:</strong> ${escapeHtml(selectedClient.site_key || "-")}</div>
+      <div><strong>Profile:</strong> ${escapeHtml(selectedClient.default_profile || "default")}</div>
+      <div><strong>Carpeta default:</strong> ${escapeHtml(selectedClient.default_folder_path || "/")}</div>
+    `;
+  }
+
+  if (localProfileSelect) {
+    localProfileSelect.value = selectedClient.default_profile || "default";
+  }
+
+  if (sharepointProfileSelect) {
+    sharepointProfileSelect.value = selectedClient.default_profile || "default";
+  }
+
+  if (sourceSiteSelect && selectedClient.source_site_key) {
+    sourceSiteSelect.value = selectedClient.source_site_key;
+  } else if (sourceSiteSelect && selectedClient.site_key) {
+    sourceSiteSelect.value = selectedClient.site_key;
+  }
+
+  if (destinationSiteSelect && selectedClient.destination_site_key) {
+    destinationSiteSelect.value = selectedClient.destination_site_key;
+  } else if (destinationSiteSelect && selectedClient.site_key) {
+    destinationSiteSelect.value = selectedClient.site_key;
+  }
+
+  selectedSourceFileId = null;
+  selectedSourceFileName = null;
+  selectedSourceSiteKey = null;
+
+  selectedDestinationFolderId = null;
+  selectedDestinationFolderName = null;
+  selectedDestinationSiteKey = null;
+
+  syncPickedLabels();
+  switchMode(btnLocal?.classList.contains("active") ? "local" : "sharepoint");
 }
 
 async function loadProfiles() {
@@ -282,10 +378,18 @@ function switchMode(mode) {
   spSection?.classList.toggle("hidden", isLocal);
 
   if (isLocal) {
-    applyDefaultProfileForSite("globalevents2", "local");
+    if (selectedClient?.default_profile) {
+      localProfileSelect.value = selectedClient.default_profile;
+    } else {
+      applyDefaultProfileForSite("globalevents2", "local");
+    }
   } else {
-    const selectedKey = sourceSiteSelect?.value || getDefaultSiteKey();
-    applyDefaultProfileForSite(selectedKey, "sharepoint");
+    if (selectedClient?.default_profile) {
+      sharepointProfileSelect.value = selectedClient.default_profile;
+    } else {
+      const selectedKey = sourceSiteSelect?.value || getDefaultSiteKey();
+      applyDefaultProfileForSite(selectedKey, "sharepoint");
+    }
   }
 }
 
@@ -333,6 +437,14 @@ function syncPickedLabels() {
       ? `${selectedDestinationFolderName} (${selectedDestinationSiteKey || "-"})`
       : "Sin seleccionar";
   }
+}
+
+function requireSelectedClient() {
+  if (!selectedClient) {
+    alert("Seleccioná un cliente antes de ejecutar.");
+    return false;
+  }
+  return true;
 }
 
 function resetUI(label = "Esperando ejecución") {
@@ -428,6 +540,10 @@ function buildSummaryGrid(result) {
 
   return `
     <div class="summary-grid">
+      <div class="summary-card">
+        <span>Cliente</span>
+        <strong>${escapeHtml(result.client_label || "-")}</strong>
+      </div>
       <div class="summary-card">
         <span>Profile</span>
         <strong>${escapeHtml(resolvedProfile)}</strong>
@@ -573,6 +689,8 @@ function renderResult(result, mode) {
 }
 
 async function runLocalPipeline() {
+  if (!requireSelectedClient()) return;
+
   const file = fileInput?.files?.[0];
   const selectedProfile = localProfileSelect?.value || "default";
 
@@ -596,6 +714,7 @@ async function runLocalPipeline() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("profile", selectedProfile);
+    formData.append("client_key", selectedClient?.key || "");
 
     const response = await fetch(API.localRun, {
       method: "POST",
@@ -624,6 +743,8 @@ async function runLocalPipeline() {
 }
 
 async function runSharePointPipeline() {
+  if (!requireSelectedClient()) return;
+
   const selectedProfile = sharepointProfileSelect?.value || "default";
 
   if (!selectedSourceFileId) {
@@ -654,6 +775,7 @@ async function runSharePointPipeline() {
       source_site_key: sourceSiteSelect?.value || selectedSourceSiteKey || null,
       destination_site_key: destinationSiteSelect?.value || selectedDestinationSiteKey || null,
       profile: selectedProfile,
+      client_key: selectedClient?.key || null,
     };
 
     const response = await fetch(API.sharepointRun, {
