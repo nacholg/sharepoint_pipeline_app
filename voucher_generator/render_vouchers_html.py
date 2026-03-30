@@ -13,6 +13,9 @@ from typing import Any, Dict, List, Optional
 
 from voucher_generator.themes.theme_registry import get_theme_config
 from voucher_generator.i18n import get_translations, normalize_language
+from voucher_generator.profiles.profile_loader import load_profile
+
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROFILE_KEY = "default"
@@ -1019,7 +1022,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    profile_config = load_profile_config(args.profile)
+    profile_config = load_profile(args.profile, BASE_DIR)
     branding = profile_config.get("branding", {}) or {}
     brand_logo = args.brand_logo or branding.get("brand_logo")
 
