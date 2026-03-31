@@ -9,6 +9,8 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import Query
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -280,6 +282,50 @@ def api_sharepoint_sites():
         ],
     }
 
+
+
+BASE_WORK_DIR = Path("work/jobs").resolve()
+
+@app.get("/api/download-zip")
+def download_zip(path: str = Query(...)):
+    try:
+        file_path = Path(path).resolve()
+
+        if not str(file_path).startswith(str(BASE_WORK_DIR)):
+            raise HTTPException(status_code=403, detail="Acceso no permitido")
+
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="ZIP no encontrado")
+
+        return FileResponse(
+            path=file_path,
+            filename=file_path.name,
+            media_type="application/zip",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/download-file")
+def download_file(path: str = Query(...)):
+    try:
+        file_path = Path(path).resolve()
+
+        if not str(file_path).startswith(str(BASE_WORK_DIR)):
+            return {"ok": False, "error": "Acceso no permitido"}
+
+        if not file_path.exists() or not file_path.is_file():
+            return {"ok": False, "error": "Archivo inválido"}
+
+        return FileResponse(
+            path=file_path,
+            filename=file_path.name,
+            media_type="application/octet-stream"
+        )
+
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.get("/api/profiles")
 def api_profiles():

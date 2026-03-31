@@ -1346,3 +1346,56 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.file-group {
+  margin-top: 14px;
+}
+
+.file-group-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+
+.file-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+
+.file-row:hover .file-path {
+  display: block;
+}
+
+.file-name {
+  font-weight: 500;
+}
+
+.file-path {
+  display: none;
+}
+
+
+.zip-section button {
+  margin-top: 8px;
+}
+
+.zip-path {
+  font-size: 12px;
+  opacity: 0.5;
+  margin-top: 6px;
+}
+
+
+.file-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-actions button {
+  font-size: 12px;
+  padding: 4px 8px;
+}
