@@ -515,6 +515,7 @@ function renderSharePointBrowser(items) {
 
     const isFolder = !!item.is_folder;
     const isFile = !!item.is_file;
+    const isExcel = isValidExcelFilename(item.name || "");
 
     row.innerHTML = `
       <div class="browser-main">
@@ -527,14 +528,23 @@ function renderSharePointBrowser(items) {
       <div class="browser-actions"></div>
     `;
 
+    const main = row.querySelector(".browser-main");
     const actions = row.querySelector(".browser-actions");
 
     if (isFolder) {
+      row.classList.add("browser-row-clickable");
+      main.style.cursor = "pointer";
+
+      main.addEventListener("click", async () => {
+        await loadSharePointFolder(item.id);
+      });
+
       const openBtn = document.createElement("button");
       openBtn.type = "button";
       openBtn.className = "btn secondary small";
       openBtn.textContent = "Abrir";
-      openBtn.addEventListener("click", async () => {
+      openBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         await loadSharePointFolder(item.id);
       });
       actions.appendChild(openBtn);
@@ -544,13 +554,16 @@ function renderSharePointBrowser(items) {
         useBtn.type = "button";
         useBtn.className = "btn primary small";
         useBtn.textContent = "Usar carpeta";
-        useBtn.addEventListener("click", () => {
+        useBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
           selectedDestinationFolderId = item.id;
           selectedDestinationFolderName = item.name;
           selectedDestinationSiteKey = currentModalSiteKey;
+
           if (destinationSiteSelect) {
             destinationSiteSelect.value = currentModalSiteKey;
           }
+
           syncPickedLabels();
         });
         actions.appendChild(useBtn);
@@ -558,25 +571,42 @@ function renderSharePointBrowser(items) {
     }
 
     if (isFile && spBrowseMode === "source") {
-      const isExcel = isValidExcelFilename(item.name || "");
-
       if (!isExcel) {
         const badge = document.createElement("span");
         badge.className = "file-badge invalid";
         badge.textContent = "No válido";
         actions.appendChild(badge);
       } else {
+        row.classList.add("browser-row-clickable");
+        main.style.cursor = "pointer";
+
+        main.addEventListener("click", () => {
+          selectedSourceFileId = item.id;
+          selectedSourceFileName = item.name;
+          selectedSourceSiteKey = currentModalSiteKey;
+
+          if (sourceSiteSelect) {
+            sourceSiteSelect.value = currentModalSiteKey;
+          }
+
+          applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
+          syncPickedLabels();
+        });
+
         const pickBtn = document.createElement("button");
         pickBtn.type = "button";
         pickBtn.className = "btn primary small";
         pickBtn.textContent = "Elegir archivo";
-        pickBtn.addEventListener("click", () => {
+        pickBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
           selectedSourceFileId = item.id;
           selectedSourceFileName = item.name;
           selectedSourceSiteKey = currentModalSiteKey;
+
           if (sourceSiteSelect) {
             sourceSiteSelect.value = currentModalSiteKey;
           }
+
           applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
           syncPickedLabels();
         });
@@ -894,7 +924,6 @@ async function pollJob(jobId) {
       }
 
       activeJobPollTimer = setTimeout(tick, pollingDelay);
-
     } catch (error) {
       stopActivePolling();
       renderFatalError(error);
@@ -1101,20 +1130,15 @@ destinationSiteSelect?.addEventListener("change", () => {
   }
 });
 
-// ==========================
-// JOB HISTORY EXTENSION
-// ==========================
+/* -------------------------------------------------------------------------- */
+/* Job History                                                                 */
+/* -------------------------------------------------------------------------- */
 
 const jobHistoryList = document.getElementById("jobHistoryList");
 const refreshHistoryBtn = document.getElementById("refreshHistoryBtn");
 const jobHistoryBody = document.getElementById("jobHistoryBody");
 const toggleHistoryBtn = document.getElementById("toggleHistoryBtn");
 const jobHistoryCount = document.getElementById("jobHistoryCount");
-
-
-// --------------------------
-// set Job History
-// --------------------------
 
 function setJobHistoryCollapsed(collapsed) {
   if (!jobHistoryBody || !toggleHistoryBtn) return;
@@ -1128,7 +1152,6 @@ function setJobHistoryCollapsed(collapsed) {
 function restoreJobHistoryCollapsedState() {
   const saved = localStorage.getItem("jobHistoryCollapsed");
 
-  // 👇 si nunca se guardó nada → default cerrado
   if (saved === null) {
     setJobHistoryCollapsed(true);
     return;
@@ -1137,10 +1160,6 @@ function restoreJobHistoryCollapsedState() {
   setJobHistoryCollapsed(saved === "1");
 }
 
-
-// --------------------------
-// Fetch Job History
-// --------------------------
 async function loadJobHistory() {
   try {
     const response = await fetch("/api/jobs/history?limit=20");
@@ -1156,9 +1175,6 @@ async function loadJobHistory() {
   }
 }
 
-// --------------------------
-// Render Job History
-// --------------------------
 function renderJobHistory(jobs) {
   if (!jobHistoryList) return;
 
@@ -1174,7 +1190,6 @@ function renderJobHistory(jobs) {
   jobHistoryList.innerHTML = "";
 
   jobs.forEach((job) => {
- 
     const row = document.createElement("div");
     row.className = "history-item";
 
@@ -1182,10 +1197,10 @@ function renderJobHistory(jobs) {
       job.status === "success"
         ? "success"
         : job.status === "error"
-        ? "error"
-        : job.status === "running"
-        ? "running"
-        : "neutral";
+          ? "error"
+          : job.status === "running"
+            ? "running"
+            : "neutral";
 
     const created = formatDate(job.created_at);
     const updated = formatDate(job.updated_at);
@@ -1196,11 +1211,7 @@ function renderJobHistory(jobs) {
           ${escapeHtml(job.source_name || "Sin nombre")}
         </div>
         <div class="history-meta">
-          ${escapeHtml(job.client_label || "-")} · ${escapeHtml(
-      job.mode || "-"
-    )} · ${escapeHtml(job.profile_name || "-")} · ${escapeHtml(
-      job.language || "-"
-    )}
+          ${escapeHtml(job.client_label || "-")} · ${escapeHtml(job.mode || "-")} · ${escapeHtml(job.profile_name || "-")} · ${escapeHtml(job.language || "-")}
         </div>
         <div class="history-dates">
           <small>Inicio: ${created}</small> · <small>Update: ${updated}</small>
@@ -1226,7 +1237,6 @@ function renderJobHistory(jobs) {
       </div>
     `;
 
-    // View job
     row.querySelector("[data-job]")?.addEventListener("click", async (e) => {
       const jobId = e.currentTarget.dataset.job;
       resetUI("Cargando job histórico...");
@@ -1234,7 +1244,6 @@ function renderJobHistory(jobs) {
       await pollJob(jobId);
     });
 
-    // Download ZIP
     row.querySelector("[data-zip]")?.addEventListener("click", (e) => {
       const path = e.currentTarget.dataset.zip;
       window.open(`/api/download-zip?path=${encodeURIComponent(path)}`, "_blank");
@@ -1251,21 +1260,15 @@ toggleHistoryBtn?.addEventListener("click", () => {
   setJobHistoryCollapsed(!collapsed);
 });
 
-// --------------------------
-// Helpers
-// --------------------------
 function formatDate(ts) {
   if (!ts) return "-";
   const d = new Date(ts * 1000);
   return d.toLocaleString();
 }
 
-// --------------------------
-// Init
-// --------------------------
-
-
-
+/* -------------------------------------------------------------------------- */
+/* Init                                                                        */
+/* -------------------------------------------------------------------------- */
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -1280,10 +1283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     restoreDefaultClientSelection();
     syncPickedLabels();
     restoreJobHistoryCollapsedState();
-
-    // 👇 MOVER ACA
     setTimeout(loadJobHistory, 300);
-
   } catch (error) {
     console.error("Init error:", error);
   }

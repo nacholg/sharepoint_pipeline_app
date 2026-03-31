@@ -844,39 +844,130 @@ select:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 16px;
+  padding: 12px 16px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.025);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.browser-main {
-  min-width: 0;
+.browser-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.025);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .browser-name {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   font-weight: 700;
-  word-break: break-word;
+  color: #f3f6fb;
+}
+
+.browser-name span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .browser-icon {
   font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .browser-meta {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.88rem;
+  margin-top: 0;
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #c7d4ec;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+.browser-row-clickable {
+  cursor: pointer;
+}
+
+.browser-row-clickable:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(91,124,255,0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
+}
+
+.browser-row-clickable:hover .browser-name {
+  color: #ffffff;
 }
 
 .browser-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.browser-actions .btn {
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .browser-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .browser-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .browser-meta {
+    align-self: flex-start;
+  }
+
+  .browser-actions {
+    justify-content: flex-start;
+  }
+}
+.browser-row-clickable .browser-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.browser-row-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.browser-row-clickable:active {
+  transform: translateY(0);
+}
+
+.browser-row-clickable .browser-name {
+  transition: color 0.18s ease;
+}
+
+.browser-row-clickable:hover .browser-name {
+  color: #f8fbff;
+}
+
+.browser-actions .btn {
+  position: relative;
+  z-index: 2;
 }
 
 .muted-pill {
