@@ -9,6 +9,7 @@ const API = {
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
 
+// DOM
 const languageSelect = document.getElementById("languageSelect");
 
 const userDataEl = document.getElementById("user-data");
@@ -64,6 +65,7 @@ const selectCurrentFolderBtn = document.getElementById("selectCurrentFolderBtn")
 const spPickedSourceInline = document.getElementById("spPickedSourceInline");
 const spPickedDestInline = document.getElementById("spPickedDestInline");
 
+// State
 let sharepointSites = [];
 let availableProfiles = [];
 let availableClients = [];
@@ -83,9 +85,6 @@ let currentModalSiteKey = null;
 let spBrowseMode = "source";
 let spFolderStack = [];
 
-let currentWarningRows = [];
-let currentErrorRows = [];
-
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -101,6 +100,11 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function isValidExcelFilename(name) {
+  const lowerName = (name || "").toLowerCase();
+  return ALLOWED_EXCEL_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
 }
 
 function getDefaultSiteKey() {
@@ -126,35 +130,13 @@ function requireSelectedClient() {
   return true;
 }
 
-function isValidExcelFilename(name) {
-  const lowerName = (name || "").toLowerCase();
-  return ALLOWED_EXCEL_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
-}
-
-/* -------------------------------------------------------------------------- */
-/* Download actions                                                            */
-/* -------------------------------------------------------------------------- */
-
-function downloadFile(path) {
-  const encoded = encodeURIComponent(path);
-  window.open(`/api/download-file?path=${encoded}`, "_blank");
-}
-
-function downloadZip(path) {
-  const encoded = encodeURIComponent(path);
-  window.open(`/api/download-zip?path=${encoded}`, "_blank");
-}
-
-window.downloadFile = downloadFile;
-window.downloadZip = downloadZip;
-
 /* -------------------------------------------------------------------------- */
 /* UI state                                                                    */
 /* -------------------------------------------------------------------------- */
 
 function resetUI(label = "Esperando ejecución") {
   statusBadge.textContent = "Idle";
-  statusBadge.className = "status-badge neutral";
+  statusBadge.className = "status-badge idle";
   progressLabel.textContent = label;
   progressPercent.textContent = "0%";
   progressFill.style.width = "0%";
@@ -184,23 +166,20 @@ function setFinishedState(ok) {
 
 function switchMode(mode) {
   const isLocal = mode === "local";
+
   btnLocal?.classList.toggle("active", isLocal);
   btnSP?.classList.toggle("active", !isLocal);
+
   localSection?.classList.toggle("hidden", !isLocal);
   spSection?.classList.toggle("hidden", isLocal);
 
   if (isLocal) {
-    if (selectedClient?.default_profile) {
+    if (selectedClient?.default_profile && localProfileSelect) {
       localProfileSelect.value = selectedClient.default_profile;
-    } else {
-      applyDefaultProfileForSite("globalevents2", "local");
     }
   } else {
-    if (selectedClient?.default_profile) {
+    if (selectedClient?.default_profile && sharepointProfileSelect) {
       sharepointProfileSelect.value = selectedClient.default_profile;
-    } else {
-      const selectedKey = sourceSiteSelect?.value || getDefaultSiteKey();
-      applyDefaultProfileForSite(selectedKey, "sharepoint");
     }
   }
 }
@@ -214,13 +193,13 @@ function applyDefaultProfileForSite(siteKey, mode = "sharepoint") {
   const defaultProfile = site?.default_profile || "default";
 
   if (mode === "local") {
-    if (localProfileSelect && defaultProfile) {
+    if (localProfileSelect) {
       localProfileSelect.value = defaultProfile;
     }
     return;
   }
 
-  if (sharepointProfileSelect && defaultProfile) {
+  if (sharepointProfileSelect) {
     sharepointProfileSelect.value = defaultProfile;
   }
 }
@@ -531,7 +510,9 @@ function renderSharePointBrowser(items) {
           selectedDestinationFolderId = item.id;
           selectedDestinationFolderName = item.name;
           selectedDestinationSiteKey = currentModalSiteKey;
-          if (destinationSiteSelect) destinationSiteSelect.value = currentModalSiteKey;
+          if (destinationSiteSelect) {
+            destinationSiteSelect.value = currentModalSiteKey;
+          }
           syncPickedLabels();
         });
         actions.appendChild(useBtn);
@@ -555,7 +536,9 @@ function renderSharePointBrowser(items) {
           selectedSourceFileId = item.id;
           selectedSourceFileName = item.name;
           selectedSourceSiteKey = currentModalSiteKey;
-          if (sourceSiteSelect) sourceSiteSelect.value = currentModalSiteKey;
+          if (sourceSiteSelect) {
+            sourceSiteSelect.value = currentModalSiteKey;
+          }
           applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
           syncPickedLabels();
         });
@@ -591,13 +574,8 @@ function ensureValidationModal() {
   `;
   document.body.appendChild(modal);
 
-  document
-    .getElementById("validationModalBackdrop")
-    ?.addEventListener("click", closeValidationModal);
-
-  document
-    .getElementById("validationModalClose")
-    ?.addEventListener("click", closeValidationModal);
+  document.getElementById("validationModalBackdrop")?.addEventListener("click", closeValidationModal);
+  document.getElementById("validationModalClose")?.addEventListener("click", closeValidationModal);
 }
 
 function openValidationModal(title, rows, type = "warning") {
@@ -614,9 +592,7 @@ function openValidationModal(title, rows, type = "warning") {
   if (!Array.isArray(rows) || !rows.length) {
     bodyEl.innerHTML = `<p class="muted-text">No hay detalles para mostrar.</p>`;
   } else {
-    bodyEl.innerHTML = rows
-      .map((item) => renderValidationRowCard(item, type))
-      .join("");
+    bodyEl.innerHTML = rows.map((item) => renderValidationRowCard(item, type)).join("");
   }
 
   modal.classList.remove("hidden");
@@ -634,12 +610,8 @@ function renderValidationRowCard(item, type = "warning") {
   const row = item?.row || {};
   const issues =
     type === "error"
-      ? Array.isArray(item?.errors)
-        ? item.errors
-        : []
-      : Array.isArray(item?.warnings)
-        ? item.warnings
-        : [];
+      ? Array.isArray(item?.errors) ? item.errors : []
+      : Array.isArray(item?.warnings) ? item.warnings : [];
 
   const fullName =
     row.full_name ||
@@ -667,9 +639,7 @@ function renderValidationRowCard(item, type = "warning") {
       </div>
 
       <div class="validation-row-issues">
-        ${issues
-          .map((issue) => `<span class="validation-issue-pill">${escapeHtml(issue)}</span>`)
-          .join("")}
+        ${issues.map((issue) => `<span class="validation-issue-pill">${escapeHtml(issue)}</span>`).join("")}
       </div>
 
       <div class="validation-row-grid">
@@ -684,8 +654,10 @@ function renderValidationRowCard(item, type = "warning") {
   `;
 }
 
+window.openValidationModal = openValidationModal;
+
 /* -------------------------------------------------------------------------- */
-/* Render helpers                                                              */
+/* Steps / fatal error                                                         */
 /* -------------------------------------------------------------------------- */
 
 function renderStep(step) {
@@ -733,317 +705,6 @@ function renderFatalError(error) {
   `;
 }
 
-function renderValidationBlock(validation) {
-  if (!validation) return "";
-
-  const errors = Array.isArray(validation.errors) ? validation.errors : [];
-  const warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
-
-  if (!errors.length && !warnings.length) return "";
-
-  const errorHtml = errors.length
-    ? `
-      <div class="validation-group validation-errors">
-        <div class="validation-title">Errores de validación</div>
-        <ul>
-          ${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}
-        </ul>
-      </div>
-    `
-    : "";
-
-  const warningHtml = warnings.length
-    ? `
-      <div class="validation-group validation-warnings">
-        <div class="validation-title">Warnings</div>
-        <ul>
-          ${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}
-        </ul>
-      </div>
-    `
-    : "";
-
-  return `
-    <section class="result-card validation-card">
-      <h3>Validación previa</h3>
-      ${errorHtml}
-      ${warningHtml}
-    </section>
-  `;
-}
-
-function buildSummaryGrid(result) {
-  const summary = result.pipeline_summary || {};
-  const resolvedProfile = result.resolved_profile || result.profile_used || "-";
-  const language = result.language || result.resolved_language || "-";
-
-  const totalRows = summary.total_rows ?? "-";
-  const validRows = summary.valid_rows ?? "-";
-  const errors = summary.errors ?? "-";
-  const warnings = summary.warnings ?? "-";
-  const vouchers = summary.vouchers ?? "-";
-
-  const validation = result.validation || {};
-  const preflightErrors = Array.isArray(validation.errors) ? validation.errors.length : 0;
-  const preflightWarnings = Array.isArray(validation.warnings) ? validation.warnings.length : 0;
-  const excelErrors = typeof summary.errors === "number" ? summary.errors : 0;
-  const excelWarnings = typeof summary.warnings === "number" ? summary.warnings : 0;
-
-  const totalValidationErrors = preflightErrors + excelErrors;
-  const totalValidationWarnings = preflightWarnings + excelWarnings;
-
-  const validationStatus = totalValidationErrors
-    ? `${totalValidationErrors} errores`
-    : totalValidationWarnings
-      ? `${totalValidationWarnings} warnings`
-      : "OK";
-
-  return `
-    <div class="summary-grid">
-      <div class="summary-card">
-        <span>Cliente</span>
-        <strong>${escapeHtml(result.client_label || "-")}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Profile</span>
-        <strong>${escapeHtml(resolvedProfile)}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Idioma</span>
-        <strong>${escapeHtml(language)}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Validación</span>
-        <strong>${escapeHtml(validationStatus)}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Rows procesadas</span>
-        <strong>${escapeHtml(totalRows)}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Rows válidas</span>
-        <strong>${escapeHtml(validRows)}</strong>
-      </div>
-
-      <div
-        class="summary-card summary-card-clickable"
-        id="warningsSummaryCard"
-        role="button"
-        tabindex="0"
-        onclick="window.__openWarningsModal && window.__openWarningsModal()"
-      >
-        <span>Warnings</span>
-        <strong>${escapeHtml(warnings)}</strong>
-      </div>
-
-      <div
-        class="summary-card ${typeof errors === "number" && errors > 0 ? "summary-card-clickable" : ""}"
-        id="errorsSummaryCard"
-        role="button"
-        tabindex="0"
-        onclick="window.__openErrorsModal && window.__openErrorsModal()"
-      >
-        <span>Errors</span>
-        <strong>${escapeHtml(errors)}</strong>
-      </div>
-
-      <div class="summary-card">
-        <span>Vouchers</span>
-        <strong>${escapeHtml(vouchers)}</strong>
-      </div>
-    </div>
-  `;
-}
-
-function buildDebugFilesGrid(result) {
-  const debugItems = [
-    { label: "Summary JSON", value: result.summary_file },
-    { label: "Rows JSON", value: result.rows_file },
-    { label: "Warnings JSON", value: result.warnings_file },
-    { label: "Errors JSON", value: result.errors_file },
-  ].filter((x) => !!x.value);
-
-  if (!debugItems.length) {
-    return `<p class="muted-text">No hay artifacts de debug expuestos.</p>`;
-  }
-
-  return `
-    <div class="debug-grid">
-      ${debugItems
-        .map(
-          (item) => `
-            <div class="debug-card">
-              <span>${escapeHtml(item.label)}</span>
-              <code>${escapeHtml(item.value)}</code>
-            </div>
-          `
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function buildFilesSection(result) {
-  const files = Array.isArray(result.generated_files) ? result.generated_files : [];
-
-  if (!files.length) {
-    return `
-      <div class="result-section">
-        <h4>Archivos generados</h4>
-        <p class="muted-text">No hay archivos generados.</p>
-      </div>
-    `;
-  }
-
-  const pdfs = files.filter((f) => f.toLowerCase().endsWith(".pdf"));
-  const htmls = files.filter((f) => f.toLowerCase().endsWith(".html"));
-  const jsons = files.filter((f) => f.toLowerCase().endsWith(".json"));
-
-  return `
-    <div class="result-section">
-      <h4>Archivos generados</h4>
-      ${buildFileGroup("PDFs", pdfs, "📄")}
-      ${buildFileGroup("HTML", htmls, "🌐")}
-      ${buildFileGroup("Debug / JSON", jsons, "🧠")}
-    </div>
-  `;
-}
-
-function buildFileGroup(title, files, icon) {
-  if (!files.length) return "";
-
-  return `
-    <div class="file-group">
-      <div class="file-group-title">${icon} ${title}</div>
-      <ul class="file-list">
-        ${files
-          .map((file) => {
-            const cleanName = file.split("\\").pop().split("/").pop();
-            return `
-              <li class="file-row">
-                <div class="file-main">
-                  <span class="file-name">${escapeHtml(cleanName)}</span>
-                  <span class="file-path">${escapeHtml(file)}</span>
-                </div>
-                <div class="file-actions">
-                  <button class="btn small" onclick='downloadFile(${JSON.stringify(file)})'>
-                    Descargar
-                  </button>
-                </div>
-              </li>
-            `;
-          })
-          .join("")}
-      </ul>
-    </div>
-  `;
-}
-
-function renderResult(result, mode) {
-  setFinishedState(!!result.ok);
-
-  currentWarningRows = Array.isArray(result.warning_rows) ? result.warning_rows : [];
-  currentErrorRows = Array.isArray(result.error_rows) ? result.error_rows : [];
-
-  const steps = Array.isArray(result.steps) ? result.steps : [];
-  stepsEl.innerHTML = "";
-
-  if (steps.length) {
-    for (const step of steps) {
-      stepsEl.appendChild(renderStep(step));
-    }
-  } else {
-    stepsEl.innerHTML = `
-      <div class="step-item ${result.ok ? "success" : "error"}">
-        <div class="step-bullet"></div>
-        <div class="step-body">
-          <div class="step-head">
-            <div class="step-title">${result.ok ? "Sin pasos detallados" : "Error final"}</div>
-          </div>
-          <pre class="log-block">${escapeHtml(result.error || "Sin detalles")}</pre>
-        </div>
-      </div>
-    `;
-  }
-
-  resultCard.classList.remove("hidden");
-
-  const uploadedFiles = Array.isArray(result.uploaded_files) ? result.uploaded_files : [];
-  const preflightValidation = result.validation || null;
-  const validationHtml = renderValidationBlock(preflightValidation);
-
-  window.__openWarningsModal = () => {
-    openValidationModal("Detalle de warnings", currentWarningRows, "warning");
-  };
-
-  window.__openErrorsModal = () => {
-    openValidationModal("Detalle de errores", currentErrorRows, "error");
-  };
-
-  resultContent.innerHTML = `
-    ${buildSummaryGrid(result)}
-    ${validationHtml}
-
-    ${
-      result.error
-        ? `<div class="error-banner">${escapeHtml(result.error)}</div>`
-        : ""
-    }
-
-    ${buildFilesSection(result)}
-
-    ${
-      result.zip_file
-        ? `
-          <div class="result-section zip-section">
-            <h4>📦 Descargar resultado</h4>
-            <button class="btn primary" onclick='downloadZip(${JSON.stringify(result.zip_file)})'>
-              Descargar ZIP
-            </button>
-            <div class="zip-path">${escapeHtml(result.zip_file)}</div>
-          </div>
-        `
-        : ""
-    }
-
-    <div class="result-section">
-      <h4>Artifacts de debug</h4>
-      ${buildDebugFilesGrid(result)}
-    </div>
-
-    ${
-      uploadedFiles.length
-        ? `
-          <div class="result-section">
-            <h4>Uploads a SharePoint</h4>
-            <ul class="file-list">
-              ${uploadedFiles
-                .map((item) => {
-                  const name = item.name || item.displayName || "archivo";
-                  const error = item.upload_error;
-                  return `
-                    <li class="file-name">
-                      ${escapeHtml(name)}
-                      ${error ? ` — <span class="error-text">${escapeHtml(error)}</span>` : ""}
-                    </li>
-                  `;
-                })
-                .join("")}
-            </ul>
-          </div>
-        `
-        : mode === "sharepoint"
-          ? `<div class="result-section"><h4>Uploads a SharePoint</h4><p class="muted-text">No hubo uploads individuales.</p></div>`
-          : ""
-    }
-  `;
-}
-
 /* -------------------------------------------------------------------------- */
 /* Pipeline execution                                                          */
 /* -------------------------------------------------------------------------- */
@@ -1083,26 +744,34 @@ async function runLocalPipeline() {
     const data = await response.json();
 
     if (!response.ok) {
-      renderResult(
-        {
-          ok: false,
-          error: data?.detail || "Error ejecutando pipeline local.",
-          steps: [],
-          generated_files: [],
-          validation: data?.validation || null,
-          warning_rows: data?.warning_rows || [],
-          error_rows: data?.error_rows || [],
-          pipeline_summary: data?.pipeline_summary || null,
-          language: data?.language || data?.resolved_language || "-",
-          profile_used: data?.profile_used || data?.resolved_profile || "-",
-          client_label: selectedClient?.label || "-",
-        },
-        "local"
-      );
+      window.renderResult({
+        ok: false,
+        error: data?.detail || "Error ejecutando pipeline local.",
+        steps: [],
+        generated_files: [],
+        validation: data?.validation || null,
+        warning_rows: data?.warning_rows || [],
+        error_rows: data?.error_rows || [],
+        pipeline_summary: data?.pipeline_summary || null,
+        language: data?.language || data?.resolved_language || "-",
+        profile_used: data?.profile_used || data?.resolved_profile || "-",
+        client_label: selectedClient?.label || "-",
+      });
+
+      resultCard.classList.remove("hidden");
       return;
     }
 
-    renderResult(data, "local");
+    setFinishedState(!!data.ok);
+
+    stepsEl.innerHTML = "";
+    const steps = Array.isArray(data.steps) ? data.steps : [];
+    for (const step of steps) {
+      stepsEl.appendChild(renderStep(step));
+    }
+
+    resultCard.classList.remove("hidden");
+    window.renderResult(data);
   } catch (error) {
     renderFatalError(error);
   }
@@ -1154,26 +823,34 @@ async function runSharePointPipeline() {
     const data = await response.json();
 
     if (!response.ok) {
-      renderResult(
-        {
-          ok: false,
-          error: data?.detail || "Error ejecutando pipeline SharePoint.",
-          steps: [],
-          generated_files: [],
-          validation: data?.validation || null,
-          warning_rows: data?.warning_rows || [],
-          error_rows: data?.error_rows || [],
-          pipeline_summary: data?.pipeline_summary || null,
-          language: data?.language || data?.resolved_language || "-",
-          profile_used: data?.profile_used || data?.resolved_profile || "-",
-          client_label: selectedClient?.label || "-",
-        },
-        "sharepoint"
-      );
+      window.renderResult({
+        ok: false,
+        error: data?.detail || "Error ejecutando pipeline SharePoint.",
+        steps: [],
+        generated_files: [],
+        validation: data?.validation || null,
+        warning_rows: data?.warning_rows || [],
+        error_rows: data?.error_rows || [],
+        pipeline_summary: data?.pipeline_summary || null,
+        language: data?.language || data?.resolved_language || "-",
+        profile_used: data?.profile_used || data?.resolved_profile || "-",
+        client_label: selectedClient?.label || "-",
+      });
+
+      resultCard.classList.remove("hidden");
       return;
     }
 
-    renderResult(data, "sharepoint");
+    setFinishedState(!!data.ok);
+
+    stepsEl.innerHTML = "";
+    const steps = Array.isArray(data.steps) ? data.steps : [];
+    for (const step of steps) {
+      stepsEl.appendChild(renderStep(step));
+    }
+
+    resultCard.classList.remove("hidden");
+    window.renderResult(data);
   } catch (error) {
     renderFatalError(error);
   }
@@ -1192,7 +869,9 @@ runSPBtn?.addEventListener("click", runSharePointPipeline);
 pickSPFileBtn?.addEventListener("click", async () => {
   spBrowseMode = "source";
   currentModalSiteKey = sourceSiteSelect?.value || getDefaultSiteKey();
-  if (modalSiteSelect) modalSiteSelect.value = currentModalSiteKey;
+  if (modalSiteSelect) {
+    modalSiteSelect.value = currentModalSiteKey;
+  }
   applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
   openSPModal();
   await loadSharePointFolder(null, true);
@@ -1201,7 +880,9 @@ pickSPFileBtn?.addEventListener("click", async () => {
 pickSPFolderBtn?.addEventListener("click", async () => {
   spBrowseMode = "dest";
   currentModalSiteKey = destinationSiteSelect?.value || getDefaultSiteKey();
-  if (modalSiteSelect) modalSiteSelect.value = currentModalSiteKey;
+  if (modalSiteSelect) {
+    modalSiteSelect.value = currentModalSiteKey;
+  }
   openSPModal();
   await loadSharePointFolder(null, true);
 });
