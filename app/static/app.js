@@ -846,6 +846,7 @@ async function pollJob(jobId) {
   activeJobId = jobId;
 
   let pollingDelay = 800;
+  let hasRenderedResult = false;
 
   const tick = async () => {
     try {
@@ -855,7 +856,8 @@ async function pollJob(jobId) {
 
       applyJobState(job);
 
-      if (job.status === "success") {
+      if (job.status === "success" && !hasRenderedResult) {
+        hasRenderedResult = true;
         stopActivePolling();
         setFinishedState(true);
         renderSteps(Array.isArray(job.steps) ? job.steps : []);
@@ -1228,7 +1230,7 @@ function renderJobHistory(jobs) {
     row.querySelector("[data-job]")?.addEventListener("click", async (e) => {
       const jobId = e.currentTarget.dataset.job;
       resetUI("Cargando job histórico...");
-      setRunningState();
+      setRunningState("local");
       await pollJob(jobId);
     });
 

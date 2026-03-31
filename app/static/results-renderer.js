@@ -409,9 +409,15 @@ function rrBuildUploadsSection(uploadedFiles) {
   `;
 }
 
+
 function renderResult(result) {
   const container = document.getElementById("resultContent");
+
   if (!container) return;
+
+  // 🔥 CLAVE
+  container.innerHTML = "";
+
 
   const warningRows = Array.isArray(result.warning_rows) ? result.warning_rows : [];
   const errorRows = Array.isArray(result.error_rows) ? result.error_rows : [];
