@@ -177,12 +177,12 @@ function rrBuildPremiumHero(result) {
   const zipFile = result.zip_file || null;
 
   return `
-    <section class="result-section premium-hero">
+    <section class="result-section premium-hero executive-hero">
       <div class="premium-hero-copy">
         <div class="premium-kicker">Resultado listo</div>
         <h4>Se generaron ${rrEscapeHtml(vouchers)} voucher${vouchers === 1 ? "" : "s"}</h4>
         <p class="muted-text">
-          Preview embebido disponible, archivos exportados y paquete ZIP listo para descargar.
+          Preview embebido disponible y paquete ZIP listo para descargar.
           ${warnings ? ` Se detectaron ${rrEscapeHtml(warnings)} warning${warnings === 1 ? "" : "s"}.` : ""}
         </p>
       </div>
@@ -234,28 +234,31 @@ function rrBuildFileGroup(title, files, icon) {
   if (!files.length) return "";
 
   return `
-    <div class="file-group">
-      <div class="file-group-title">${icon} ${title}</div>
-      <ul class="file-list premium-file-list">
+    <div class="executive-file-group">
+      <div class="executive-file-group-head">
+        <div class="executive-file-group-title">${icon} ${title}</div>
+        <div class="executive-file-group-count">${files.length}</div>
+      </div>
+
+      <div class="executive-file-grid">
         ${files
           .map((file) => {
             const cleanName = rrBaseName(file);
             return `
-              <li class="file-row premium-file-row">
-                <div class="file-main">
-                  <span class="file-name">${rrEscapeHtml(cleanName)}</span>
-                  <span class="file-path">${rrEscapeHtml(file)}</span>
+              <div class="executive-file-card">
+                <div class="executive-file-main">
+                  <div class="executive-file-name">${rrEscapeHtml(cleanName)}</div>
                 </div>
-                <div class="file-actions">
+                <div class="executive-file-actions">
                   <button class="btn small" onclick='downloadFile(${JSON.stringify(file)})'>
                     Descargar
                   </button>
                 </div>
-              </li>
+              </div>
             `;
           })
           .join("")}
-      </ul>
+      </div>
     </div>
   `;
 }
@@ -265,9 +268,13 @@ function rrBuildFilesSection(result) {
 
   if (!files.length) {
     return `
-      <div class="result-section">
-        <h4>Archivos generados</h4>
-        <p class="muted-text">No hay archivos generados.</p>
+      <div class="result-section premium-collapsible-shell">
+        <div class="premium-collapsible-head">
+          <div>
+            <h4>Archivos generados</h4>
+            <p class="muted-text">No hay archivos generados.</p>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -280,18 +287,18 @@ function rrBuildFilesSection(result) {
   const hiddenClass = RR_PREMIUM_MODE && !RR_SHOW_FILES_BY_DEFAULT ? "hidden" : "";
 
   return `
-    <div class="result-section premium-collapsible-shell">
+    <div class="result-section premium-collapsible-shell executive-files-shell">
       <div class="premium-collapsible-head">
         <div>
-          <h4>Archivos generados</h4>
-          <p class="muted-text">Mostrá esta sección solo cuando necesites descargar archivos individuales.</p>
+          <h4>Entregables</h4>
+          <p class="muted-text">Descargas individuales disponibles si necesitás revisar o compartir archivos específicos.</p>
         </div>
         <button
           type="button"
           class="btn secondary small"
           onclick="rrToggleSection('${sectionId}', this)"
         >
-          ${hiddenClass ? "Ver más" : "Ocultar"}
+          ${hiddenClass ? "Ver archivos" : "Ocultar"}
         </button>
       </div>
 
