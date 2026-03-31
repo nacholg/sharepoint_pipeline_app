@@ -254,6 +254,28 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
     }
 
 
+BASE_WORK_DIR = Path("work/jobs").resolve()
+
+@app.get("/api/preview")
+def preview_file(path: str = Query(...)):
+    try:
+        file_path = Path(path).resolve()
+
+        if not str(file_path).startswith(str(BASE_WORK_DIR)):
+            raise HTTPException(status_code=403, detail="Acceso no permitido")
+
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="HTML no encontrado")
+
+        if file_path.suffix.lower() != ".html":
+            raise HTTPException(status_code=400, detail="Solo se permite preview de HTML")
+
+        return FileResponse(file_path, media_type="text/html")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/clients")
 def api_clients():
     return {

@@ -20,6 +20,33 @@ function rrDownloadZip(path) {
 window.downloadFile = rrDownloadFile;
 window.downloadZip = rrDownloadZip;
 
+// -----------------------------------------------------------------------------
+// Premium mode flags
+// -----------------------------------------------------------------------------
+
+const RR_PREMIUM_MODE = true;
+const RR_SHOW_DEBUG_BY_DEFAULT = false;
+const RR_SHOW_FILES_BY_DEFAULT = false;
+const RR_SHOW_UPLOADS_BY_DEFAULT = false;
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+function rrBaseName(path) {
+  return String(path || "").split(/[\\/]/).pop() || "";
+}
+
+function rrToggleSection(sectionId, triggerEl) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  const isHidden = section.classList.toggle("hidden");
+  if (triggerEl) {
+    triggerEl.textContent = isHidden ? "Ver más" : "Ocultar";
+  }
+}
+
 function rrRenderValidationBlock(validation) {
   if (!validation) return "";
 
@@ -135,11 +162,43 @@ function rrBuildSummaryGrid(result) {
         <strong>${rrEscapeHtml(errors)}</strong>
       </div>
 
-      <div class="summary-card">
+      <div class="summary-card summary-card-highlight">
         <span>Vouchers</span>
         <strong>${rrEscapeHtml(vouchers)}</strong>
       </div>
     </div>
+  `;
+}
+
+function rrBuildPremiumHero(result) {
+  const summary = result.pipeline_summary || {};
+  const vouchers = summary.vouchers ?? 0;
+  const warnings = summary.warnings ?? 0;
+  const zipFile = result.zip_file || null;
+
+  return `
+    <section class="result-section premium-hero">
+      <div class="premium-hero-copy">
+        <div class="premium-kicker">Resultado listo</div>
+        <h4>Se generaron ${rrEscapeHtml(vouchers)} voucher${vouchers === 1 ? "" : "s"}</h4>
+        <p class="muted-text">
+          Preview embebido disponible, archivos exportados y paquete ZIP listo para descargar.
+          ${warnings ? ` Se detectaron ${rrEscapeHtml(warnings)} warning${warnings === 1 ? "" : "s"}.` : ""}
+        </p>
+      </div>
+
+      <div class="premium-hero-actions">
+        ${
+          zipFile
+            ? `
+              <button class="btn primary premium-zip-btn" onclick='downloadZip(${JSON.stringify(zipFile)})'>
+                Descargar ZIP
+              </button>
+            `
+            : ""
+        }
+      </div>
+    </section>
   `;
 }
 
@@ -177,12 +236,12 @@ function rrBuildFileGroup(title, files, icon) {
   return `
     <div class="file-group">
       <div class="file-group-title">${icon} ${title}</div>
-      <ul class="file-list">
+      <ul class="file-list premium-file-list">
         ${files
           .map((file) => {
-            const cleanName = file.split("\\").pop().split("/").pop();
+            const cleanName = rrBaseName(file);
             return `
-              <li class="file-row">
+              <li class="file-row premium-file-row">
                 <div class="file-main">
                   <span class="file-name">${rrEscapeHtml(cleanName)}</span>
                   <span class="file-path">${rrEscapeHtml(file)}</span>
@@ -217,12 +276,128 @@ function rrBuildFilesSection(result) {
   const htmls = files.filter((f) => f.toLowerCase().endsWith(".html"));
   const jsons = files.filter((f) => f.toLowerCase().endsWith(".json"));
 
+  const sectionId = "generatedFilesSection";
+  const hiddenClass = RR_PREMIUM_MODE && !RR_SHOW_FILES_BY_DEFAULT ? "hidden" : "";
+
+  return `
+    <div class="result-section premium-collapsible-shell">
+      <div class="premium-collapsible-head">
+        <div>
+          <h4>Archivos generados</h4>
+          <p class="muted-text">Mostrá esta sección solo cuando necesites descargar archivos individuales.</p>
+        </div>
+        <button
+          type="button"
+          class="btn secondary small"
+          onclick="rrToggleSection('${sectionId}', this)"
+        >
+          ${hiddenClass ? "Ver más" : "Ocultar"}
+        </button>
+      </div>
+
+      <div id="${sectionId}" class="${hiddenClass}">
+        ${rrBuildFileGroup("PDFs", pdfs, "📄")}
+        ${rrBuildFileGroup("HTML", htmls, "🌐")}
+        ${RR_PREMIUM_MODE ? "" : rrBuildFileGroup("Debug / JSON", jsons, "🧠")}
+      </div>
+    </div>
+  `;
+}
+
+function rrBuildPreviewSection(result) {
+  if (typeof window.renderPreviewSection === "function") {
+    return window.renderPreviewSection(result);
+  }
+
+  return "";
+}
+
+function rrBuildZipSection(result) {
+  if (!result.zip_file || RR_PREMIUM_MODE) return "";
+
+  return `
+    <div class="result-section zip-section">
+      <h4>📦 Descargar resultado</h4>
+      <button class="btn primary" onclick='downloadZip(${JSON.stringify(result.zip_file)})'>
+        Descargar ZIP
+      </button>
+      <div class="zip-path">${rrEscapeHtml(result.zip_file)}</div>
+    </div>
+  `;
+}
+
+function rrBuildDebugSection(result) {
+  if (RR_PREMIUM_MODE && !RR_SHOW_DEBUG_BY_DEFAULT) {
+    const sectionId = "debugArtifactsSection";
+    return `
+      <div class="result-section premium-collapsible-shell">
+        <div class="premium-collapsible-head">
+          <div>
+            <h4>Artifacts de debug</h4>
+            <p class="muted-text">Información técnica para revisión interna.</p>
+          </div>
+          <button
+            type="button"
+            class="btn secondary small"
+            onclick="rrToggleSection('${sectionId}', this)"
+          >
+            Ver más
+          </button>
+        </div>
+
+        <div id="${sectionId}" class="hidden">
+          ${rrBuildDebugFilesGrid(result)}
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="result-section">
-      <h4>Archivos generados</h4>
-      ${rrBuildFileGroup("PDFs", pdfs, "📄")}
-      ${rrBuildFileGroup("HTML", htmls, "🌐")}
-      ${rrBuildFileGroup("Debug / JSON", jsons, "🧠")}
+      <h4>Artifacts de debug</h4>
+      ${rrBuildDebugFilesGrid(result)}
+    </div>
+  `;
+}
+
+function rrBuildUploadsSection(uploadedFiles) {
+  if (!uploadedFiles.length) return "";
+
+  const sectionId = "sharepointUploadsSection";
+  const hiddenClass = RR_PREMIUM_MODE && !RR_SHOW_UPLOADS_BY_DEFAULT ? "hidden" : "";
+
+  return `
+    <div class="result-section premium-collapsible-shell">
+      <div class="premium-collapsible-head">
+        <div>
+          <h4>Uploads a SharePoint</h4>
+          <p class="muted-text">Resultado de la subida automática al destino seleccionado.</p>
+        </div>
+        <button
+          type="button"
+          class="btn secondary small"
+          onclick="rrToggleSection('${sectionId}', this)"
+        >
+          ${hiddenClass ? "Ver más" : "Ocultar"}
+        </button>
+      </div>
+
+      <div id="${sectionId}" class="${hiddenClass}">
+        <ul class="file-list">
+          ${uploadedFiles
+            .map((item) => {
+              const name = item.name || item.displayName || "archivo";
+              const error = item.upload_error;
+              return `
+                <li class="premium-upload-row">
+                  <span class="file-name">${rrEscapeHtml(name)}</span>
+                  ${error ? `<span class="error-text"> ${rrEscapeHtml(error)}</span>` : `<span class="premium-ok-pill">OK</span>`}
+                </li>
+              `;
+            })
+            .join("")}
+        </ul>
+      </div>
     </div>
   `;
 }
@@ -249,55 +424,24 @@ function renderResult(result) {
 
   container.innerHTML = `
     ${rrBuildSummaryGrid(result)}
+
+    ${RR_PREMIUM_MODE ? rrBuildPremiumHero(result) : ""}
+
     ${rrRenderValidationBlock(result.validation || null)}
 
     ${result.error ? `<div class="error-banner">${rrEscapeHtml(result.error)}</div>` : ""}
 
+    ${rrBuildPreviewSection(result)}
+
     ${rrBuildFilesSection(result)}
 
-    ${
-      result.zip_file
-        ? `
-          <div class="result-section zip-section">
-            <h4>📦 Descargar resultado</h4>
-            <button class="btn primary" onclick='downloadZip(${JSON.stringify(result.zip_file)})'>
-              Descargar ZIP
-            </button>
-            <div class="zip-path">${rrEscapeHtml(result.zip_file)}</div>
-          </div>
-        `
-        : ""
-    }
+    ${rrBuildZipSection(result)}
 
-    <div class="result-section">
-      <h4>Artifacts de debug</h4>
-      ${rrBuildDebugFilesGrid(result)}
-    </div>
+    ${rrBuildDebugSection(result)}
 
-    ${
-      uploadedFiles.length
-        ? `
-          <div class="result-section">
-            <h4>Uploads a SharePoint</h4>
-            <ul class="file-list">
-              ${uploadedFiles
-                .map((item) => {
-                  const name = item.name || item.displayName || "archivo";
-                  const error = item.upload_error;
-                  return `
-                    <li class="file-name">
-                      ${rrEscapeHtml(name)}
-                      ${error ? ` — <span class="error-text">${rrEscapeHtml(error)}</span>` : ""}
-                    </li>
-                  `;
-                })
-                .join("")}
-            </ul>
-          </div>
-        `
-        : ""
-    }
+    ${rrBuildUploadsSection(uploadedFiles)}
   `;
 }
 
 window.renderResult = renderResult;
+window.rrToggleSection = rrToggleSection;

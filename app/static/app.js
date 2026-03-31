@@ -136,7 +136,7 @@ function requireSelectedClient() {
 
 function resetUI(label = "Esperando ejecución") {
   statusBadge.textContent = "Idle";
-  statusBadge.className = "status-badge idle";
+  statusBadge.className = "status-badge neutral";
   progressLabel.textContent = label;
   progressPercent.textContent = "0%";
   progressFill.style.width = "0%";
