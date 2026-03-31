@@ -133,8 +133,65 @@ function requireSelectedClient() {
 /* -------------------------------------------------------------------------- */
 /* UI state                                                                    */
 /* -------------------------------------------------------------------------- */
+let progressTimer = null;
+
+function setProgress(percent, label) {
+  const safePercent = Math.max(0, Math.min(100, percent));
+  progressPercent.textContent = `${safePercent}%`;
+  progressFill.style.width = `${safePercent}%`;
+
+  if (label) {
+    progressLabel.textContent = label;
+  }
+}
+
+function clearProgressSimulation() {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+}
+
+function startProgressSimulation(mode = "local") {
+  clearProgressSimulation();
+
+  const stages = [
+    {
+      until: 12,
+      label:
+        mode === "sharepoint"
+          ? "Preparando pipeline SharePoint"
+          : "Preparando pipeline local",
+    },
+    { until: 24, label: "Validando Excel" },
+    { until: 42, label: "Generando payload de vouchers" },
+    { until: 62, label: "Enriqueciendo hoteles" },
+    { until: 82, label: "Renderizando vouchers HTML" },
+    { until: 92, label: "Generando PDFs" },
+  ];
+
+  let current = 6;
+  let stageIndex = 0;
+
+  setProgress(current, stages[0].label);
+
+  progressTimer = setInterval(() => {
+    if (stageIndex >= stages.length) return;
+
+    const stage = stages[stageIndex];
+
+    if (current < stage.until) {
+      current += 1;
+      setProgress(current, stage.label);
+      return;
+    }
+
+    stageIndex += 1;
+  }, 350);
+}
 
 function resetUI(label = "Esperando ejecución") {
+  clearProgressSimulation();
   statusBadge.textContent = "Idle";
   statusBadge.className = "status-badge neutral";
   progressLabel.textContent = label;
@@ -145,43 +202,28 @@ function resetUI(label = "Esperando ejecución") {
   resultContent.innerHTML = "";
 }
 
-function setRunningState() {
+function setRunningState(mode = "local") {
   statusBadge.textContent = "Running";
   statusBadge.className = "status-badge running";
-  progressLabel.textContent = "Pipeline en ejecución";
-  progressPercent.textContent = "10%";
-  progressFill.style.width = "10%";
+  progressLabel.textContent =
+    mode === "sharepoint"
+      ? "Preparando pipeline SharePoint"
+      : "Preparando pipeline local";
+  progressPercent.textContent = "6%";
+  progressFill.style.width = "6%";
   stepsEl.innerHTML = "";
   resultCard.classList.add("hidden");
   resultContent.innerHTML = "";
+  startProgressSimulation(mode);
 }
 
 function setFinishedState(ok) {
+  clearProgressSimulation();
   statusBadge.textContent = ok ? "Success" : "Error";
   statusBadge.className = `status-badge ${ok ? "success" : "error"}`;
   progressLabel.textContent = ok ? "Pipeline finalizado" : "Pipeline con error";
   progressPercent.textContent = "100%";
   progressFill.style.width = "100%";
-}
-
-function switchMode(mode) {
-  const isLocal = mode === "local";
-
-  btnLocal?.classList.toggle("active", isLocal);
-  btnSP?.classList.toggle("active", !isLocal);
-
-  localSection?.classList.toggle("hidden", !isLocal);
-  spSection?.classList.toggle("hidden", isLocal);
-
-  if (isLocal) {
-    if (selectedClient?.default_profile && localProfileSelect) {
-      localProfileSelect.value = selectedClient.default_profile;
-    }
-  } else {
-    if (selectedClient?.default_profile && sharepointProfileSelect) {
-      sharepointProfileSelect.value = selectedClient.default_profile;
-    }
-  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -660,22 +702,30 @@ window.openValidationModal = openValidationModal;
 /* Steps / fatal error                                                         */
 /* -------------------------------------------------------------------------- */
 
-function renderStep(step) {
+function renderStep(step, index = 0) {
   const wrap = document.createElement("div");
   wrap.className = `step-item ${step.ok ? "success" : "error"}`;
 
   const output = [step.stdout, step.stderr].filter(Boolean).join("\n").trim();
+  const logId = `step-log-${index}-${Math.random().toString(36).slice(2, 8)}`;
 
   wrap.innerHTML = `
     <div class="step-bullet"></div>
     <div class="step-body">
       <div class="step-head">
         <div class="step-title">${escapeHtml(step.name)}</div>
-        <div class="step-state">Return code: ${escapeHtml(step.returncode)}</div>
+        <div class="step-head-actions">
+          <div class="step-state">Return code: ${escapeHtml(step.returncode)}</div>
+          ${
+            output
+              ? `<button type="button" class="btn secondary small" onclick="toggleStepLog('${logId}', this)">Ver log</button>`
+              : ""
+          }
+        </div>
       </div>
       ${
         output
-          ? `<pre class="log-block">${escapeHtml(output)}</pre>`
+          ? `<pre id="${logId}" class="log-block hidden">${escapeHtml(output)}</pre>`
           : `<div class="muted-text">Sin salida</div>`
       }
     </div>
@@ -684,7 +734,22 @@ function renderStep(step) {
   return wrap;
 }
 
+
+function toggleStepLog(logId, btn) {
+  const el = document.getElementById(logId);
+  if (!el) return;
+
+  const isHidden = el.classList.toggle("hidden");
+  if (btn) {
+    btn.textContent = isHidden ? "Ver log" : "Ocultar log";
+  }
+}
+
+window.toggleStepLog = toggleStepLog;
+
+
 function renderFatalError(error) {
+  clearProgressSimulation();
   setFinishedState(false);
 
   stepsEl.innerHTML = `
@@ -704,6 +769,9 @@ function renderFatalError(error) {
     <div class="error-banner">${escapeHtml(error?.message || String(error))}</div>
   `;
 }
+
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Pipeline execution                                                          */
@@ -727,7 +795,7 @@ async function runLocalPipeline() {
   }
 
   resetUI("Ejecutando pipeline local...");
-  setRunningState();
+  setRunningState("local");
 
   try {
     const formData = new FormData();
@@ -766,9 +834,10 @@ async function runLocalPipeline() {
 
     stepsEl.innerHTML = "";
     const steps = Array.isArray(data.steps) ? data.steps : [];
-    for (const step of steps) {
-      stepsEl.appendChild(renderStep(step));
-    }
+
+    steps.forEach((step, index) => {
+      stepsEl.appendChild(renderStep(step, index));
+    });
 
     resultCard.classList.remove("hidden");
     window.renderResult(data);
@@ -799,7 +868,7 @@ async function runSharePointPipeline() {
   }
 
   resetUI("Ejecutando pipeline SharePoint...");
-  setRunningState();
+  setRunningState("sharepoint");
 
   try {
     const payload = {
@@ -845,9 +914,10 @@ async function runSharePointPipeline() {
 
     stepsEl.innerHTML = "";
     const steps = Array.isArray(data.steps) ? data.steps : [];
-    for (const step of steps) {
-      stepsEl.appendChild(renderStep(step));
-    }
+
+    steps.forEach((step, index) => {
+      stepsEl.appendChild(renderStep(step, index));
+    });
 
     resultCard.classList.remove("hidden");
     window.renderResult(data);

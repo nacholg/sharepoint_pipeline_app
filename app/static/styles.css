@@ -1768,3 +1768,14 @@ select:focus {
     align-items: flex-start;
   }
 }
+
+.step-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.log-block.hidden {
+  display: none;
+}
