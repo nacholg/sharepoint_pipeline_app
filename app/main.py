@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import threading
+import tempfile
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -86,6 +89,37 @@ AVAILABLE_PROFILES = [
     }
     for p in list_profile_configs()
 ]
+
+BASE_WORK_DIR = Path("work/jobs").resolve()
+BASE_JOB_STATE_DIR = (Path(tempfile.gettempdir()) / "voucher_job_state").resolve()
+BASE_JOB_STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+STEP_DEFINITIONS = [
+    {
+        "name": "xlsx_to_voucher_json",
+        "label": "Generando payload de vouchers",
+        "progress_done": 25,
+    },
+    {
+        "name": "enrich_hotels",
+        "label": "Enriqueciendo hoteles",
+        "progress_done": 50,
+    },
+    {
+        "name": "render_vouchers_html",
+        "label": "Renderizando vouchers HTML",
+        "progress_done": 75,
+    },
+    {
+        "name": "render_vouchers_pdf",
+        "label": "Generando PDFs",
+        "progress_done": 95,
+    },
+]
+
+JOB_STORE: dict[str, dict] = {}
+JOB_STORE_LOCK = threading.Lock()
 
 app = FastAPI(title="Voucher Generator")
 app.add_middleware(SessionMiddleware, secret_key=settings.APP_SECRET_KEY)
@@ -254,7 +288,473 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
     }
 
 
-BASE_WORK_DIR = Path("work/jobs").resolve()
+# -----------------------------------------------------------------------------
+# Job store helpers
+# -----------------------------------------------------------------------------
+
+def _job_state_file(job_id: str) -> Path:
+    return (BASE_JOB_STATE_DIR / f"{job_id}.json").resolve()
+
+def _write_job_state(job_id: str) -> None:
+    job = JOB_STORE.get(job_id)
+    if not job:
+        print("WRITE JOB STATE SKIPPED, NOT IN MEMORY:", job_id)
+        return
+
+    state_file = _job_state_file(job_id)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(
+        json.dumps(job, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print("JOB STATE WRITTEN:", state_file)
+
+
+def _read_job_state_from_disk(job_id: str) -> dict | None:
+    state_file = _job_state_file(job_id)
+    print("READ JOB STATE FILE:", state_file)
+
+    if not state_file.exists() or not state_file.is_file():
+        print("JOB STATE FILE DOES NOT EXIST:", state_file)
+        return None
+
+    try:
+        data = json.loads(state_file.read_text(encoding="utf-8"))
+        print("JOB STATE FILE LOADED:", job_id)
+        return data
+    except Exception as e:
+        print("ERROR READING JOB STATE FILE:", job_id, e)
+        return None
+
+
+def _build_initial_steps() -> list[dict]:
+    steps: list[dict] = []
+    for item in STEP_DEFINITIONS:
+        steps.append(
+            {
+                "name": item["name"],
+                "label": item["label"],
+                "status": "pending",
+                "returncode": None,
+                "stdout": "",
+                "stderr": "",
+                "ok": None,
+            }
+        )
+    return steps
+
+
+def _create_job_record(
+    *,
+    job_id: str,
+    mode: str,
+    client_key: str | None = None,
+    client_label: str | None = None,
+) -> None:
+    with JOB_STORE_LOCK:
+        JOB_STORE[job_id] = {
+            "job_id": job_id,
+            "mode": mode,
+            "status": "pending",
+            "progress": 0,
+            "progress_label": "Esperando ejecución",
+            "current_step": None,
+            "steps": _build_initial_steps(),
+            "result": None,
+            "error": None,
+            "client_key": client_key,
+            "client_label": client_label,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+        print("JOB CREATED IN MEMORY:", job_id)
+        print("JOB STORE KEYS AFTER CREATE:", list(JOB_STORE.keys()))
+        _write_job_state(job_id)
+
+def _patch_job(job_id: str, **values) -> None:
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if not job:
+            return
+        job.update(values)
+        job["updated_at"] = time.time()
+        _write_job_state(job_id)
+
+
+def _get_job(job_id: str) -> dict | None:
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if job:
+            print("JOB FOUND IN MEMORY:", job_id)
+            return json.loads(json.dumps(job))
+
+    print("JOB NOT IN MEMORY, TRY DISK:", job_id)
+    disk_job = _read_job_state_from_disk(job_id)
+    if disk_job:
+        print("JOB RECOVERED FROM DISK:", job_id)
+        with JOB_STORE_LOCK:
+            JOB_STORE[job_id] = disk_job
+        return disk_job
+
+    print("JOB NOT FOUND ANYWHERE:", job_id)
+    return None
+
+
+def _set_job_steps_from_result(job_id: str, result_steps: list[dict]) -> None:
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if not job:
+            return
+        job["steps"] = result_steps
+        job["updated_at"] = time.time()
+        _write_job_state(job_id)
+
+
+def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
+    payload_json = job_dir / "voucher_payloads.json"
+    enriched_json = job_dir / "voucher_payloads_enriched.json"
+    html_dir = job_dir / "rendered_vouchers"
+    pdf_dir = job_dir / "rendered_pdfs"
+
+    html_ready = html_dir.exists() and any(html_dir.rglob("*.html"))
+    pdf_ready = pdf_dir.exists() and any(pdf_dir.rglob("*.pdf"))
+
+    if payload_json.exists():
+        steps_status = ["done", "running", "pending", "pending"]
+        progress = 25
+        current_label = STEP_DEFINITIONS[1]["label"]
+        current_step = STEP_DEFINITIONS[1]["name"]
+    else:
+        steps_status = ["running", "pending", "pending", "pending"]
+        progress = 12
+        current_label = STEP_DEFINITIONS[0]["label"]
+        current_step = STEP_DEFINITIONS[0]["name"]
+
+    if enriched_json.exists():
+        steps_status = ["done", "done", "running", "pending"]
+        progress = 50
+        current_label = STEP_DEFINITIONS[2]["label"]
+        current_step = STEP_DEFINITIONS[2]["name"]
+
+    if html_ready:
+        steps_status = ["done", "done", "done", "running"]
+        progress = 75
+        current_label = STEP_DEFINITIONS[3]["label"]
+        current_step = STEP_DEFINITIONS[3]["name"]
+
+    if pdf_ready:
+        steps_status = ["done", "done", "done", "done"]
+        progress = 95
+        current_label = "Finalizando pipeline"
+        current_step = STEP_DEFINITIONS[3]["name"]
+
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if not job or job.get("status") not in {"pending", "running"}:
+            return
+
+        for idx, status in enumerate(steps_status):
+          job["steps"][idx]["status"] = status
+
+        job["status"] = "running"
+        job["progress"] = progress
+        job["progress_label"] = current_label
+        job["current_step"] = current_step
+        job["updated_at"] = time.time()
+        _write_job_state(job_id)
+
+def _monitor_job_outputs(job_id: str, job_dir: Path, stop_event: threading.Event) -> None:
+    while not stop_event.is_set():
+        _sync_job_progress_from_outputs(job_id, job_dir)
+        time.sleep(0.6)
+
+    _sync_job_progress_from_outputs(job_id, job_dir)
+
+
+# -----------------------------------------------------------------------------
+# Async job workers
+# -----------------------------------------------------------------------------
+
+
+def _run_local_job_async(
+    *,
+    job_id: str,
+    source_excel: Path,
+    jobs_root: Path,
+    brand_logo: str | None,
+    profile_name: str,
+    language: str,
+    client_cfg: dict,
+) -> None:
+    job_dir = (jobs_root / job_id).resolve()
+    stop_event = threading.Event()
+    monitor = threading.Thread(
+        target=_monitor_job_outputs,
+        args=(job_id, job_dir, stop_event),
+        daemon=True,
+    )
+
+    try:
+        _patch_job(
+            job_id,
+            status="running",
+            progress=8,
+            progress_label="Preparando pipeline local",
+            current_step="preparing_local_job",
+        )
+
+        monitor.start()
+
+        result = run_full_voucher_pipeline(
+            job_id=job_id,
+            source_excel=source_excel,
+            jobs_root=jobs_root,
+            brand_logo=brand_logo,
+            pretty_json=True,
+            profile_name=profile_name,
+            language=language,
+        )
+
+        response = result.to_dict()
+        response["mode"] = "local"
+        response["requested_profile"] = profile_name
+        response["resolved_profile"] = profile_name
+        response["client_key"] = client_cfg["key"]
+        response["client_label"] = client_cfg["label"]
+        response["requested_language"] = normalize_language(language)
+        response["resolved_language"] = language
+        response["language"] = response.get("language") or language
+        response["profile_used"] = response.get("profile_used") or profile_name
+
+        result_steps = []
+        for step in response.get("steps", []):
+            step_copy = dict(step)
+            step_copy["status"] = "done" if step_copy.get("ok") else "error"
+            result_steps.append(step_copy)
+
+        _set_job_steps_from_result(job_id, result_steps)
+        _patch_job(
+            job_id,
+            status="success" if result.ok else "error",
+            progress=100,
+            progress_label="Pipeline finalizado" if result.ok else "Pipeline con error",
+            current_step=None,
+            result=response,
+            error=response.get("error"),
+        )
+
+    except Exception as e:
+        _patch_job(
+            job_id,
+            status="error",
+            progress=100,
+            progress_label="Pipeline con error",
+            current_step=None,
+            error=str(e),
+        )
+    finally:
+        stop_event.set()
+        monitor.join(timeout=1.5)
+
+
+def _run_sharepoint_job_async(
+    *,
+    job_id: str,
+    access_token: str,
+    payload: SharePointRunRequest,
+    client_cfg: dict,
+    source_site_key: str | None,
+    destination_site_key: str | None,
+    resolved_profile: str,
+    resolved_language: str,
+) -> None:
+    jobs_root = Path("work/jobs").resolve()
+    job_dir = (jobs_root / job_id).resolve()
+    input_dir = (job_dir / "input").resolve()
+    input_dir.mkdir(parents=True, exist_ok=True)
+
+    stop_event = threading.Event()
+    monitor = threading.Event()
+
+    try:
+        graph = GraphSharePointService(access_token)
+
+        _patch_job(
+            job_id,
+            status="running",
+            progress=6,
+            progress_label="Preparando pipeline SharePoint",
+            current_step="preparing_sharepoint_job",
+        )
+
+        source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
+        source_site = source_resolved["site"]
+        source_drive = source_resolved["drive"]
+        source_site_cfg = source_resolved["site_config"]
+
+        _patch_job(
+            job_id,
+            progress=10,
+            progress_label="Leyendo archivo origen desde SharePoint",
+            current_step="loading_sharepoint_source",
+        )
+
+        source_file = graph.get_drive_item(source_drive["id"], payload.source_file_id)
+        if not source_file:
+            raise RuntimeError("Archivo origen no encontrado.")
+
+        if not source_file.get("is_file"):
+            raise RuntimeError("El item seleccionado no es un archivo.")
+
+        source_name = str(source_file.get("name", ""))
+        if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
+            raise RuntimeError("El archivo seleccionado no es un Excel válido.")
+
+        local_excel_path = input_dir / (source_name or "sharepoint_input.xlsx")
+        graph.download_drive_file(source_drive["id"], payload.source_file_id, local_excel_path)
+
+        destination_folder = None
+        destination_site = None
+        destination_drive = None
+        destination_site_cfg = None
+
+        if payload.destination_folder_id:
+            destination_resolved = get_sharepoint_context(graph, site_key=destination_site_key)
+            destination_site = destination_resolved["site"]
+            destination_drive = destination_resolved["drive"]
+            destination_site_cfg = destination_resolved["site_config"]
+
+            destination_folder = graph.get_drive_item(
+                destination_drive["id"],
+                payload.destination_folder_id,
+            )
+
+            if not destination_folder:
+                raise RuntimeError("Carpeta destino no encontrada.")
+
+            if not destination_folder.get("is_folder"):
+                raise RuntimeError("El destino seleccionado no es una carpeta.")
+
+        brand_logo = client_cfg.get("brand_logo") or source_site_cfg.get("brand_logo")
+
+        monitor_thread = threading.Thread(
+            target=_monitor_job_outputs,
+            args=(job_id, job_dir, stop_event),
+            daemon=True,
+        )
+        monitor_thread.start()
+
+        result = run_full_voucher_pipeline(
+            job_id=job_id,
+            source_excel=local_excel_path,
+            jobs_root=jobs_root,
+            brand_logo=brand_logo,
+            pretty_json=True,
+            profile_name=resolved_profile,
+            language=resolved_language,
+        )
+
+        response = result.to_dict()
+
+        uploaded_files = []
+        uploaded_zip = None
+
+        if destination_folder and destination_drive:
+            _patch_job(
+                job_id,
+                progress=98,
+                progress_label="Subiendo resultado a SharePoint",
+                current_step="uploading_outputs",
+            )
+
+            for file_path_str in response.get("generated_files", []):
+                try:
+                    uploaded = graph.upload_file_to_folder(
+                        drive_id=destination_drive["id"],
+                        folder_id=destination_folder["id"],
+                        local_file_path=Path(file_path_str),
+                    )
+                    uploaded_files.append(uploaded)
+                except Exception as e:
+                    uploaded_files.append(
+                        {
+                            "name": Path(file_path_str).name,
+                            "upload_error": str(e),
+                        }
+                    )
+
+            zip_path = response.get("zip_file")
+            if zip_path:
+                try:
+                    uploaded_zip = graph.upload_file_to_folder(
+                        drive_id=destination_drive["id"],
+                        folder_id=destination_folder["id"],
+                        local_file_path=Path(zip_path),
+                    )
+                except Exception as e:
+                    uploaded_zip = {
+                        "name": Path(zip_path).name,
+                        "upload_error": str(e),
+                    }
+
+        response["mode"] = "graph_sharepoint_site"
+        response["requested_profile"] = payload.profile
+        response["resolved_profile"] = resolved_profile
+        response["client_key"] = client_cfg["key"]
+        response["client_label"] = client_cfg["label"]
+        response["requested_language"] = normalize_language(payload.language)
+        response["resolved_language"] = resolved_language
+        response["language"] = response.get("language") or resolved_language
+        response["profile_used"] = response.get("profile_used") or resolved_profile
+        response["source_site_key"] = source_site_cfg["key"]
+        response["source_site_label"] = source_site_cfg["label"]
+        response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")
+        response["destination_site_key"] = destination_site_cfg["key"] if destination_site_cfg else None
+        response["destination_site_label"] = destination_site_cfg["label"] if destination_site_cfg else None
+        response["source_site"] = source_site
+        response["source_drive"] = source_drive
+        response["destination_site"] = destination_site
+        response["destination_drive"] = destination_drive
+        response["source_file"] = source_file
+        response["destination_folder"] = destination_folder
+        response["downloaded_excel_path"] = str(local_excel_path)
+        response["uploaded_files"] = uploaded_files
+        response["uploaded_zip"] = uploaded_zip
+
+        result_steps = []
+        for step in response.get("steps", []):
+            step_copy = dict(step)
+            step_copy["status"] = "done" if step_copy.get("ok") else "error"
+            result_steps.append(step_copy)
+
+        _set_job_steps_from_result(job_id, result_steps)
+        _patch_job(
+            job_id,
+            status="success" if result.ok else "error",
+            progress=100,
+            progress_label="Pipeline finalizado" if result.ok else "Pipeline con error",
+            current_step=None,
+            result=response,
+            error=response.get("error"),
+        )
+
+    except Exception as e:
+        _patch_job(
+            job_id,
+            status="error",
+            progress=100,
+            progress_label="Pipeline con error",
+            current_step=None,
+            error=str(e),
+        )
+    finally:
+        stop_event.set()
+
+
+# -----------------------------------------------------------------------------
+# Public API
+# -----------------------------------------------------------------------------
+
 
 @app.get("/api/preview")
 def preview_file(path: str = Query(...)):
@@ -275,6 +775,15 @@ def preview_file(path: str = Query(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/jobs/{job_id}")
+def api_job_status(job_id: str):
+    job = _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+    return {"ok": True, **job}
+
 
 @app.get("/api/clients")
 def api_clients():
@@ -305,9 +814,6 @@ def api_sharepoint_sites():
     }
 
 
-
-BASE_WORK_DIR = Path("work/jobs").resolve()
-
 @app.get("/api/download-zip")
 def download_zip(path: str = Query(...)):
     try:
@@ -329,6 +835,7 @@ def download_zip(path: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/download-file")
 def download_file(path: str = Query(...)):
     try:
@@ -348,6 +855,7 @@ def download_file(path: str = Query(...)):
 
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 @app.get("/api/profiles")
 def api_profiles():
@@ -375,42 +883,49 @@ async def api_local_run(
         resolved_language = resolve_language(language)
 
         job_id = str(uuid4())
-        jobs_root = Path("work/jobs").resolve()
+        jobs_root = BASE_WORK_DIR
         job_dir = (jobs_root / job_id).resolve()
         input_dir = (job_dir / "input").resolve()
         input_dir.mkdir(parents=True, exist_ok=True)
 
-        local_excel_path = input_dir / file.filename
+        filename = file.filename or "input.xlsx"
+        local_excel_path = input_dir / filename
 
         with open(local_excel_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        result = run_full_voucher_pipeline(
+        _create_job_record(
             job_id=job_id,
-            source_excel=local_excel_path,
-            jobs_root=jobs_root,
-            brand_logo=brand_logo,
-            pretty_json=True,
-            profile_name=resolved_profile,
-            language=resolved_language,
+            mode="local",
+            client_key=client_cfg["key"],
+            client_label=client_cfg["label"],
         )
 
-        response = result.to_dict()
-        response["mode"] = "local"
-        response["requested_profile"] = profile
-        response["resolved_profile"] = resolved_profile
-        response["client_key"] = client_cfg["key"]
-        response["client_label"] = client_cfg["label"]
-        response["requested_language"] = normalize_language(language)
-        response["resolved_language"] = resolved_language
-        response["language"] = response.get("language") or resolved_language
-        response["profile_used"] = response.get("profile_used") or resolved_profile
-        return response
+        worker = threading.Thread(
+            target=_run_local_job_async,
+            kwargs={
+                "job_id": job_id,
+                "source_excel": local_excel_path,
+                "jobs_root": jobs_root,
+                "brand_logo": brand_logo,
+                "profile_name": resolved_profile,
+                "language": resolved_language,
+                "client_cfg": client_cfg,
+            },
+            daemon=True,
+        )
+        worker.start()
+
+        return {
+            "ok": True,
+            "job_id": job_id,
+            "mode": "local",
+        }
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error ejecutando pipeline local: {e}",
+            detail=f"Error iniciando pipeline local: {e}",
         )
 
 
@@ -470,8 +985,6 @@ def api_sharepoint_explore(
 @app.post("/api/sharepoint/run")
 def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     access_token = get_graph_access_token_from_session(request)
-    graph = GraphSharePointService(access_token)
-
     client_cfg = get_client_config(payload.client_key)
 
     source_site_key = payload.source_site_key or client_cfg.get("source_site_key") or client_cfg.get("site_key")
@@ -487,169 +1000,43 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     )
     resolved_language = resolve_language(payload.language)
 
-    try:
-        source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
-        source_site = source_resolved["site"]
-        source_drive = source_resolved["drive"]
-        source_site_cfg = source_resolved["site_config"]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo resolver el site/drive origen de SharePoint: {e}",
-        )
-
-    try:
-        source_file = graph.get_drive_item(source_drive["id"], payload.source_file_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo leer el archivo origen en SharePoint Graph: {e}",
-        )
-
-    if not source_file:
-        raise HTTPException(status_code=404, detail="Archivo origen no encontrado.")
-
-    if not source_file.get("is_file"):
-        raise HTTPException(
-            status_code=400,
-            detail="El item seleccionado no es un archivo.",
-        )
-
-    source_name = str(source_file.get("name", ""))
-    if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
-        raise HTTPException(
-            status_code=400,
-            detail="El archivo seleccionado no es un Excel válido.",
-        )
-
-    destination_folder = None
-    destination_site = None
-    destination_drive = None
-    destination_site_cfg = None
-
-    if payload.destination_folder_id:
-        try:
-            destination_resolved = get_sharepoint_context(graph, site_key=destination_site_key)
-            destination_site = destination_resolved["site"]
-            destination_drive = destination_resolved["drive"]
-            destination_site_cfg = destination_resolved["site_config"]
-
-            destination_folder = graph.get_drive_item(
-                destination_drive["id"],
-                payload.destination_folder_id,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"No se pudo leer la carpeta destino en SharePoint Graph: {e}",
-            )
-
-        if not destination_folder:
-            raise HTTPException(
-                status_code=404,
-                detail="Carpeta destino no encontrada.",
-            )
-
-        if not destination_folder.get("is_folder"):
-            raise HTTPException(
-                status_code=400,
-                detail="El destino seleccionado no es una carpeta.",
-            )
-
     job_id = str(uuid4())
-    jobs_root = Path("work/jobs").resolve()
-    job_dir = (jobs_root / job_id).resolve()
-    input_dir = (job_dir / "input").resolve()
-    input_dir.mkdir(parents=True, exist_ok=True)
 
-    local_excel_path = input_dir / (source_name or "sharepoint_input.xlsx")
+    _create_job_record(
+        job_id=job_id,
+        mode="graph_sharepoint_site",
+        client_key=client_cfg["key"],
+        client_label=client_cfg["label"],
+    )
 
-    try:
-        graph.download_drive_file(source_drive["id"], payload.source_file_id, local_excel_path)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo descargar el Excel desde SharePoint Graph: {e}",
-        )
+    worker = threading.Thread(
+        target=_run_sharepoint_job_async,
+        kwargs={
+            "job_id": job_id,
+            "access_token": access_token,
+            "payload": payload,
+            "client_cfg": client_cfg,
+            "source_site_key": source_site_key,
+            "destination_site_key": destination_site_key,
+            "resolved_profile": resolved_profile,
+            "resolved_language": resolved_language,
+        },
+        daemon=True,
+    )
+    worker.start()
 
-    brand_logo = client_cfg.get("brand_logo") or source_site_cfg.get("brand_logo")
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "mode": "graph_sharepoint_site",
+    }
 
-    try:
-        result = run_full_voucher_pipeline(
-            job_id=job_id,
-            source_excel=local_excel_path,
-            jobs_root=jobs_root,
-            brand_logo=brand_logo,
-            pretty_json=True,
-            profile_name=resolved_profile,
-            language=resolved_language,
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error ejecutando pipeline: {e}",
-        )
-
-    response = result.to_dict()
-
-    uploaded_files = []
-    uploaded_zip = None
-
-    if destination_folder and destination_drive:
-        for file_path_str in response.get("generated_files", []):
-            try:
-                uploaded = graph.upload_file_to_folder(
-                    drive_id=destination_drive["id"],
-                    folder_id=destination_folder["id"],
-                    local_file_path=Path(file_path_str),
-                )
-                uploaded_files.append(uploaded)
-            except Exception as e:
-                uploaded_files.append(
-                    {
-                        "name": Path(file_path_str).name,
-                        "upload_error": str(e),
-                    }
-                )
-
-        zip_path = response.get("zip_file")
-        if zip_path:
-            try:
-                uploaded_zip = graph.upload_file_to_folder(
-                    drive_id=destination_drive["id"],
-                    folder_id=destination_folder["id"],
-                    local_file_path=Path(zip_path),
-                )
-            except Exception as e:
-                uploaded_zip = {
-                    "name": Path(zip_path).name,
-                    "upload_error": str(e),
-                }
-
-    response["mode"] = "graph_sharepoint_site"
-    response["requested_profile"] = payload.profile
-    response["resolved_profile"] = resolved_profile
-    response["client_key"] = client_cfg["key"]
-    response["client_label"] = client_cfg["label"]
-    response["requested_language"] = normalize_language(payload.language)
-    response["resolved_language"] = resolved_language
-    response["language"] = response.get("language") or resolved_language
-    response["profile_used"] = response.get("profile_used") or resolved_profile
-    response["source_site_key"] = source_site_cfg["key"]
-    response["source_site_label"] = source_site_cfg["label"]
-    response["source_site_default_profile"] = source_site_cfg.get("default_profile", "default")
-    response["destination_site_key"] = destination_site_cfg["key"] if destination_site_cfg else None
-    response["destination_site_label"] = destination_site_cfg["label"] if destination_site_cfg else None
-    response["source_site"] = source_site
-    response["source_drive"] = source_drive
-    response["destination_site"] = destination_site
-    response["destination_drive"] = destination_drive
-    response["source_file"] = source_file
-    response["destination_folder"] = destination_folder
-    response["downloaded_excel_path"] = str(local_excel_path)
-    response["uploaded_files"] = uploaded_files
-    response["uploaded_zip"] = uploaded_zip
-
-    return response
+@app.on_event("startup")
+def debug_routes():
+    print("=== ROUTES LOADED ===")
+    for route in app.routes:
+        try:
+            print(route.path)
+        except Exception:
+            pass
+    

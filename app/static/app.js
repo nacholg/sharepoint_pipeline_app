@@ -5,11 +5,11 @@ const API = {
   sharepointExplore: "/api/sharepoint/explore",
   profiles: "/api/profiles",
   clients: "/api/clients",
+  jobStatus: (jobId) => `/api/jobs/${encodeURIComponent(jobId)}`,
 };
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
 
-// DOM
 const languageSelect = document.getElementById("languageSelect");
 
 const userDataEl = document.getElementById("user-data");
@@ -65,7 +65,6 @@ const selectCurrentFolderBtn = document.getElementById("selectCurrentFolderBtn")
 const spPickedSourceInline = document.getElementById("spPickedSourceInline");
 const spPickedDestInline = document.getElementById("spPickedDestInline");
 
-// State
 let sharepointSites = [];
 let availableProfiles = [];
 let availableClients = [];
@@ -84,6 +83,9 @@ let currentSharePointFolderName = null;
 let currentModalSiteKey = null;
 let spBrowseMode = "source";
 let spFolderStack = [];
+
+let activeJobPollTimer = null;
+let activeJobId = null;
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -130,68 +132,43 @@ function requireSelectedClient() {
   return true;
 }
 
+function getStepLabel(stepName) {
+  const labels = {
+    preparing_local_job: "Preparando ejecución local",
+    preparing_sharepoint_job: "Preparando ejecución SharePoint",
+    loading_sharepoint_source: "Descargando archivo desde SharePoint",
+    uploading_outputs: "Subiendo resultados a SharePoint",
+    xlsx_to_voucher_json: "Preparando vouchers",
+    enrich_hotels: "Obteniendo información de hoteles",
+    render_vouchers_html: "Generando vouchers",
+    render_vouchers_pdf: "Generando PDFs finales",
+  };
+  return labels[stepName] || stepName || "Procesando";
+}
+
+function stopActivePolling() {
+  if (activeJobPollTimer) {
+    clearInterval(activeJobPollTimer);
+    activeJobPollTimer = null;
+  }
+  activeJobId = null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* UI state                                                                    */
 /* -------------------------------------------------------------------------- */
-let progressTimer = null;
 
 function setProgress(percent, label) {
-  const safePercent = Math.max(0, Math.min(100, percent));
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   progressPercent.textContent = `${safePercent}%`;
   progressFill.style.width = `${safePercent}%`;
-
   if (label) {
     progressLabel.textContent = label;
   }
 }
 
-function clearProgressSimulation() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
-}
-
-function startProgressSimulation(mode = "local") {
-  clearProgressSimulation();
-
-  const stages = [
-    {
-      until: 12,
-      label:
-        mode === "sharepoint"
-          ? "Preparando pipeline SharePoint"
-          : "Preparando pipeline local",
-    },
-    { until: 24, label: "Validando Excel" },
-    { until: 42, label: "Generando payload de vouchers" },
-    { until: 62, label: "Enriqueciendo hoteles" },
-    { until: 82, label: "Renderizando vouchers HTML" },
-    { until: 92, label: "Generando PDFs" },
-  ];
-
-  let current = 6;
-  let stageIndex = 0;
-
-  setProgress(current, stages[0].label);
-
-  progressTimer = setInterval(() => {
-    if (stageIndex >= stages.length) return;
-
-    const stage = stages[stageIndex];
-
-    if (current < stage.until) {
-      current += 1;
-      setProgress(current, stage.label);
-      return;
-    }
-
-    stageIndex += 1;
-  }, 350);
-}
-
 function resetUI(label = "Esperando ejecución") {
-  clearProgressSimulation();
+  stopActivePolling();
   statusBadge.textContent = "Idle";
   statusBadge.className = "status-badge neutral";
   progressLabel.textContent = label;
@@ -205,25 +182,44 @@ function resetUI(label = "Esperando ejecución") {
 function setRunningState(mode = "local") {
   statusBadge.textContent = "Running";
   statusBadge.className = "status-badge running";
-  progressLabel.textContent =
+  setProgress(
+    mode === "sharepoint" ? 6 : 8,
     mode === "sharepoint"
       ? "Preparando pipeline SharePoint"
-      : "Preparando pipeline local";
-  progressPercent.textContent = "6%";
-  progressFill.style.width = "6%";
+      : "Preparando pipeline local"
+  );
   stepsEl.innerHTML = "";
   resultCard.classList.add("hidden");
   resultContent.innerHTML = "";
-  startProgressSimulation(mode);
 }
 
 function setFinishedState(ok) {
-  clearProgressSimulation();
+  stopActivePolling();
   statusBadge.textContent = ok ? "Success" : "Error";
   statusBadge.className = `status-badge ${ok ? "success" : "error"}`;
   progressLabel.textContent = ok ? "Pipeline finalizado" : "Pipeline con error";
   progressPercent.textContent = "100%";
   progressFill.style.width = "100%";
+}
+
+function switchMode(mode) {
+  const isLocal = mode === "local";
+
+  btnLocal?.classList.toggle("active", isLocal);
+  btnSP?.classList.toggle("active", !isLocal);
+
+  localSection?.classList.toggle("hidden", !isLocal);
+  spSection?.classList.toggle("hidden", isLocal);
+
+  if (isLocal) {
+    if (selectedClient?.default_profile && localProfileSelect) {
+      localProfileSelect.value = selectedClient.default_profile;
+    }
+  } else {
+    if (selectedClient?.default_profile && sharepointProfileSelect) {
+      sharepointProfileSelect.value = selectedClient.default_profile;
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -699,41 +695,8 @@ function renderValidationRowCard(item, type = "warning") {
 window.openValidationModal = openValidationModal;
 
 /* -------------------------------------------------------------------------- */
-/* Steps / fatal error                                                         */
+/* Steps / logs                                                                */
 /* -------------------------------------------------------------------------- */
-
-function renderStep(step, index = 0) {
-  const wrap = document.createElement("div");
-  wrap.className = `step-item ${step.ok ? "success" : "error"}`;
-
-  const output = [step.stdout, step.stderr].filter(Boolean).join("\n").trim();
-  const logId = `step-log-${index}-${Math.random().toString(36).slice(2, 8)}`;
-
-  wrap.innerHTML = `
-    <div class="step-bullet"></div>
-    <div class="step-body">
-      <div class="step-head">
-        <div class="step-title">${escapeHtml(step.name)}</div>
-        <div class="step-head-actions">
-          <div class="step-state">Return code: ${escapeHtml(step.returncode)}</div>
-          ${
-            output
-              ? `<button type="button" class="btn secondary small" onclick="toggleStepLog('${logId}', this)">Ver log</button>`
-              : ""
-          }
-        </div>
-      </div>
-      ${
-        output
-          ? `<pre id="${logId}" class="log-block hidden">${escapeHtml(output)}</pre>`
-          : `<div class="muted-text">Sin salida</div>`
-      }
-    </div>
-  `;
-
-  return wrap;
-}
-
 
 function toggleStepLog(logId, btn) {
   const el = document.getElementById(logId);
@@ -747,10 +710,79 @@ function toggleStepLog(logId, btn) {
 
 window.toggleStepLog = toggleStepLog;
 
+function renderStep(step, index = 0) {
+  const rawStatus =
+    step.status || (step.ok === true ? "done" : step.ok === false ? "error" : "pending");
+
+  const visualStatus =
+    rawStatus === "done"
+      ? "success"
+      : rawStatus === "error"
+        ? "error"
+        : rawStatus === "running"
+          ? "running"
+          : "pending";
+
+  const wrap = document.createElement("div");
+  wrap.className = `step-item ${visualStatus}`;
+
+  const output = [step.stdout, step.stderr].filter(Boolean).join("\n").trim();
+  const hasUsefulLog = Boolean(output);
+  const logId = `step-log-${index}-${Math.random().toString(36).slice(2, 8)}`;
+
+  let stateText = "Pendiente";
+  if (rawStatus === "running") stateText = "En proceso";
+  if (rawStatus === "done") stateText = "Listo";
+  if (rawStatus === "error") stateText = "Error";
+
+  const showLogButton = hasUsefulLog;
+
+  wrap.innerHTML = `
+    <div class="step-bullet"></div>
+    <div class="step-body">
+      <div class="step-head">
+        <div class="step-head-main">
+          <div class="step-title">${escapeHtml(step.label || getStepLabel(step.name))}</div>
+        </div>
+
+        <div class="step-head-actions">
+          <span class="step-status-pill step-status-pill-${visualStatus}">
+            ${stateText}
+          </span>
+
+          ${
+            showLogButton
+              ? `<button type="button" class="btn secondary small step-log-btn" onclick="toggleStepLog('${logId}', this)">Ver log</button>`
+              : ""
+          }
+        </div>
+      </div>
+
+      ${
+        hasUsefulLog
+          ? `<pre id="${logId}" class="log-block hidden">${escapeHtml(output)}</pre>`
+          : ""
+      }
+    </div>
+  `;
+
+  return wrap;
+}
+
+function renderSteps(steps = []) {
+  stepsEl.innerHTML = "";
+  steps.forEach((step, index) => {
+    stepsEl.appendChild(renderStep(step, index));
+  });
+}
 
 function renderFatalError(error) {
-  clearProgressSimulation();
-  setFinishedState(false);
+  stopActivePolling();
+  statusBadge.textContent = "Error";
+  statusBadge.className = "status-badge error";
+  progressLabel.textContent = "Pipeline con error";
+  progressPercent.textContent = "100%";
+  progressFill.style.width = "100%";
 
   stepsEl.innerHTML = `
     <div class="step-item error">
@@ -770,8 +802,95 @@ function renderFatalError(error) {
   `;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Polling                                                                     */
+/* -------------------------------------------------------------------------- */
 
+async function fetchJobStatus(jobId) {
+  const response = await fetch(API.jobStatus(jobId));
+  const data = await response.json();
 
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.detail || "No se pudo obtener el estado del job");
+  }
+
+  return data;
+}
+
+function applyJobState(job) {
+  const status = job.status || "pending";
+  const progress = Number(job.progress) || 0;
+  const progressText = job.progress_label || getStepLabel(job.current_step);
+
+  if (status === "pending") {
+    statusBadge.textContent = "Pending";
+    statusBadge.className = "status-badge neutral";
+  } else if (status === "running") {
+    statusBadge.textContent = "Running";
+    statusBadge.className = "status-badge running";
+  } else if (status === "success") {
+    statusBadge.textContent = "Success";
+    statusBadge.className = "status-badge success";
+  } else if (status === "error") {
+    statusBadge.textContent = "Error";
+    statusBadge.className = "status-badge error";
+  }
+
+  setProgress(progress, progressText || "Procesando");
+
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  renderSteps(steps);
+}
+
+async function pollJob(jobId) {
+  activeJobId = jobId;
+
+  const tick = async () => {
+    try {
+      const job = await fetchJobStatus(jobId);
+
+      if (activeJobId !== jobId) return;
+
+      applyJobState(job);
+
+      if (job.status === "success") {
+        stopActivePolling();
+        setFinishedState(true);
+        renderSteps(Array.isArray(job.steps) ? job.steps : []);
+        resultCard.classList.remove("hidden");
+        if (job.result && typeof window.renderResult === "function") {
+          window.renderResult(job.result);
+        }
+        return;
+      }
+
+      if (job.status === "error") {
+        stopActivePolling();
+        statusBadge.textContent = "Error";
+        statusBadge.className = "status-badge error";
+        progressLabel.textContent = "Pipeline con error";
+        progressPercent.textContent = "100%";
+        progressFill.style.width = "100%";
+        renderSteps(Array.isArray(job.steps) ? job.steps : []);
+        resultCard.classList.remove("hidden");
+
+        if (job.result && typeof window.renderResult === "function") {
+          window.renderResult(job.result);
+        } else {
+          resultContent.innerHTML = `
+            <div class="error-banner">${escapeHtml(job.error || "Error ejecutando pipeline")}</div>
+          `;
+        }
+      }
+    } catch (error) {
+      stopActivePolling();
+      renderFatalError(error);
+    }
+  };
+
+  await tick();
+  activeJobPollTimer = setInterval(tick, 1000);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Pipeline execution                                                          */
@@ -811,36 +930,11 @@ async function runLocalPipeline() {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      window.renderResult({
-        ok: false,
-        error: data?.detail || "Error ejecutando pipeline local.",
-        steps: [],
-        generated_files: [],
-        validation: data?.validation || null,
-        warning_rows: data?.warning_rows || [],
-        error_rows: data?.error_rows || [],
-        pipeline_summary: data?.pipeline_summary || null,
-        language: data?.language || data?.resolved_language || "-",
-        profile_used: data?.profile_used || data?.resolved_profile || "-",
-        client_label: selectedClient?.label || "-",
-      });
-
-      resultCard.classList.remove("hidden");
-      return;
+    if (!response.ok || !data?.ok || !data?.job_id) {
+      throw new Error(data?.detail || "Error iniciando pipeline local.");
     }
 
-    setFinishedState(!!data.ok);
-
-    stepsEl.innerHTML = "";
-    const steps = Array.isArray(data.steps) ? data.steps : [];
-
-    steps.forEach((step, index) => {
-      stepsEl.appendChild(renderStep(step, index));
-    });
-
-    resultCard.classList.remove("hidden");
-    window.renderResult(data);
+    await pollJob(data.job_id);
   } catch (error) {
     renderFatalError(error);
   }
@@ -891,36 +985,11 @@ async function runSharePointPipeline() {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      window.renderResult({
-        ok: false,
-        error: data?.detail || "Error ejecutando pipeline SharePoint.",
-        steps: [],
-        generated_files: [],
-        validation: data?.validation || null,
-        warning_rows: data?.warning_rows || [],
-        error_rows: data?.error_rows || [],
-        pipeline_summary: data?.pipeline_summary || null,
-        language: data?.language || data?.resolved_language || "-",
-        profile_used: data?.profile_used || data?.resolved_profile || "-",
-        client_label: selectedClient?.label || "-",
-      });
-
-      resultCard.classList.remove("hidden");
-      return;
+    if (!response.ok || !data?.ok || !data?.job_id) {
+      throw new Error(data?.detail || "Error iniciando pipeline SharePoint.");
     }
 
-    setFinishedState(!!data.ok);
-
-    stepsEl.innerHTML = "";
-    const steps = Array.isArray(data.steps) ? data.steps : [];
-
-    steps.forEach((step, index) => {
-      stepsEl.appendChild(renderStep(step, index));
-    });
-
-    resultCard.classList.remove("hidden");
-    window.renderResult(data);
+    await pollJob(data.job_id);
   } catch (error) {
     renderFatalError(error);
   }
