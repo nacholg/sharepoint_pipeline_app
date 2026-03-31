@@ -9,7 +9,6 @@ const API = {
 
 const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
 
-// selector de idioma
 const languageSelect = document.getElementById("languageSelect");
 
 function getSelectedLanguage() {
@@ -87,6 +86,9 @@ let currentSharePointFolderName = null;
 let currentModalSiteKey = null;
 let spBrowseMode = "source";
 let spFolderStack = [];
+
+let currentWarningRows = [];
+let currentErrorRows = [];
 
 btnLocal?.addEventListener("click", () => switchMode("local"));
 btnSP?.addEventListener("click", () => switchMode("sharepoint"));
@@ -172,6 +174,7 @@ destinationSiteSelect?.addEventListener("change", () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    ensureValidationModal();
     await loadClients();
     await loadProfiles();
 
@@ -488,7 +491,9 @@ function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function renderStep(step) {
@@ -535,10 +540,11 @@ function renderFatalError(error) {
   `;
 }
 
+
 function buildSummaryGrid(result) {
   const summary = result.pipeline_summary || {};
   const resolvedProfile = result.resolved_profile || result.profile_used || "-";
-  const language = result.language || "-";
+  const language = result.language || result.resolved_language || "-";
 
   const totalRows = summary.total_rows ?? "-";
   const validRows = summary.valid_rows ?? "-";
@@ -549,11 +555,8 @@ function buildSummaryGrid(result) {
   const validation = result.validation || {};
   const preflightErrors = Array.isArray(validation.errors) ? validation.errors.length : 0;
   const preflightWarnings = Array.isArray(validation.warnings) ? validation.warnings.length : 0;
-
-  const excelErrors =
-    typeof summary.errors === "number" ? summary.errors : 0;
-  const excelWarnings =
-    typeof summary.warnings === "number" ? summary.warnings : 0;
+  const excelErrors = typeof summary.errors === "number" ? summary.errors : 0;
+  const excelWarnings = typeof summary.warnings === "number" ? summary.warnings : 0;
 
   const totalValidationErrors = preflightErrors + excelErrors;
   const totalValidationWarnings = preflightWarnings + excelWarnings;
@@ -564,46 +567,113 @@ function buildSummaryGrid(result) {
       ? `${totalValidationWarnings} warnings`
       : "OK";
 
+  const warningsClickable =
+    typeof warnings === "number" && warnings > 0
+      ? "summary-card-clickable"
+      : "";
+
+  const errorsClickable =
+    typeof errors === "number" && errors > 0
+      ? "summary-card-clickable"
+      : "";
+
   return `
     <div class="summary-grid">
       <div class="summary-card">
         <span>Cliente</span>
         <strong>${escapeHtml(result.client_label || "-")}</strong>
       </div>
+
       <div class="summary-card">
         <span>Profile</span>
         <strong>${escapeHtml(resolvedProfile)}</strong>
       </div>
+
       <div class="summary-card">
         <span>Idioma</span>
         <strong>${escapeHtml(language)}</strong>
       </div>
+
       <div class="summary-card">
         <span>Validación</span>
         <strong>${escapeHtml(validationStatus)}</strong>
       </div>
+
       <div class="summary-card">
         <span>Rows procesadas</span>
         <strong>${escapeHtml(totalRows)}</strong>
       </div>
+
       <div class="summary-card">
         <span>Rows válidas</span>
         <strong>${escapeHtml(validRows)}</strong>
       </div>
-      <div class="summary-card">
-        <span>Warnings</span>
-        <strong>${escapeHtml(warnings)}</strong>
-      </div>
-      <div class="summary-card">
-        <span>Errors</span>
-        <strong>${escapeHtml(errors)}</strong>
-      </div>
+
+      <div
+          class="summary-card summary-card-clickable"
+          id="warningsSummaryCard"
+          data-clickable="warnings"
+          role="button"
+          tabindex="0"
+          onclick="window.__openWarningsModal && window.__openWarningsModal()"
+        >
+          <span>Warnings</span>
+          <strong>${escapeHtml(warnings)}</strong>
+        </div>
+
+      <div
+          class="summary-card ${typeof errors === "number" && errors > 0 ? "summary-card-clickable" : ""}"
+          id="errorsSummaryCard"
+          data-clickable="errors"
+          role="button"
+          tabindex="0"
+          onclick="window.__openErrorsModal && window.__openErrorsModal()"
+        >
+          <span>Errors</span>
+          <strong>${escapeHtml(errors)}</strong>
+        </div>
+
       <div class="summary-card">
         <span>Vouchers</span>
         <strong>${escapeHtml(vouchers)}</strong>
       </div>
     </div>
   `;
+}
+
+function bindSummaryCardActions() {
+  const warningsCard = document.getElementById("warningsSummaryCard");
+  console.log("warningsCard:", warningsCard);
+  console.log("currentWarningRows:", currentWarningRows);
+  if (warningsCard) {
+    warningsCard.onclick = null;
+    warningsCard.addEventListener("click", () => {
+      console.log("CLICK warnings");
+      openValidationModal("Detalle de warnings", currentWarningRows, "warning");
+    });
+
+    warningsCard.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openValidationModal("Detalle de warnings", currentWarningRows, "warning");
+      }
+    });
+  }
+
+  const errorsCard = document.getElementById("errorsSummaryCard");
+  if (errorsCard && currentErrorRows.length > 0) {
+    errorsCard.onclick = null;
+    errorsCard.addEventListener("click", () => {
+      openValidationModal("Detalle de errores", currentErrorRows, "error");
+    });
+
+    errorsCard.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openValidationModal("Detalle de errores", currentErrorRows, "error");
+      }
+    });
+  }
 }
 
 function buildDebugFilesGrid(result) {
@@ -673,8 +743,108 @@ function renderValidationBlock(validation) {
   `;
 }
 
+function ensureValidationModal() {
+  if (document.getElementById("validationModal")) return;
+
+  const modal = document.createElement("div");
+  modal.id = "validationModal";
+  modal.className = "validation-modal hidden";
+  modal.innerHTML = `
+    <div class="validation-modal-backdrop" id="validationModalBackdrop"></div>
+    <div class="validation-modal-dialog">
+      <div class="validation-modal-header">
+        <h3 id="validationModalTitle">Detalle</h3>
+        <button type="button" class="validation-modal-close" id="validationModalClose">×</button>
+      </div>
+      <div class="validation-modal-body" id="validationModalBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById("validationModalBackdrop")?.addEventListener("click", closeValidationModal);
+  document.getElementById("validationModalClose")?.addEventListener("click", closeValidationModal);
+}
+
+function openValidationModal(title, rows, type = "warning") {
+  ensureValidationModal();
+
+  const modal = document.getElementById("validationModal");
+  const titleEl = document.getElementById("validationModalTitle");
+  const bodyEl = document.getElementById("validationModalBody");
+
+  if (!modal || !titleEl || !bodyEl) return;
+
+  titleEl.textContent = title;
+
+  if (!Array.isArray(rows) || !rows.length) {
+    bodyEl.innerHTML = `<p class="muted-text">No hay detalles para mostrar.</p>`;
+  } else {
+    bodyEl.innerHTML = rows.map((item) => renderValidationRowCard(item, type)).join("");
+  }
+
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeValidationModal() {
+  const modal = document.getElementById("validationModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function renderValidationRowCard(item, type = "warning") {
+  const row = item?.row || {};
+  const issues = type === "error"
+    ? (Array.isArray(item?.errors) ? item.errors : [])
+    : (Array.isArray(item?.warnings) ? item.warnings : []);
+
+  const fullName =
+    row.full_name ||
+    [row.first_name, row.last_name].filter(Boolean).join(" ") ||
+    "-";
+
+  const excelRow = row.excel_row_number ?? "-";
+  const hotel = row.hotel_name || "-";
+  const room = row.room || "-";
+  const destination = row.destination || "-";
+  const passport = row.passport_number || "-";
+  const checkIn = row.check_in || "-";
+  const checkOut = row.check_out || "-";
+
+  return `
+    <article class="validation-row-card">
+      <div class="validation-row-top">
+        <div>
+          <div class="validation-row-title">${escapeHtml(fullName)}</div>
+          <div class="validation-row-subtitle">Fila Excel: ${escapeHtml(excelRow)}</div>
+        </div>
+        <div class="validation-row-badge ${type === "error" ? "is-error" : "is-warning"}">
+          ${type === "error" ? "Error" : "Warning"}
+        </div>
+      </div>
+
+      <div class="validation-row-issues">
+        ${issues.map((issue) => `<span class="validation-issue-pill">${escapeHtml(issue)}</span>`).join("")}
+      </div>
+
+      <div class="validation-row-grid">
+        <div><strong>Hotel:</strong> ${escapeHtml(hotel)}</div>
+        <div><strong>Destino:</strong> ${escapeHtml(destination)}</div>
+        <div><strong>Hab:</strong> ${escapeHtml(room)}</div>
+        <div><strong>Pasaporte:</strong> ${escapeHtml(passport)}</div>
+        <div><strong>Check-in:</strong> ${escapeHtml(checkIn)}</div>
+        <div><strong>Check-out:</strong> ${escapeHtml(checkOut)}</div>
+      </div>
+    </article>
+  `;
+}
+
 function renderResult(result, mode) {
   setFinishedState(!!result.ok);
+
+  currentWarningRows = Array.isArray(result.warning_rows) ? result.warning_rows : [];
+  currentErrorRows = Array.isArray(result.error_rows) ? result.error_rows : [];
 
   const steps = Array.isArray(result.steps) ? result.steps : [];
   stepsEl.innerHTML = "";
@@ -701,7 +871,16 @@ function renderResult(result, mode) {
 
   const generatedFiles = Array.isArray(result.generated_files) ? result.generated_files : [];
   const uploadedFiles = Array.isArray(result.uploaded_files) ? result.uploaded_files : [];
-  const validationHtml = renderValidationBlock(result.validation);
+  const preflightValidation = result.validation || null;
+  const validationHtml = renderValidationBlock(preflightValidation);
+
+  window.__openWarningsModal = () => {
+    openValidationModal("Detalle de warnings", currentWarningRows, "warning");
+  };
+
+  window.__openErrorsModal = () => {
+    openValidationModal("Detalle de errores", currentErrorRows, "error");
+  };
 
   resultContent.innerHTML = `
     ${buildSummaryGrid(result)}
@@ -761,6 +940,22 @@ function renderResult(result, mode) {
           : ""
     }
   `;
+
+  
+
+  const warningsCard = document.getElementById("warningsSummaryCard");
+  if (warningsCard && currentWarningRows.length > 0) {
+    warningsCard.addEventListener("click", () => {
+      openValidationModal("Detalle de warnings", currentWarningRows, "warning");
+    });
+  }
+
+  const errorsCard = document.getElementById("errorsSummaryCard");
+  if (errorsCard && currentErrorRows.length > 0) {
+    errorsCard.addEventListener("click", () => {
+      openValidationModal("Detalle de errores", currentErrorRows, "error");
+    });
+  }
 }
 
 async function runLocalPipeline() {
@@ -808,6 +1003,12 @@ async function runLocalPipeline() {
           steps: [],
           generated_files: [],
           validation: data?.validation || null,
+          warning_rows: data?.warning_rows || [],
+          error_rows: data?.error_rows || [],
+          pipeline_summary: data?.pipeline_summary || null,
+          language: data?.language || data?.resolved_language || "-",
+          profile_used: data?.profile_used || data?.resolved_profile || "-",
+          client_label: selectedClient?.label || "-",
         },
         "local"
       );
@@ -876,6 +1077,12 @@ async function runSharePointPipeline() {
           steps: [],
           generated_files: [],
           validation: data?.validation || null,
+          warning_rows: data?.warning_rows || [],
+          error_rows: data?.error_rows || [],
+          pipeline_summary: data?.pipeline_summary || null,
+          language: data?.language || data?.resolved_language || "-",
+          profile_used: data?.profile_used || data?.resolved_profile || "-",
+          client_label: selectedClient?.label || "-",
         },
         "sharepoint"
       );
@@ -1018,27 +1225,4 @@ function renderSharePointBrowser(items) {
   }
 
   spModalBody.appendChild(list);
-}
-
-function getCombinedValidation(result) {
-  const preflight = result.validation || {};
-  const summary = result.pipeline_summary || {};
-
-  const errors = Array.isArray(preflight.errors) ? [...preflight.errors] : [];
-  const warnings = Array.isArray(preflight.warnings) ? [...preflight.warnings] : [];
-
-  const excelErrorCount =
-    typeof summary.errors === "number" ? summary.errors : 0;
-  const excelWarningCount =
-    typeof summary.warnings === "number" ? summary.warnings : 0;
-
-  if (excelErrorCount > 0) {
-    errors.push(`Excel con ${excelErrorCount} filas con error.`);
-  }
-
-  if (excelWarningCount > 0) {
-    warnings.push(`Excel con ${excelWarningCount} filas con warning.`);
-  }
-
-  return { errors, warnings };
 }

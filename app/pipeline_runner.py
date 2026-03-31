@@ -58,6 +58,9 @@ class PipelineRunResult:
     profile_used: Optional[str] = None
     language: Optional[str] = None
 
+    warning_rows: Optional[list] = None
+    error_rows: Optional[list] = None
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -336,6 +339,8 @@ def run_full_voucher_pipeline(
             error="Falló xlsx_to_voucher_json.py",
             validation=validation.to_dict(),
             pipeline_summary=_read_json_if_exists(summary_file_path),
+            warning_rows=_read_json_if_exists(warnings_file_path),
+            error_rows=_read_json_if_exists(errors_file_path),
             summary_file=str(summary_file_path) if summary_file_path.exists() else None,
             warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
             errors_file=str(errors_file_path) if errors_file_path.exists() else None,
@@ -370,6 +375,8 @@ def run_full_voucher_pipeline(
             error="Falló enrich_hotels.py",
             validation=validation.to_dict(),
             pipeline_summary=_read_json_if_exists(summary_file_path),
+            warning_rows=_read_json_if_exists(warnings_file_path),
+            error_rows=_read_json_if_exists(errors_file_path),
             summary_file=str(summary_file_path) if summary_file_path.exists() else None,
             warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
             errors_file=str(errors_file_path) if errors_file_path.exists() else None,
@@ -416,6 +423,8 @@ def run_full_voucher_pipeline(
             error="Falló render_vouchers_html.py",
             validation=validation.to_dict(),
             pipeline_summary=_read_json_if_exists(summary_file_path),
+            warning_rows=_read_json_if_exists(warnings_file_path),
+            error_rows=_read_json_if_exists(errors_file_path),
             summary_file=str(summary_file_path) if summary_file_path.exists() else None,
             warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
             errors_file=str(errors_file_path) if errors_file_path.exists() else None,
@@ -446,6 +455,8 @@ def run_full_voucher_pipeline(
             error="Falló render_vouchers_pdf.py",
             validation=validation.to_dict(),
             pipeline_summary=_read_json_if_exists(summary_file_path),
+            warning_rows=_read_json_if_exists(warnings_file_path),
+            error_rows=_read_json_if_exists(errors_file_path),
             summary_file=str(summary_file_path) if summary_file_path.exists() else None,
             warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
             errors_file=str(errors_file_path) if errors_file_path.exists() else None,
@@ -470,6 +481,8 @@ def run_full_voucher_pipeline(
         error=None,
         validation=validation.to_dict(),
         pipeline_summary=_read_json_if_exists(summary_file_path),
+        warning_rows=_read_json_if_exists(warnings_file_path),
+        error_rows=_read_json_if_exists(errors_file_path),
         summary_file=str(summary_file_path) if summary_file_path.exists() else None,
         warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
         errors_file=str(errors_file_path) if errors_file_path.exists() else None,
