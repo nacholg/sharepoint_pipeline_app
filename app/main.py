@@ -344,6 +344,7 @@ def _build_initial_steps() -> list[dict]:
     return steps
 
 
+
 def _create_job_record(
     *,
     job_id: str,
@@ -366,20 +367,28 @@ def _create_job_record(
             "client_label": client_label,
             "created_at": time.time(),
             "updated_at": time.time(),
+            "_last_persist_ts": 0.0,
         }
         print("JOB CREATED IN MEMORY:", job_id)
         print("JOB STORE KEYS AFTER CREATE:", list(JOB_STORE.keys()))
         _write_job_state(job_id)
+        JOB_STORE[job_id]["_last_persist_ts"] = time.time()
 
-def _patch_job(job_id: str, **values) -> None:
+def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
         if not job:
             return
-        job.update(values)
-        job["updated_at"] = time.time()
-        _write_job_state(job_id)
 
+        job.update(values)
+        now = time.time()
+        job["updated_at"] = now
+
+        last_persist = job.get("_last_persist_ts", 0.0)
+
+        if force_persist or (now - last_persist > 0.5):
+            _write_job_state(job_id)
+            job["_last_persist_ts"] = now
 
 def _get_job(job_id: str) -> dict | None:
     with JOB_STORE_LOCK:
@@ -541,6 +550,7 @@ def _run_local_job_async(
             current_step=None,
             result=response,
             error=response.get("error"),
+            force_persist=True,
         )
 
     except Exception as e:
@@ -551,7 +561,9 @@ def _run_local_job_async(
             progress_label="Pipeline con error",
             current_step=None,
             error=str(e),
+            force_persist=True,
         )
+        
     finally:
         stop_event.set()
         monitor.join(timeout=1.5)
@@ -736,6 +748,7 @@ def _run_sharepoint_job_async(
             current_step=None,
             result=response,
             error=response.get("error"),
+            force_persist=True,
         )
 
     except Exception as e:
@@ -746,6 +759,7 @@ def _run_sharepoint_job_async(
             progress_label="Pipeline con error",
             current_step=None,
             error=str(e),
+            force_persist=True,
         )
     finally:
         stop_event.set()

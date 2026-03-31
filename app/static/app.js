@@ -148,7 +148,7 @@ function getStepLabel(stepName) {
 
 function stopActivePolling() {
   if (activeJobPollTimer) {
-    clearInterval(activeJobPollTimer);
+    clearTimeout(activeJobPollTimer);
     activeJobPollTimer = null;
   }
   activeJobId = null;
@@ -845,6 +845,8 @@ function applyJobState(job) {
 async function pollJob(jobId) {
   activeJobId = jobId;
 
+  let pollingDelay = 800;
+
   const tick = async () => {
     try {
       const job = await fetchJobStatus(jobId);
@@ -858,6 +860,7 @@ async function pollJob(jobId) {
         setFinishedState(true);
         renderSteps(Array.isArray(job.steps) ? job.steps : []);
         resultCard.classList.remove("hidden");
+
         if (job.result && typeof window.renderResult === "function") {
           window.renderResult(job.result);
         }
@@ -881,7 +884,15 @@ async function pollJob(jobId) {
             <div class="error-banner">${escapeHtml(job.error || "Error ejecutando pipeline")}</div>
           `;
         }
+        return;
       }
+
+      if (pollingDelay < 1500) {
+        pollingDelay += 100;
+      }
+
+      activeJobPollTimer = setTimeout(tick, pollingDelay);
+
     } catch (error) {
       stopActivePolling();
       renderFatalError(error);
@@ -889,7 +900,6 @@ async function pollJob(jobId) {
   };
 
   await tick();
-  activeJobPollTimer = setInterval(tick, 1000);
 }
 
 /* -------------------------------------------------------------------------- */
