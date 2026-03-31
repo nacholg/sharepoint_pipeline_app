@@ -351,6 +351,9 @@ def _create_job_record(
     mode: str,
     client_key: str | None = None,
     client_label: str | None = None,
+    source_name: str | None = None,
+    profile_name: str | None = None,
+    language: str | None = None,
 ) -> None:
     with JOB_STORE_LOCK:
         JOB_STORE[job_id] = {
@@ -365,6 +368,9 @@ def _create_job_record(
             "error": None,
             "client_key": client_key,
             "client_label": client_label,
+            "source_name": source_name,
+            "profile_name": profile_name,
+            "language": language,
             "created_at": time.time(),
             "updated_at": time.time(),
             "_last_persist_ts": 0.0,
@@ -407,6 +413,62 @@ def _get_job(job_id: str) -> dict | None:
 
     print("JOB NOT FOUND ANYWHERE:", job_id)
     return None
+
+
+def _job_history_summary(job: dict) -> dict:
+    result = job.get("result") or {}
+    generated_files = result.get("generated_files") or []
+    zip_file = result.get("zip_file")
+
+    return {
+        "job_id": job.get("job_id"),
+        "mode": job.get("mode"),
+        "status": job.get("status"),
+        "progress": job.get("progress", 0),
+        "progress_label": job.get("progress_label"),
+        "current_step": job.get("current_step"),
+        "client_key": job.get("client_key"),
+        "client_label": job.get("client_label"),
+        "source_name": job.get("source_name"),
+        "profile_name": job.get("profile_name"),
+        "language": job.get("language"),
+        "created_at": job.get("created_at"),
+        "updated_at": job.get("updated_at"),
+        "has_result": bool(result),
+        "has_zip": bool(zip_file),
+        "zip_file": zip_file,
+        "generated_files_count": len(generated_files),
+        "error": job.get("error"),
+    }
+
+
+def _list_jobs(limit: int = 20) -> list[dict]:
+    combined: dict[str, dict] = {}
+
+    with JOB_STORE_LOCK:
+        for job_id, job in JOB_STORE.items():
+            combined[job_id] = json.loads(json.dumps(job))
+
+    for state_file in BASE_JOB_STATE_DIR.glob("*.json"):
+        try:
+            disk_job = json.loads(state_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        job_id = str(disk_job.get("job_id") or state_file.stem)
+        memory_job = combined.get(job_id)
+
+        if not memory_job or float(disk_job.get("updated_at") or 0) > float(memory_job.get("updated_at") or 0):
+            combined[job_id] = disk_job
+
+    jobs = sorted(
+        (_job_history_summary(job) for job in combined.values()),
+        key=lambda item: float(item.get("updated_at") or item.get("created_at") or 0),
+        reverse=True,
+    )
+
+    safe_limit = max(1, min(int(limit or 20), 100))
+    return jobs[:safe_limit]
 
 
 def _set_job_steps_from_result(job_id: str, result_steps: list[dict]) -> None:
@@ -625,6 +687,13 @@ def _run_sharepoint_job_async(
         local_excel_path = input_dir / (source_name or "sharepoint_input.xlsx")
         graph.download_drive_file(source_drive["id"], payload.source_file_id, local_excel_path)
 
+        _patch_job(
+            job_id,
+            source_name=source_name,
+            profile_name=resolved_profile,
+            language=resolved_language,
+        )
+
         destination_folder = None
         destination_site = None
         destination_drive = None
@@ -791,6 +860,16 @@ def preview_file(path: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/jobs/history")
+def api_job_history(limit: int = Query(20, ge=1, le=100)):
+    jobs = _list_jobs(limit=limit)
+    return {
+        "ok": True,
+        "jobs": jobs,
+        "count": len(jobs),
+    }
+
+
 @app.get("/api/jobs/{job_id}")
 def api_job_status(job_id: str):
     job = _get_job(job_id)
@@ -913,6 +992,9 @@ async def api_local_run(
             mode="local",
             client_key=client_cfg["key"],
             client_label=client_cfg["label"],
+            source_name=filename,
+            profile_name=resolved_profile,
+            language=resolved_language,
         )
 
         worker = threading.Thread(
@@ -1021,6 +1103,9 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         mode="graph_sharepoint_site",
         client_key=client_cfg["key"],
         client_label=client_cfg["label"],
+        source_name=None,
+        profile_name=resolved_profile,
+        language=resolved_language,
     )
 
     worker = threading.Thread(
