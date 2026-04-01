@@ -943,6 +943,7 @@ select:focus {
     justify-content: flex-start;
   }
 }
+
 .browser-row-clickable .browser-main {
   min-width: 0;
   flex: 1;
