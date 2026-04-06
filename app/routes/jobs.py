@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api", tags=["jobs"])
 
 import subprocess
 
+JOB_STATUS = {}
 
 router = APIRouter(prefix="/api", tags=["jobs"])
 
@@ -31,8 +32,25 @@ def run_local_job(payload: LocalRunRequest):
         raise HTTPException(status_code=400, detail=f"No existe el archivo: {input_file}")
 
     job_id = str(uuid4())
+
+    JOB_STATUS[job_id] = {
+        "status": "running",
+        "cancelled": False,
+    }
+    
     jobs_root = Path("work/jobs").resolve()
     jobs_root.mkdir(parents=True, exist_ok=True)
+
+    if JOB_STATUS.get(job_id, {}).get("cancelled"):
+        return {
+            "ok": True,
+            "job_id": job_id,
+            "status": "cancelled",
+        }
+
+    JOB_STATUS[job_id]["status"] = "success"
+
+
 
     result = run_full_voucher_pipeline(
         job_id=job_id,
@@ -42,9 +60,24 @@ def run_local_job(payload: LocalRunRequest):
         pretty_json=True,
     )
 
+    
+
     return result.to_dict()
 
 
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str):
+    job = JOB_STATUS.get(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+
+    job["cancelled"] = True
+    job["status"] = "cancelled"
+
+    return {"ok": True, "job_id": job_id}
+    
 @router.get("/download-zip/{job_id}")
 def download_zip(job_id: str):
     zip_path = (Path("work/jobs").resolve() / job_id / "artifacts.zip").resolve()

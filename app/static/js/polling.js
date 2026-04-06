@@ -52,6 +52,11 @@ async function pollJob(jobId) {
   let pollingDelay = 800;
   let hasRenderedResult = false;
 
+  const finishAndUnlock = () => {
+    unlockPipelineExecution();
+    window.currentRunningJobId = null;
+  };
+
   const tick = async () => {
     try {
       const job = await fetchJobStatus(jobId);
@@ -60,6 +65,25 @@ async function pollJob(jobId) {
 
       applyJobState(job);
 
+      if (job.status === "cancelled") {
+        stopActivePolling();
+
+        statusBadge.textContent = "Cancelled";
+        statusBadge.className = "status-badge neutral";
+
+        progressLabel.textContent = "Ejecución cancelada";
+        progressPercent.textContent = "0%";
+        progressFill.style.width = "0%";
+
+        resultCard.classList.remove("hidden");
+        resultContent.innerHTML = `
+          <div class="error-banner">El job fue cancelado por el usuario</div>
+        `;
+
+        unlockPipelineExecution();
+        return;
+      }
+      
       if (job.status === "success" && !hasRenderedResult) {
         hasRenderedResult = true;
         stopActivePolling();
@@ -69,7 +93,13 @@ async function pollJob(jobId) {
 
         if (job.result && typeof window.renderResult === "function") {
           window.renderResult(job.result);
+        } else {
+          resultContent.innerHTML = `
+            <div class="error-banner">El job finalizó correctamente pero no devolvió resultado renderizable.</div>
+          `;
         }
+
+        finishAndUnlock();
         return;
       }
 
@@ -90,6 +120,8 @@ async function pollJob(jobId) {
             <div class="error-banner">${escapeHtml(job.error || "Error ejecutando pipeline")}</div>
           `;
         }
+
+        finishAndUnlock();
         return;
       }
 
@@ -100,9 +132,11 @@ async function pollJob(jobId) {
       activeJobPollTimer = setTimeout(tick, pollingDelay);
     } catch (error) {
       stopActivePolling();
+      finishAndUnlock();
       renderFatalError(error);
     }
-  };
+      
+    };
 
   await tick();
 }

@@ -22,11 +22,13 @@ function resetUI(label = "Esperando ejecución") {
   stepsEl.innerHTML = "";
   resultCard.classList.add("hidden");
   resultContent.innerHTML = "";
+  cancelJobBtn?.classList.add("hidden");
 }
 
 function setRunningState(mode = "local") {
   statusBadge.textContent = "Running";
   statusBadge.className = "status-badge running";
+  cancelJobBtn?.classList.remove("hidden");
 
   setProgress(
     mode === "sharepoint" ? 6 : 8,
@@ -47,6 +49,7 @@ function setFinishedState(ok) {
   progressLabel.textContent = ok ? "Pipeline finalizado" : "Pipeline con error";
   progressPercent.textContent = "100%";
   progressFill.style.width = "100%";
+  cancelJobBtn?.classList.remove("hidden");
 }
 
 function renderFatalError(error) {

@@ -490,7 +490,7 @@ def build_html(
       max-width: var(--header-meta-width);
       min-width: 0;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
       gap: 8px;
       align-content: stretch;
     }}
@@ -925,14 +925,6 @@ def build_html(
         <div class="meta-box">
           <div class="meta-label">{e(t["conf_number"])}</div>
           <div class="meta-value">{conf_html}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">{e(t["date"])}</div>
-          <div class="meta-value">{issue_date_html}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">{e(t["voucher_code"])}</div>
-          <div class="meta-value">{display_or_pending(voucher.get('voucher_code'), t['pending'])}</div>
         </div>
       </div>
 

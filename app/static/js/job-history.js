@@ -102,10 +102,17 @@ function renderJobHistory(jobs) {
     `;
 
     row.querySelector("[data-job]")?.addEventListener("click", async (e) => {
-      const jobId = e.currentTarget.dataset.job;
-      resetUI("Cargando job histórico...");
-      setRunningState("local");
-      await pollJob(jobId);
+        const jobId = e.currentTarget.dataset.job;
+        if (!jobId) return;
+
+        resetUI("Cargando job histórico...");
+        setRunningState("local");
+
+        try {
+            await pollJob(jobId);
+        } catch (error) {
+            renderFatalError(error);
+        }
     });
 
     row.querySelector("[data-zip]")?.addEventListener("click", (e) => {

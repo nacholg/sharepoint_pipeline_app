@@ -2,19 +2,25 @@
 // PIPELINE RUNNER MODULE
 // ==========================
 
-async function runLocalPipeline() {
+async function runLocalPipeline(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
   if (!requireSelectedClient()) return;
+  if (!lockPipelineExecution()) return;
 
   const file = fileInput?.files?.[0];
   const selectedProfile = localProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
 
   if (!file) {
+    unlockPipelineExecution();
     alert("Seleccioná un archivo Excel.");
     return;
   }
 
   if (!isValidExcelFilename(file.name || "")) {
+    unlockPipelineExecution();
     alert("El archivo seleccionado no es un Excel válido (.xlsx, .xlsm o .xls).");
     return;
   }
@@ -40,29 +46,38 @@ async function runLocalPipeline() {
       throw new Error(data?.detail || "Error iniciando pipeline local.");
     }
 
+    window.currentRunningJobId = data.job_id;
     await pollJob(data.job_id);
   } catch (error) {
+    unlockPipelineExecution();
     renderFatalError(error);
   }
 }
 
-async function runSharePointPipeline() {
+async function runSharePointPipeline(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
   if (!requireSelectedClient()) return;
+  if (!lockPipelineExecution()) return;
 
   const selectedProfile = sharepointProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
 
   if (!selectedSourceFileId) {
+    unlockPipelineExecution();
     alert("Seleccioná un Excel de origen en SharePoint.");
     return;
   }
 
   if (!selectedDestinationFolderId) {
+    unlockPipelineExecution();
     alert("Seleccioná una carpeta destino en SharePoint.");
     return;
   }
 
   if (!isValidExcelFilename(selectedSourceFileName || "")) {
+    unlockPipelineExecution();
     alert("El archivo seleccionado no es un Excel válido.");
     return;
   }
@@ -95,8 +110,12 @@ async function runSharePointPipeline() {
       throw new Error(data?.detail || "Error iniciando pipeline SharePoint.");
     }
 
+
+
+    window.currentRunningJobId = data.job_id;
     await pollJob(data.job_id);
   } catch (error) {
+    unlockPipelineExecution();
     renderFatalError(error);
   }
 }

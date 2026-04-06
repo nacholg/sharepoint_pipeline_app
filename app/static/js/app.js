@@ -22,6 +22,7 @@ const spSection = document.getElementById("spSection");
 const fileInput = document.getElementById("fileInput");
 const runLocalBtn = document.getElementById("runLocalBtn");
 const runSPBtn = document.getElementById("runSPBtn");
+const cancelJobBtn = document.getElementById("cancelJobBtn");
 
 const localProfileSelect = document.getElementById("localProfileSelect");
 const sharepointProfileSelect = document.getElementById("sharepointProfileSelect");
@@ -84,6 +85,31 @@ let spFolderStack = [];
 
 let activeJobPollTimer = null;
 let activeJobId = null;
+
+window.pipelineExecutionLocked = false;
+
+function setPipelineButtonsDisabled(disabled) {
+  if (runLocalBtn) runLocalBtn.disabled = disabled;
+  if (runSPBtn) runSPBtn.disabled = disabled;
+
+  runLocalBtn?.classList.toggle("is-disabled", disabled);
+  runSPBtn?.classList.toggle("is-disabled", disabled);
+}
+
+function lockPipelineExecution() {
+  if (window.pipelineExecutionLocked) {
+    return false;
+  }
+
+  window.pipelineExecutionLocked = true;
+  setPipelineButtonsDisabled(true);
+  return true;
+}
+
+function unlockPipelineExecution() {
+  window.pipelineExecutionLocked = false;
+  setPipelineButtonsDisabled(false);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -348,6 +374,21 @@ btnSP?.addEventListener("click", () => switchMode("sharepoint"));
 
 runLocalBtn?.addEventListener("click", runLocalPipeline);
 runSPBtn?.addEventListener("click", runSharePointPipeline);
+
+
+cancelJobBtn?.addEventListener("click", async () => {
+  if (!window.currentRunningJobId) return;
+
+  try {
+    await fetch(`/api/jobs/${window.currentRunningJobId}/cancel`, {
+      method: "POST",
+    });
+
+    progressLabel.textContent = "Cancelando ejecución...";
+  } catch (err) {
+    console.error("Error cancelando job", err);
+  }
+});
 
 pickSPFileBtn?.addEventListener("click", async () => {
   spBrowseMode = "source";
