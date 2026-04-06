@@ -1,0 +1,108 @@
+// ==========================
+// POLLING MODULE
+// ==========================
+
+function stopActivePolling() {
+  if (activeJobPollTimer) {
+    clearTimeout(activeJobPollTimer);
+    activeJobPollTimer = null;
+  }
+  activeJobId = null;
+}
+
+async function fetchJobStatus(jobId) {
+  const response = await fetch(API.jobStatus(jobId));
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.detail || "No se pudo obtener el estado del job");
+  }
+
+  return data;
+}
+
+function applyJobState(job) {
+  const status = job.status || "pending";
+  const progress = Number(job.progress) || 0;
+  const progressText = job.progress_label || getStepLabel(job.current_step);
+
+  if (status === "pending") {
+    statusBadge.textContent = "Pending";
+    statusBadge.className = "status-badge neutral";
+  } else if (status === "running") {
+    statusBadge.textContent = "Running";
+    statusBadge.className = "status-badge running";
+  } else if (status === "success") {
+    statusBadge.textContent = "Success";
+    statusBadge.className = "status-badge success";
+  } else if (status === "error") {
+    statusBadge.textContent = "Error";
+    statusBadge.className = "status-badge error";
+  }
+
+  setProgress(progress, progressText || "Procesando");
+
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  renderSteps(steps);
+}
+
+async function pollJob(jobId) {
+  activeJobId = jobId;
+
+  let pollingDelay = 800;
+  let hasRenderedResult = false;
+
+  const tick = async () => {
+    try {
+      const job = await fetchJobStatus(jobId);
+
+      if (activeJobId !== jobId) return;
+
+      applyJobState(job);
+
+      if (job.status === "success" && !hasRenderedResult) {
+        hasRenderedResult = true;
+        stopActivePolling();
+        setFinishedState(true);
+        renderSteps(Array.isArray(job.steps) ? job.steps : []);
+        resultCard.classList.remove("hidden");
+
+        if (job.result && typeof window.renderResult === "function") {
+          window.renderResult(job.result);
+        }
+        return;
+      }
+
+      if (job.status === "error") {
+        stopActivePolling();
+        statusBadge.textContent = "Error";
+        statusBadge.className = "status-badge error";
+        progressLabel.textContent = "Pipeline con error";
+        progressPercent.textContent = "100%";
+        progressFill.style.width = "100%";
+        renderSteps(Array.isArray(job.steps) ? job.steps : []);
+        resultCard.classList.remove("hidden");
+
+        if (job.result && typeof window.renderResult === "function") {
+          window.renderResult(job.result);
+        } else {
+          resultContent.innerHTML = `
+            <div class="error-banner">${escapeHtml(job.error || "Error ejecutando pipeline")}</div>
+          `;
+        }
+        return;
+      }
+
+      if (pollingDelay < 1500) {
+        pollingDelay += 100;
+      }
+
+      activeJobPollTimer = setTimeout(tick, pollingDelay);
+    } catch (error) {
+      stopActivePolling();
+      renderFatalError(error);
+    }
+  };
+
+  await tick();
+}
