@@ -137,9 +137,7 @@
             <button id="runLocalBtn" class="btn primary large" type="button">
               Ejecutar pipeline local
             </button>
-            <button id="cancelJobBtn" class="btn ghost small hidden">
-              Cancelar ejecución
-            </button>
+            
           </div>
         </div>
 
@@ -210,9 +208,6 @@
               </button>
             </div>
 
-            <button id="cancelJobBtn" class="btn ghost small hidden">
-              Cancelar ejecución
-            </button>
           {% endif %}
         </div>
       </section>
@@ -223,7 +218,13 @@
             <span class="eyebrow">Pipeline status</span>
             <h3>Estado de ejecución</h3>
           </div>
-          <div id="statusBadge" class="status-badge neutral">Idle</div>
+
+          <div class="panel-actions" style="margin-top:0;">
+            <button id="cancelJobBtn" class="btn ghost small hidden" type="button">
+              Cancelar ejecución
+            </button>
+            <div id="statusBadge" class="status-badge neutral">Idle</div>
+          </div>
         </div>
 
         <div class="progress-meta">

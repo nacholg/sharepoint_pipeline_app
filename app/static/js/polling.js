@@ -39,6 +39,14 @@ function applyJobState(job) {
     statusBadge.textContent = "Error";
     statusBadge.className = "status-badge error";
   }
+    else if (status === "cancelling") {
+  statusBadge.textContent = "Cancelling";
+  statusBadge.className = "status-badge neutral";
+
+  } else if (status === "cancelled") {
+  statusBadge.textContent = "Cancelled";
+  statusBadge.className = "status-badge neutral";
+  }
 
   setProgress(progress, progressText || "Procesando");
 
@@ -80,7 +88,8 @@ async function pollJob(jobId) {
           <div class="error-banner">El job fue cancelado por el usuario</div>
         `;
 
-        unlockPipelineExecution();
+        finishAndUnlock();
+        window.currentRunningJobId = null;
         return;
       }
       

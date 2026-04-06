@@ -66,17 +66,6 @@ def run_local_job(payload: LocalRunRequest):
 
 
 
-@router.post("/jobs/{job_id}/cancel")
-def cancel_job(job_id: str):
-    job = JOB_STATUS.get(job_id)
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Job no encontrado")
-
-    job["cancelled"] = True
-    job["status"] = "cancelled"
-
-    return {"ok": True, "job_id": job_id}
     
 @router.get("/download-zip/{job_id}")
 def download_zip(job_id: str):

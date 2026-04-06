@@ -371,9 +371,11 @@ def _create_job_record(
             "source_name": source_name,
             "profile_name": profile_name,
             "language": language,
+            "cancel_requested": False,
             "created_at": time.time(),
             "updated_at": time.time(),
             "_last_persist_ts": 0.0,
+            
         }
         print("JOB CREATED IN MEMORY:", job_id)
         print("JOB STORE KEYS AFTER CREATE:", list(JOB_STORE.keys()))
@@ -395,6 +397,24 @@ def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
         if force_persist or (now - last_persist > 0.5):
             _write_job_state(job_id)
             job["_last_persist_ts"] = now
+
+def _is_job_cancel_requested(job_id: str) -> bool:
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if not job:
+            return False
+        return bool(job.get("cancel_requested", False))
+
+
+def _mark_job_cancelled(job_id: str, progress_label: str = "Ejecución cancelada") -> None:
+    _patch_job(
+        job_id,
+        status="cancelled",
+        progress=0,  # 👈 opcional
+        progress_label=progress_label,
+        current_step=None,
+        force_persist=True,
+    )       
 
 def _get_job(job_id: str) -> dict | None:
     with JOB_STORE_LOCK:
@@ -536,11 +556,13 @@ def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
 
 def _monitor_job_outputs(job_id: str, job_dir: Path, stop_event: threading.Event) -> None:
     while not stop_event.is_set():
+        if _is_job_cancel_requested(job_id):
+            return
         _sync_job_progress_from_outputs(job_id, job_dir)
         time.sleep(0.6)
 
-    _sync_job_progress_from_outputs(job_id, job_dir)
-
+    if not _is_job_cancel_requested(job_id):
+        _sync_job_progress_from_outputs(job_id, job_dir)
 
 # -----------------------------------------------------------------------------
 # Async job workers
@@ -566,6 +588,10 @@ def _run_local_job_async(
     )
 
     try:
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         _patch_job(
             job_id,
             status="running",
@@ -576,6 +602,10 @@ def _run_local_job_async(
 
         monitor.start()
 
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         result = run_full_voucher_pipeline(
             job_id=job_id,
             source_excel=source_excel,
@@ -585,6 +615,10 @@ def _run_local_job_async(
             profile_name=profile_name,
             language=language,
         )
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         response = result.to_dict()
         response["mode"] = "local"
@@ -604,6 +638,11 @@ def _run_local_job_async(
             result_steps.append(step_copy)
 
         _set_job_steps_from_result(job_id, result_steps)
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         _patch_job(
             job_id,
             status="success" if result.ok else "error",
@@ -616,20 +655,22 @@ def _run_local_job_async(
         )
 
     except Exception as e:
-        _patch_job(
-            job_id,
-            status="error",
-            progress=100,
-            progress_label="Pipeline con error",
-            current_step=None,
-            error=str(e),
-            force_persist=True,
-        )
-        
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+        else:
+            _patch_job(
+                job_id,
+                status="error",
+                progress=100,
+                progress_label="Pipeline con error",
+                current_step=None,
+                error=str(e),
+                force_persist=True,
+            )
+
     finally:
         stop_event.set()
         monitor.join(timeout=1.5)
-
 
 def _run_sharepoint_job_async(
     *,
@@ -648,10 +689,18 @@ def _run_sharepoint_job_async(
     input_dir.mkdir(parents=True, exist_ok=True)
 
     stop_event = threading.Event()
-    monitor = threading.Event()
+    monitor_thread = None
 
     try:
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         graph = GraphSharePointService(access_token)
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         _patch_job(
             job_id,
@@ -665,6 +714,10 @@ def _run_sharepoint_job_async(
         source_site = source_resolved["site"]
         source_drive = source_resolved["drive"]
         source_site_cfg = source_resolved["site_config"]
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         _patch_job(
             job_id,
@@ -686,6 +739,10 @@ def _run_sharepoint_job_async(
 
         local_excel_path = input_dir / (source_name or "sharepoint_input.xlsx")
         graph.download_drive_file(source_drive["id"], payload.source_file_id, local_excel_path)
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         _patch_job(
             job_id,
@@ -716,6 +773,10 @@ def _run_sharepoint_job_async(
             if not destination_folder.get("is_folder"):
                 raise RuntimeError("El destino seleccionado no es una carpeta.")
 
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         brand_logo = client_cfg.get("brand_logo") or source_site_cfg.get("brand_logo")
 
         monitor_thread = threading.Thread(
@@ -724,6 +785,10 @@ def _run_sharepoint_job_async(
             daemon=True,
         )
         monitor_thread.start()
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         result = run_full_voucher_pipeline(
             job_id=job_id,
@@ -735,10 +800,18 @@ def _run_sharepoint_job_async(
             language=resolved_language,
         )
 
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         response = result.to_dict()
 
         uploaded_files = []
         uploaded_zip = None
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
 
         if destination_folder and destination_drive:
             _patch_job(
@@ -749,6 +822,10 @@ def _run_sharepoint_job_async(
             )
 
             for file_path_str in response.get("generated_files", []):
+                if _is_job_cancel_requested(job_id):
+                    _mark_job_cancelled(job_id)
+                    return
+
                 try:
                     uploaded = graph.upload_file_to_folder(
                         drive_id=destination_drive["id"],
@@ -766,6 +843,10 @@ def _run_sharepoint_job_async(
 
             zip_path = response.get("zip_file")
             if zip_path:
+                if _is_job_cancel_requested(job_id):
+                    _mark_job_cancelled(job_id)
+                    return
+
                 try:
                     uploaded_zip = graph.upload_file_to_folder(
                         drive_id=destination_drive["id"],
@@ -809,6 +890,11 @@ def _run_sharepoint_job_async(
             result_steps.append(step_copy)
 
         _set_job_steps_from_result(job_id, result_steps)
+
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+            return
+
         _patch_job(
             job_id,
             status="success" if result.ok else "error",
@@ -821,18 +907,22 @@ def _run_sharepoint_job_async(
         )
 
     except Exception as e:
-        _patch_job(
-            job_id,
-            status="error",
-            progress=100,
-            progress_label="Pipeline con error",
-            current_step=None,
-            error=str(e),
-            force_persist=True,
-        )
+        if _is_job_cancel_requested(job_id):
+            _mark_job_cancelled(job_id)
+        else:
+            _patch_job(
+                job_id,
+                status="error",
+                progress=100,
+                progress_label="Pipeline con error",
+                current_step=None,
+                error=str(e),
+                force_persist=True,
+            )
     finally:
         stop_event.set()
-
+        if monitor_thread:
+            monitor_thread.join(timeout=1.5)
 
 # -----------------------------------------------------------------------------
 # Public API
@@ -876,6 +966,26 @@ def api_job_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job no encontrado")
     return {"ok": True, **job}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def api_cancel_job(job_id: str):
+    with JOB_STORE_LOCK:
+        job = JOB_STORE.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job no encontrado")
+
+        if job.get("status") in {"success", "error", "cancelled"}:
+            return {"ok": True, "job_id": job_id, "status": job.get("status")}
+
+        job["cancel_requested"] = True
+        job["status"] = "cancelling"
+        job["progress_label"] = "Cancelando ejecución..."
+        job["updated_at"] = time.time()
+
+    _write_job_state(job_id)
+
+    return {"ok": True, "job_id": job_id, "status": "cancelling"}
 
 
 @app.get("/api/clients")
@@ -957,6 +1067,8 @@ def api_profiles():
         "profiles": AVAILABLE_PROFILES,
         "default_profile": "default",
     }
+
+
 
 
 @app.post("/api/local/run")
