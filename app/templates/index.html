@@ -18,29 +18,18 @@
       </div>
 
       <div class="topbar-actions">
-        {% if user %}
-          <div class="user-pill">
-            <div class="user-avatar user-avatar-status" aria-label="Usuario conectado">
-              <span class="status-dot status-dot-online"></span>
-            </div>
-            <div>
-              <strong>{{ user.name }}</strong>
-              <small>{{ user.email }}</small>
-            </div>
+        <div id="authBox" class="user-pill {% if user %}success{% endif %}">
+          <div class="user-avatar user-avatar-status" aria-label="{% if user %}Usuario conectado{% else %}Sin sesión activa{% endif %}">
+            <span class="status-dot {% if user %}status-dot-online{% else %}status-dot-idle{% endif %}"></span>
           </div>
-          <a class="btn secondary" href="/auth/logout">Logout</a>
-        {% else %}
-          <div class="user-pill">
-            <div class="user-avatar user-avatar-status" aria-label="Sin sesión activa">
-              <span class="status-dot status-dot-idle"></span>
-            </div>
-            <div>
-              <strong>SharePoint</strong>
-              <small>Conectá tu cuenta Microsoft</small>
-            </div>
+          <div>
+            <strong id="authStatusName">{% if user %}{{ user.name }}{% else %}SharePoint{% endif %}</strong>
+            <small id="authStatusEmail">{% if user %}{{ user.email }}{% else %}Conectá tu cuenta Microsoft{% endif %}</small>
           </div>
-          <a class="btn primary" href="/auth/login">Login SharePoint</a>
-        {% endif %}
+        </div>
+
+        <a id="loginBtn" class="btn primary {% if user %}hidden{% endif %}" href="/auth/login">Login SharePoint</a>
+        <a id="logoutBtn" class="btn secondary {% if not user %}hidden{% endif %}" href="/auth/logout">Logout</a>
       </div>
     </header>
 
@@ -151,6 +140,13 @@
               <div class="notice warning">
                 Necesitás iniciar sesión con Microsoft para usar SharePoint.
               </div>
+            {% endif %}
+          </div>
+
+          <div id="sessionBanner" class="session-banner {% if user %}hidden{% endif %}">
+            {% if user %}
+            {% else %}
+              Iniciá sesión con Microsoft para usar SharePoint.
             {% endif %}
           </div>
 

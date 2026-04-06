@@ -1,3 +1,245 @@
+const PREFS_KEY = "voucher_prefs";
+
+function savePrefs(prefs) {
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+}
+
+function loadPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function persistSourceFolderPreference(folderId, folderName, siteKey) {
+  if (!folderId || !siteKey) return;
+
+  const prefs = loadPrefs();
+  prefs.sourceFolderId = folderId;
+  prefs.sourceFolderName = folderName || "Carpeta recordada";
+  prefs.sourceFolderSite = siteKey;
+  savePrefs(prefs);
+}
+
+/* -------------------------------------------------------------------------- */
+/* AUTH / SESSION HARDENING                                                    */
+/* -------------------------------------------------------------------------- */
+
+const originalFetch = window.fetch.bind(window);
+
+let authState = {
+  authenticated: false,
+  user: null,
+  reason: null,
+};
+
+let sessionExpiredAlertShown = false;
+
+function isAuthStatusEndpoint(input) {
+  const url = typeof input === "string" ? input : input?.url || "";
+  return url.includes("/auth/session-status");
+}
+
+function shouldHandleAuthFailure(input) {
+  const url = typeof input === "string" ? input : input?.url || "";
+  return (
+    url.includes("/api/sharepoint/") ||
+    url.includes("/auth/session-status")
+  );
+}
+
+function setSharePointControlsEnabled(enabled) {
+  const elements = [
+    runSPBtn,
+    pickSPFileBtn,
+    pickSPFolderBtn,
+    sourceSiteSelect,
+    destinationSiteSelect,
+    modalSiteSelect,
+    sharepointProfileSelect,
+  ];
+
+  for (const el of elements) {
+    if (!el) continue;
+    el.disabled = !enabled;
+    el.classList.toggle("is-disabled", !enabled);
+  }
+
+  if (spSection) {
+    spSection.classList.toggle("is-disabled", !enabled);
+  }
+}
+
+function ensureSessionBanner() {
+  let banner = document.getElementById("session-banner");
+  if (banner) return banner;
+
+  const topbarActions = document.querySelector(".topbar-actions");
+  if (!topbarActions) return null;
+
+  banner = document.createElement("div");
+  banner.id = "session-banner";
+  banner.className = "notice warning hidden";
+  banner.style.minWidth = "260px";
+  topbarActions.prepend(banner);
+  return banner;
+}
+
+function getLoginButton() {
+  return document.querySelector('a[href="/auth/login"]');
+}
+
+function getLogoutButton() {
+  return document.querySelector('a[href="/auth/logout"]');
+}
+
+function getUserPill() {
+  return document.querySelector(".user-pill");
+}
+
+function renderUserPillAuthenticated(user) {
+  const pill = getUserPill();
+  if (!pill) return;
+
+  pill.classList.add("success");
+  pill.innerHTML = `
+    <div class="user-avatar user-avatar-status" aria-label="Usuario conectado">
+      <span class="status-dot status-dot-online"></span>
+    </div>
+    <div>
+      <strong>${escapeHtml(user?.name || "Usuario autenticado")}</strong>
+      <small>${escapeHtml(user?.email || "")}</small>
+    </div>
+  `;
+}
+
+function renderUserPillUnauthenticated(expired = false) {
+  const pill = getUserPill();
+  if (!pill) return;
+
+  pill.classList.remove("success");
+  pill.innerHTML = `
+    <div class="user-avatar user-avatar-status" aria-label="Sin sesión activa">
+      <span class="status-dot status-dot-idle"></span>
+    </div>
+    <div>
+      <strong>SharePoint</strong>
+      <small>${expired ? "Sesión vencida. Volvé a iniciar sesión" : "Conectá tu cuenta Microsoft"}</small>
+    </div>
+  `;
+}
+
+function applyAuthStateToUI(state) {
+  authState = {
+    authenticated: !!state?.authenticated,
+    user: state?.user || null,
+    reason: state?.reason || null,
+  };
+
+  const banner = ensureSessionBanner();
+  const loginBtn = getLoginButton();
+  const logoutBtn = getLogoutButton();
+
+  if (authState.authenticated) {
+    renderUserPillAuthenticated(authState.user);
+
+    if (banner) {
+      banner.textContent = "";
+      banner.classList.add("hidden");
+    }
+
+    if (loginBtn) loginBtn.classList.add("hidden");
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+
+    setSharePointControlsEnabled(true);
+    sessionExpiredAlertShown = false;
+    return;
+  }
+
+  const expired = authState.reason === "expired";
+  renderUserPillUnauthenticated(expired);
+
+  if (banner) {
+    banner.textContent = expired
+      ? "Tu sesión de Microsoft expiró. Volvé a iniciar sesión para usar SharePoint."
+      : "Iniciá sesión con Microsoft para usar SharePoint.";
+    banner.classList.remove("hidden");
+  }
+
+  if (loginBtn) loginBtn.classList.remove("hidden");
+  if (logoutBtn) logoutBtn.classList.add("hidden");
+
+  setSharePointControlsEnabled(false);
+}
+
+async function fetchSessionStatus() {
+  const resp = await originalFetch("/auth/session-status", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+
+  if (!resp.ok) {
+    throw new Error("No se pudo validar la sesión");
+  }
+
+  return await resp.json();
+}
+
+async function initAuthState() {
+  try {
+    const status = await fetchSessionStatus();
+    applyAuthStateToUI(status);
+  } catch (err) {
+    applyAuthStateToUI({
+      authenticated: false,
+      reason: "unknown",
+      user: null,
+    });
+    console.error("Error validando sesión:", err);
+  }
+}
+
+function handleExpiredSessionUI() {
+  applyAuthStateToUI({
+    authenticated: false,
+    reason: "expired",
+    user: null,
+  });
+
+  if (!sessionExpiredAlertShown) {
+    sessionExpiredAlertShown = true;
+    alert("Tu sesión de Microsoft expiró. Volvé a iniciar sesión.");
+  }
+}
+
+async function fetchWithAuthHandling(input, init = {}) {
+  const mergedInit = {
+    credentials: "same-origin",
+    cache: "no-store",
+    ...init,
+  };
+
+  const response = await originalFetch(input, mergedInit);
+
+  if (
+    shouldHandleAuthFailure(input) &&
+    !isAuthStatusEndpoint(input) &&
+    (response.status === 401 || response.status === 403)
+  ) {
+    handleExpiredSessionUI();
+    throw new Error("SESSION_EXPIRED");
+  }
+
+  return response;
+}
+
+window.fetch = fetchWithAuthHandling;
+
+/* -------------------------------------------------------------------------- */
+/* API                                                                         */
+/* -------------------------------------------------------------------------- */
+
 const API = {
   localRun: "/api/local/run",
   sharepointRun: "/api/sharepoint/run",
@@ -90,10 +332,10 @@ window.pipelineExecutionLocked = false;
 
 function setPipelineButtonsDisabled(disabled) {
   if (runLocalBtn) runLocalBtn.disabled = disabled;
-  if (runSPBtn) runSPBtn.disabled = disabled;
+  if (runSPBtn) runSPBtn.disabled = disabled || !authState.authenticated;
 
   runLocalBtn?.classList.toggle("is-disabled", disabled);
-  runSPBtn?.classList.toggle("is-disabled", disabled);
+  runSPBtn?.classList.toggle("is-disabled", disabled || !authState.authenticated);
 }
 
 function lockPipelineExecution() {
@@ -152,10 +394,243 @@ function getStepLabel(stepName) {
   return labels[stepName] || stepName || "Procesando";
 }
 
+function openSPModal() {
+  if (!spModal) return;
+  spModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
 
+function closeSPModal() {
+  if (!spModal) return;
+  spModal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
 
+function syncPickedLabels() {
+  const sourceText = selectedSourceFileName
+    ? `${selectedSourceFileName}${selectedSourceSiteKey ? ` · ${selectedSourceSiteKey}` : ""}`
+    : "Sin seleccionar";
 
+  const destText = selectedDestinationFolderName
+    ? `${selectedDestinationFolderName}${selectedDestinationSiteKey ? ` · ${selectedDestinationSiteKey}` : ""}`
+    : "Sin seleccionar";
 
+  if (selectedSourceLabel) selectedSourceLabel.textContent = sourceText;
+  if (selectedDestLabel) selectedDestLabel.textContent = destText;
+  if (spPickedSourceInline) spPickedSourceInline.textContent = sourceText;
+  if (spPickedDestInline) spPickedDestInline.textContent = destText;
+}
+
+async function loadSharePointFolder(folderId = null, resetStack = false, preserveStack = false) {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
+  const siteKey = currentModalSiteKey || modalSiteSelect?.value || getDefaultSiteKey();
+  const params = new URLSearchParams();
+
+  if (siteKey) {
+    params.set("site_key", siteKey);
+  }
+
+  if (folderId) {
+    params.set("folder_id", folderId);
+  }
+
+  const response = await fetch(`${API.sharepointExplore}?${params.toString()}`);
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.detail || "No se pudo explorar SharePoint");
+  }
+
+  const currentFolder = data.current_folder || null;
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  currentSharePointFolderId = currentFolder?.id || null;
+  currentSharePointFolderName =
+    currentFolder?.name ||
+    currentFolder?.path ||
+    data.site_label ||
+    "Raíz";
+
+  currentModalSiteKey = data.site_key || siteKey;
+
+  if (modalSiteSelect && currentModalSiteKey) {
+    modalSiteSelect.value = currentModalSiteKey;
+  }
+
+  if (spCurrentPathLabel) {
+    spCurrentPathLabel.textContent =
+      currentFolder?.path ||
+      currentFolder?.name ||
+      "Raíz";
+  }
+
+  if (spModalTitle) {
+    spModalTitle.textContent =
+      spBrowseMode === "source"
+        ? "Seleccionar Excel de origen"
+        : "Seleccionar carpeta destino";
+  }
+
+  if (selectCurrentFolderBtn) {
+    selectCurrentFolderBtn.classList.toggle("hidden", spBrowseMode !== "dest");
+  }
+
+  if (resetStack) {
+    spFolderStack = [];
+  }
+
+  if (currentFolder?.id) {
+    const alreadyInStack = spFolderStack.some((x) => x.id === currentFolder.id);
+
+    if (!alreadyInStack) {
+      spFolderStack.push({
+        id: currentFolder.id,
+        name: currentSharePointFolderName,
+      });
+    }
+  }
+
+  if (spBrowseMode === "source" && currentSharePointFolderId && currentModalSiteKey) {
+    persistSourceFolderPreference(
+      currentSharePointFolderId,
+      currentSharePointFolderName,
+      currentModalSiteKey
+    );
+  }
+
+  if (!spModalBody) return;
+
+  if (!items.length) {
+    spModalBody.innerHTML = `
+      <div class="empty-state">
+        <div>
+          <div class="empty-icon">📂</div>
+          <div>No hay elementos en esta carpeta.</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = items
+    .map((item) => {
+      const isFolder = !!item.is_folder;
+      const isFile = !!item.is_file;
+      const itemName = escapeHtml(item.name || "Sin nombre");
+      const itemId = String(item.id || "");
+      const itemPath = escapeHtml(item.path || "");
+      const icon = isFolder ? "📁" : "📄";
+
+      if (isFolder) {
+        return `
+          <div class="browser-row browser-row-clickable" data-folder-id="${itemId}">
+            <div class="browser-main">
+              <div class="browser-name">
+                <span class="browser-icon">${icon}</span>
+                <span>${itemName}</span>
+              </div>
+            </div>
+            <div class="browser-actions">
+              ${
+                spBrowseMode === "dest"
+                  ? `<button class="btn secondary small" type="button" data-use-folder-id="${itemId}" data-use-folder-name="${itemName}">
+                      Usar carpeta
+                    </button>`
+                  : ""
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      if (isFile) {
+        const isExcel = /\.(xlsx|xlsm|xls)$/i.test(item.name || "");
+        return `
+          <div class="browser-row ${isExcel ? "browser-row-clickable" : ""}" ${isExcel ? `data-file-id="${itemId}" data-file-name="${itemName}"` : ""}>
+            <div class="browser-main">
+              <div class="browser-name">
+                <span class="browser-icon">${icon}</span>
+                <span>${itemName}</span>
+              </div>
+              ${itemPath ? `<div class="browser-meta">${itemPath}</div>` : ""}
+            </div>
+            <div class="browser-actions">
+              ${
+                isExcel && spBrowseMode === "source"
+                  ? `<button class="btn secondary small" type="button" data-pick-file-id="${itemId}" data-pick-file-name="${itemName}">
+                      Elegir
+                    </button>`
+                  : `<span class="muted-pill">Solo lectura</span>`
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      return "";
+    })
+    .join("");
+
+  spModalBody.innerHTML = `<div class="browser-list">${rows}</div>`;
+
+  spModalBody.querySelectorAll("[data-folder-id]").forEach((el) => {
+    el.addEventListener("click", async (event) => {
+      const folderTarget = event.currentTarget;
+      const nextFolderId = folderTarget.getAttribute("data-folder-id");
+      if (!nextFolderId) return;
+      await loadSharePointFolder(nextFolderId, false, false);
+    });
+  });
+
+  spModalBody.querySelectorAll("[data-use-folder-id]").forEach((btn) => {
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+
+      const folderIdToUse = btn.getAttribute("data-use-folder-id");
+      const folderNameToUse = btn.getAttribute("data-use-folder-name");
+
+      selectedDestinationFolderId = folderIdToUse;
+      selectedDestinationFolderName = folderNameToUse;
+      selectedDestinationSiteKey = currentModalSiteKey;
+
+      const prefs = loadPrefs();
+      prefs.destFolderId = selectedDestinationFolderId;
+      prefs.destFolderName = selectedDestinationFolderName;
+      prefs.destFolderSite = selectedDestinationSiteKey;
+      savePrefs(prefs);
+
+      if (destinationSiteSelect) {
+        destinationSiteSelect.value = currentModalSiteKey;
+      }
+
+      syncPickedLabels();
+      closeSPModal();
+    });
+  });
+
+  spModalBody.querySelectorAll("[data-pick-file-id]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      selectedSourceFileId = btn.getAttribute("data-pick-file-id");
+      selectedSourceFileName = btn.getAttribute("data-pick-file-name");
+      selectedSourceSiteKey = currentModalSiteKey;
+
+      const prefs = loadPrefs();
+      prefs.sourceFileId = selectedSourceFileId;
+      prefs.sourceFileName = selectedSourceFileName;
+      prefs.sourceFileSite = selectedSourceSiteKey;
+      savePrefs(prefs);
+
+      syncPickedLabels();
+      closeSPModal();
+    });
+  });
+}
 
 /* -------------------------------------------------------------------------- */
 /* Client / profile / sites                                                    */
@@ -204,7 +679,9 @@ async function loadClients() {
 function restoreDefaultClientSelection() {
   if (!clientSelect || !availableClients.length) return;
 
-  const saved = localStorage.getItem("voucherClientKey");
+  const prefs = loadPrefs();
+  const saved = prefs.client || localStorage.getItem("voucherClientKey");
+
   const fallback =
     saved && availableClients.some((c) => c.key === saved)
       ? saved
@@ -219,6 +696,10 @@ function onClientChange(event) {
   selectedClient = getClientConfig(clientKey);
 
   if (!selectedClient) return;
+
+  const prefs = loadPrefs();
+  prefs.client = selectedClient.key;
+  savePrefs(prefs);
 
   localStorage.setItem("voucherClientKey", selectedClient.key);
 
@@ -304,24 +785,29 @@ function fillProfileSelect(selectEl, profiles, defaultProfile = "default") {
 }
 
 async function loadSharePointSites() {
-  const response = await fetch(API.sharepointSites);
-  const data = await response.json();
+  try {
+    const response = await fetch(API.sharepointSites);
+    const data = await response.json();
 
-  if (!response.ok || !data.ok) {
-    throw new Error("No se pudieron cargar los sites");
+    if (!response.ok || !data.ok) {
+      throw new Error("No se pudieron cargar los sites");
+    }
+
+    sharepointSites = data.sites || [];
+
+    fillSiteSelect(sourceSiteSelect, sharepointSites);
+    fillSiteSelect(destinationSiteSelect, sharepointSites);
+    fillSiteSelect(modalSiteSelect, sharepointSites);
+
+    const defaultKey = getDefaultSiteKey();
+
+    if (sourceSiteSelect && defaultKey) sourceSiteSelect.value = defaultKey;
+    if (destinationSiteSelect && defaultKey) destinationSiteSelect.value = defaultKey;
+    if (modalSiteSelect && defaultKey) modalSiteSelect.value = defaultKey;
+  } catch (error) {
+    if (error.message === "SESSION_EXPIRED") return;
+    throw error;
   }
-
-  sharepointSites = data.sites || [];
-
-  fillSiteSelect(sourceSiteSelect, sharepointSites);
-  fillSiteSelect(destinationSiteSelect, sharepointSites);
-  fillSiteSelect(modalSiteSelect, sharepointSites);
-
-  const defaultKey = getDefaultSiteKey();
-
-  if (sourceSiteSelect && defaultKey) sourceSiteSelect.value = defaultKey;
-  if (destinationSiteSelect && defaultKey) destinationSiteSelect.value = defaultKey;
-  if (modalSiteSelect && defaultKey) modalSiteSelect.value = defaultKey;
 }
 
 function fillSiteSelect(selectEl, sites) {
@@ -336,10 +822,6 @@ function fillSiteSelect(selectEl, sites) {
     selectEl.appendChild(opt);
   }
 }
-
-
-
-
 
 // ==========================
 // MODE SWITCH
@@ -363,6 +845,10 @@ function switchMode(mode) {
       sharepointProfileSelect.value = selectedClient.default_profile;
     }
   }
+
+  if (!isLocal && !authState.authenticated) {
+    setSharePointControlsEnabled(false);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -373,8 +859,14 @@ btnLocal?.addEventListener("click", () => switchMode("local"));
 btnSP?.addEventListener("click", () => switchMode("sharepoint"));
 
 runLocalBtn?.addEventListener("click", runLocalPipeline);
-runSPBtn?.addEventListener("click", runSharePointPipeline);
 
+runSPBtn?.addEventListener("click", async (...args) => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+  return runSharePointPipeline(...args);
+});
 
 cancelJobBtn?.addEventListener("click", async () => {
   if (!window.currentRunningJobId) return;
@@ -391,23 +883,61 @@ cancelJobBtn?.addEventListener("click", async () => {
 });
 
 pickSPFileBtn?.addEventListener("click", async () => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
+  const prefs = loadPrefs();
+
   spBrowseMode = "source";
   currentModalSiteKey = sourceSiteSelect?.value || getDefaultSiteKey();
+
   if (modalSiteSelect) {
     modalSiteSelect.value = currentModalSiteKey;
   }
+
   applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
   openSPModal();
+
+  if (
+    prefs.sourceFolderId &&
+    prefs.sourceFolderSite &&
+    prefs.sourceFolderSite === currentModalSiteKey
+  ) {
+    await loadSharePointFolder(prefs.sourceFolderId, true);
+    return;
+  }
+
   await loadSharePointFolder(null, true);
 });
 
 pickSPFolderBtn?.addEventListener("click", async () => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
+  const prefs = loadPrefs();
+
   spBrowseMode = "dest";
   currentModalSiteKey = destinationSiteSelect?.value || getDefaultSiteKey();
+
   if (modalSiteSelect) {
     modalSiteSelect.value = currentModalSiteKey;
   }
+
   openSPModal();
+
+  if (
+    prefs.destFolderId &&
+    prefs.destFolderSite &&
+    prefs.destFolderSite === currentModalSiteKey
+  ) {
+    await loadSharePointFolder(prefs.destFolderId, true);
+    return;
+  }
+
   await loadSharePointFolder(null, true);
 });
 
@@ -420,6 +950,11 @@ confirmSPSelectionBtn?.addEventListener("click", () => {
 });
 
 spBackBtn?.addEventListener("click", async () => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
   if (spFolderStack.length <= 1) {
     await loadSharePointFolder(null, true);
     return;
@@ -431,11 +966,22 @@ spBackBtn?.addEventListener("click", async () => {
 });
 
 selectCurrentFolderBtn?.addEventListener("click", async () => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
   if (!currentSharePointFolderId) return;
 
   selectedDestinationFolderId = currentSharePointFolderId;
   selectedDestinationFolderName = currentSharePointFolderName;
   selectedDestinationSiteKey = currentModalSiteKey;
+
+  const prefs = loadPrefs();
+  prefs.destFolderId = selectedDestinationFolderId;
+  prefs.destFolderName = selectedDestinationFolderName;
+  prefs.destFolderSite = selectedDestinationSiteKey;
+  savePrefs(prefs);
 
   if (destinationSiteSelect) {
     destinationSiteSelect.value = currentModalSiteKey;
@@ -446,16 +992,34 @@ selectCurrentFolderBtn?.addEventListener("click", async () => {
 });
 
 modalSiteSelect?.addEventListener("change", async () => {
+  if (!authState.authenticated) {
+    handleExpiredSessionUI();
+    return;
+  }
+
   currentModalSiteKey = modalSiteSelect.value;
+
   if (spBrowseMode === "source") {
     applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
   }
+
   await loadSharePointFolder(null, true);
 });
 
 sourceSiteSelect?.addEventListener("change", () => {
   const selectedKey = sourceSiteSelect.value;
   applyDefaultProfileForSite(selectedKey, "sharepoint");
+
+  const prefs = loadPrefs();
+  prefs.sourceSite = selectedKey;
+
+  if (prefs.sourceFolderSite && prefs.sourceFolderSite !== selectedKey) {
+    delete prefs.sourceFolderId;
+    delete prefs.sourceFolderName;
+    delete prefs.sourceFolderSite;
+  }
+
+  savePrefs(prefs);
 
   if (selectedSourceSiteKey !== selectedKey) {
     selectedSourceFileId = null;
@@ -466,7 +1030,20 @@ sourceSiteSelect?.addEventListener("change", () => {
 });
 
 destinationSiteSelect?.addEventListener("change", () => {
-  if (selectedDestinationSiteKey !== destinationSiteSelect.value) {
+  const selectedKey = destinationSiteSelect.value;
+
+  const prefs = loadPrefs();
+  prefs.destSite = selectedKey;
+
+  if (prefs.destFolderSite && prefs.destFolderSite !== selectedKey) {
+    delete prefs.destFolderId;
+    delete prefs.destFolderName;
+    delete prefs.destFolderSite;
+  }
+
+  savePrefs(prefs);
+
+  if (selectedDestinationSiteKey !== selectedKey) {
     selectedDestinationFolderId = null;
     selectedDestinationFolderName = null;
     selectedDestinationSiteKey = null;
@@ -474,6 +1051,11 @@ destinationSiteSelect?.addEventListener("change", () => {
   }
 });
 
+languageSelect?.addEventListener("change", () => {
+  const prefs = loadPrefs();
+  prefs.language = languageSelect.value;
+  savePrefs(prefs);
+});
 
 const refreshHistoryBtn = document.getElementById("refreshHistoryBtn");
 const jobHistoryBody = document.getElementById("jobHistoryBody");
@@ -492,15 +1074,59 @@ toggleHistoryBtn?.addEventListener("click", () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    await initAuthState();
     ensureValidationModal();
+
     await loadClients();
     await loadProfiles();
 
-    if (sourceSiteSelect || destinationSiteSelect || modalSiteSelect) {
+    if (authState.authenticated && (sourceSiteSelect || destinationSiteSelect || modalSiteSelect)) {
       await loadSharePointSites();
     }
 
-    restoreDefaultClientSelection();
+    const prefs = loadPrefs();
+
+    if (prefs.client && clientSelect && availableClients.some((c) => c.key === prefs.client)) {
+      clientSelect.value = prefs.client;
+      onClientChange({ target: clientSelect });
+    } else {
+      restoreDefaultClientSelection();
+    }
+
+    if (prefs.language && languageSelect) {
+      languageSelect.value = prefs.language;
+    }
+
+    if (
+      authState.authenticated &&
+      prefs.sourceSite &&
+      sourceSiteSelect &&
+      sharepointSites.some((s) => s.key === prefs.sourceSite)
+    ) {
+      sourceSiteSelect.value = prefs.sourceSite;
+    }
+
+    if (
+      authState.authenticated &&
+      prefs.destSite &&
+      destinationSiteSelect &&
+      sharepointSites.some((s) => s.key === prefs.destSite)
+    ) {
+      destinationSiteSelect.value = prefs.destSite;
+    }
+
+    if (
+      authState.authenticated &&
+      prefs.destFolderId &&
+      prefs.destFolderSite &&
+      destinationSiteSelect &&
+      prefs.destFolderSite === destinationSiteSelect.value
+    ) {
+      selectedDestinationFolderId = prefs.destFolderId;
+      selectedDestinationFolderName = prefs.destFolderName || "Carpeta recordada";
+      selectedDestinationSiteKey = prefs.destFolderSite;
+    }
+
     syncPickedLabels();
     restoreJobHistoryCollapsedState();
     setTimeout(loadJobHistory, 300);

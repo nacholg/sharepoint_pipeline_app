@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import httpx
 import shutil
 import threading
 import tempfile
@@ -12,7 +13,7 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi import Query
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,6 +30,7 @@ from voucher_generator.profiles import list_profile_configs
 
 load_dotenv()
 
+GRAPH_ME_URL = "https://graph.microsoft.com/v1.0/me"
 
 def _load_sharepoint_sites() -> dict[str, dict]:
     raw = os.getenv("SHAREPOINT_SITES_JSON", "").strip()
@@ -141,6 +143,33 @@ class SharePointRunRequest(BaseModel):
     language: str | None = None
 
 
+def get_session_user(request: Request):
+    user = request.session.get("user")
+    if not user:
+        return None
+    return user
+
+
+
+def get_access_token_from_session(request: Request):
+    return request.session.get("access_token")
+
+
+def validate_graph_access_token(access_token: str) -> bool:
+    if not access_token:
+        return False
+
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            response = client.get(
+                GRAPH_ME_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 def get_graph_access_token_from_session(request: Request) -> str:
     user = request.session.get("user")
     if not user:
@@ -151,6 +180,7 @@ def get_graph_access_token_from_session(request: Request) -> str:
 
     user_email = user.get("email")
     if not user_email:
+        clear_auth_session(request)
         raise HTTPException(
             status_code=401,
             detail="La sesión no tiene email de usuario. Volvé a iniciar sesión.",
@@ -158,12 +188,27 @@ def get_graph_access_token_from_session(request: Request) -> str:
 
     access_token = get_user_token(user_email)
     if not access_token:
+        clear_auth_session(request)
         raise HTTPException(
             status_code=401,
             detail="Sesión Microsoft no válida o vencida. Volvé a iniciar sesión.",
         )
 
+    if not validate_graph_access_token(access_token):
+        clear_auth_session(request)
+        raise HTTPException(
+            status_code=401,
+            detail="La sesión de Microsoft venció. Volvé a iniciar sesión.",
+        )
+
     return access_token
+
+
+def clear_auth_session(request: Request):
+    request.session.pop("user", None)
+    request.session.pop("access_token", None)
+    request.session.pop("refresh_token", None)
+    request.session.pop("token_expires_at", None)
 
 
 def get_site_config(site_key: str | None) -> dict:
@@ -996,6 +1041,49 @@ def api_clients():
         "default_client": "globalevents2" if "globalevents2" in CLIENTS else next(iter(CLIENTS.keys()), None),
     }
 
+
+
+
+def is_graph_session_valid(request: Request) -> bool:
+    user = get_session_user(request)
+    if not user:
+        return False
+
+    user_email = user.get("email")
+    if not user_email:
+        return False
+
+    access_token = get_user_token(user_email)
+    if not access_token:
+        return False
+
+    return validate_graph_access_token(access_token)
+
+
+@app.get("/auth/session-status")
+def auth_session_status(request: Request):
+    user = get_session_user(request)
+    if not user:
+        return {
+            "authenticated": False,
+            "reason": "no_session",
+        }
+
+    valid = is_graph_session_valid(request)
+    if not valid:
+        clear_auth_session(request)
+        return {
+            "authenticated": False,
+            "reason": "expired",
+        }
+
+    return {
+        "authenticated": True,
+        "user": {
+            "name": user.get("name"),
+            "email": user.get("email"),
+        },
+    }
 
 @app.get("/api/sharepoint/sites")
 def api_sharepoint_sites():
