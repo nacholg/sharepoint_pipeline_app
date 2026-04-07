@@ -1,208 +1,484 @@
-// ==========================
-// SHAREPOINT PICKER MODULE
-// ==========================
+(function () {
+  function spEscapeHtml(value) {
+    if (typeof window.escapeHtml === "function") {
+      return window.escapeHtml(value);
+    }
 
-// Estado compartido (usa variables globales existentes del app.js)
-
-function openSPModal() {
-  spModal?.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-  updateModalContext();
-  syncPickedLabels();
-}
-
-function closeSPModal() {
-  spModal?.classList.add("hidden");
-  document.body.style.overflow = "";
-}
-
-function updateModalContext() {
-  if (spModalTitle) {
-    spModalTitle.textContent =
-      spBrowseMode === "source"
-        ? "Seleccionar Excel de origen"
-        : "Seleccionar carpeta destino";
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
-  selectCurrentFolderBtn?.classList.toggle("hidden", spBrowseMode !== "dest");
-}
+  function spLoadPrefsSafe() {
+    if (typeof window.loadPrefs === "function") {
+      return window.loadPrefs();
+    }
 
-function syncPickedLabels() {
-  if (selectedSourceLabel) {
-    selectedSourceLabel.textContent = selectedSourceFileName
-      ? `${selectedSourceFileName} (${selectedSourceSiteKey || "-"})`
-      : "Sin seleccionar";
-  }
-
-  if (selectedDestLabel) {
-    selectedDestLabel.textContent = selectedDestinationFolderName
-      ? `${selectedDestinationFolderName} (${selectedDestinationSiteKey || "-"})`
-      : "Sin seleccionar";
-  }
-
-  if (spPickedSourceInline) {
-    spPickedSourceInline.textContent = selectedSourceFileName
-      ? `${selectedSourceFileName} (${selectedSourceSiteKey || "-"})`
-      : "Sin seleccionar";
-  }
-
-  if (spPickedDestInline) {
-    spPickedDestInline.textContent = selectedDestinationFolderName
-      ? `${selectedDestinationFolderName} (${selectedDestinationSiteKey || "-"})`
-      : "Sin seleccionar";
-  }
-}
-
-async function loadSharePointFolder(folderId = null, resetStack = false, preserveStack = false) {
-  const params = new URLSearchParams();
-  if (folderId) params.set("folder_id", folderId);
-  if (currentModalSiteKey) params.set("site_key", currentModalSiteKey);
-
-  const response = await fetch(`${API.sharepointExplore}?${params.toString()}`);
-  const data = await response.json();
-
-  if (!response.ok || !data.ok) {
-    throw new Error(data?.detail || "No se pudo explorar SharePoint");
-  }
-
-  const currentFolder = data.current_folder || null;
-  const items = Array.isArray(data.items) ? data.items : [];
-
-  currentSharePointFolderId = currentFolder?.id || null;
-  currentSharePointFolderName = currentFolder?.name || "Raíz";
-
-  if (spCurrentPathLabel) {
-    spCurrentPathLabel.textContent = currentSharePointFolderName || "Raíz";
-  }
-
-  if (resetStack) {
-    spFolderStack = [];
-  }
-
-  if (!preserveStack) {
-    const currentEntry = {
-      id: currentSharePointFolderId,
-      name: currentSharePointFolderName,
-    };
-
-    const last = spFolderStack[spFolderStack.length - 1];
-    if (!last || last.id !== currentEntry.id) {
-      spFolderStack.push(currentEntry);
+    try {
+      return JSON.parse(localStorage.getItem("voucher_prefs")) || {};
+    } catch {
+      return {};
     }
   }
 
-  renderSharePointBrowser(items);
-}
+  function spSavePrefsSafe(prefs) {
+    if (typeof window.savePrefs === "function") {
+      window.savePrefs(prefs);
+      return;
+    }
 
-function renderSharePointBrowser(items) {
-  if (!spModalBody) return;
-
-  if (!items.length) {
-    spModalBody.innerHTML = `<div class="browser-empty">No hay elementos en esta carpeta.</div>`;
-    return;
+    localStorage.setItem("voucher_prefs", JSON.stringify(prefs || {}));
   }
 
-  spModalBody.innerHTML = "";
+  function openSPModal() {
+    window.spModal?.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    updateModalContext();
+    syncPickedLabels();
+  }
 
-  const list = document.createElement("div");
-  list.className = "browser-list";
+  function closeSPModal() {
+    window.spModal?.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
 
-  for (const item of items) {
-    const row = document.createElement("div");
-    row.className = "browser-row";
+  function updateModalContext() {
+    if (window.spModalTitle) {
+      window.spModalTitle.textContent =
+        window.spBrowseMode === "source"
+          ? "Seleccionar Excel de origen"
+          : "Seleccionar carpeta destino";
+    }
 
-    const isFolder = !!item.is_folder;
-    const isFile = !!item.is_file;
-    const isExcel = isValidExcelFilename(item.name || "");
+    window.selectCurrentFolderBtn?.classList.toggle(
+      "hidden",
+      window.spBrowseMode !== "dest"
+    );
+  }
 
-    row.innerHTML = `
-      <div class="browser-main">
-        <div class="browser-name">
-          <span class="browser-icon">${isFolder ? "📁" : "📄"}</span>
-          <span>${escapeHtml(item.name || "Sin nombre")}</span>
+  function syncPickedLabels() {
+    const sourceText = window.selectedSourceFileName
+      ? `${window.selectedSourceFileName}${window.selectedSourceSiteKey ? ` · ${window.selectedSourceSiteKey}` : ""}`
+      : "Sin seleccionar";
+
+    const destText = window.selectedDestinationFolderName
+      ? `${window.selectedDestinationFolderName}${window.selectedDestinationSiteKey ? ` · ${window.selectedDestinationSiteKey}` : ""}`
+      : "Sin seleccionar";
+
+    if (window.selectedSourceLabel) window.selectedSourceLabel.textContent = sourceText;
+    if (window.selectedDestLabel) window.selectedDestLabel.textContent = destText;
+    if (window.spPickedSourceInline) window.spPickedSourceInline.textContent = sourceText;
+    if (window.spPickedDestInline) window.spPickedDestInline.textContent = destText;
+  }
+
+  async function loadSharePointFolder(folderId = null, resetStack = false, preserveStack = false) {
+    if (!window.authState?.authenticated) {
+      window.handleExpiredSessionUI?.();
+      return null;
+    }
+
+    const siteKey =
+      window.currentModalSiteKey ||
+      window.modalSiteSelect?.value ||
+      window.getDefaultSiteKey?.();
+
+    const params = new URLSearchParams();
+
+    if (siteKey) {
+      params.set("site_key", siteKey);
+    }
+
+    if (folderId) {
+      params.set("folder_id", folderId);
+    }
+
+    const response = await fetch(`${window.API.sharepointExplore}?${params.toString()}`);
+    const data = await response.json();
+
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.detail || "No se pudo explorar SharePoint");
+    }
+
+    const currentFolder = data.current_folder || null;
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    window.currentSharePointFolderId = currentFolder?.id || null;
+    window.currentSharePointFolderName =
+      currentFolder?.name ||
+      currentFolder?.path ||
+      data.site_label ||
+      "Raíz";
+
+    window.currentModalSiteKey = data.site_key || siteKey;
+
+    if (window.modalSiteSelect && window.currentModalSiteKey) {
+      window.modalSiteSelect.value = window.currentModalSiteKey;
+    }
+
+    if (window.spCurrentPathLabel) {
+      window.spCurrentPathLabel.textContent =
+        currentFolder?.path ||
+        currentFolder?.name ||
+        "Raíz";
+    }
+
+    updateModalContext();
+
+    if (resetStack) {
+      window.spFolderStack = [];
+    }
+
+    if (!preserveStack && currentFolder?.id) {
+      const alreadyInStack = (window.spFolderStack || []).some(
+        (x) => x.id === currentFolder.id
+      );
+
+      if (!alreadyInStack) {
+        window.spFolderStack = [
+          ...(window.spFolderStack || []),
+          {
+            id: currentFolder.id,
+            name: window.currentSharePointFolderName,
+          },
+        ];
+      }
+    }
+
+    if (
+      window.spBrowseMode === "source" &&
+      window.currentSharePointFolderId &&
+      window.currentModalSiteKey &&
+      typeof window.persistSourceFolderPreference === "function"
+    ) {
+      window.persistSourceFolderPreference(
+        window.currentSharePointFolderId,
+        window.currentSharePointFolderName,
+        window.currentModalSiteKey
+      );
+    }
+
+    renderSharePointBrowser(items);
+    return data;
+  }
+
+  function renderSharePointBrowser(items) {
+    if (!window.spModalBody) return;
+
+    if (!items.length) {
+      window.spModalBody.innerHTML = `
+        <div class="empty-state">
+          <div>
+            <div class="empty-icon">📂</div>
+            <div>No hay elementos en esta carpeta.</div>
+          </div>
         </div>
-        <div class="browser-meta">${isFolder ? "Carpeta" : "Archivo"}</div>
-      </div>
-      <div class="browser-actions"></div>
-    `;
-
-    const main = row.querySelector(".browser-main");
-    const actions = row.querySelector(".browser-actions");
-
-    if (isFolder) {
-      row.classList.add("browser-row-clickable");
-      main.style.cursor = "pointer";
-
-      main.addEventListener("click", async () => {
-        await loadSharePointFolder(item.id);
-      });
-
-      const openBtn = document.createElement("button");
-      openBtn.className = "btn secondary small";
-      openBtn.textContent = "Abrir";
-      openBtn.onclick = async (e) => {
-        e.stopPropagation();
-        await loadSharePointFolder(item.id);
-      };
-      actions.appendChild(openBtn);
-
-      if (spBrowseMode === "dest") {
-        const useBtn = document.createElement("button");
-        useBtn.className = "btn primary small";
-        useBtn.textContent = "Usar carpeta";
-        useBtn.onclick = (e) => {
-          e.stopPropagation();
-          selectedDestinationFolderId = item.id;
-          selectedDestinationFolderName = item.name;
-          selectedDestinationSiteKey = currentModalSiteKey;
-
-          if (destinationSiteSelect) {
-            destinationSiteSelect.value = currentModalSiteKey;
-          }
-
-          syncPickedLabels();
-        };
-        actions.appendChild(useBtn);
-      }
+      `;
+      return;
     }
 
-    if (isFile && spBrowseMode === "source") {
-      if (!isExcel) {
-        const badge = document.createElement("span");
-        badge.className = "file-badge invalid";
-        badge.textContent = "No válido";
-        actions.appendChild(badge);
-      } else {
-        row.classList.add("browser-row-clickable");
-        main.style.cursor = "pointer";
+    const rows = items
+      .map((item) => {
+        const isFolder = !!item.is_folder;
+        const isFile = !!item.is_file;
+        const itemName = spEscapeHtml(item.name || "Sin nombre");
+        const itemId = String(item.id || "");
+        const itemPath = spEscapeHtml(item.path || "");
+        const icon = isFolder ? "📁" : "📄";
 
-        main.onclick = () => {
-          selectedSourceFileId = item.id;
-          selectedSourceFileName = item.name;
-          selectedSourceSiteKey = currentModalSiteKey;
+        if (isFolder) {
+          return `
+            <div class="browser-row browser-row-clickable" data-folder-id="${itemId}">
+              <div class="browser-main">
+                <div class="browser-name">
+                  <span class="browser-icon">${icon}</span>
+                  <span>${itemName}</span>
+                </div>
+              </div>
+              <div class="browser-actions">
+                ${
+                  window.spBrowseMode === "dest"
+                    ? `<button class="btn secondary small" type="button" data-use-folder-id="${itemId}" data-use-folder-name="${itemName}">
+                        Usar carpeta
+                      </button>`
+                    : ""
+                }
+              </div>
+            </div>
+          `;
+        }
 
-          if (sourceSiteSelect) {
-            sourceSiteSelect.value = currentModalSiteKey;
-          }
+        if (isFile) {
+          const isExcel =
+            typeof window.isValidExcelFilename === "function"
+              ? window.isValidExcelFilename(item.name || "")
+              : /\.(xlsx|xlsm|xls)$/i.test(item.name || "");
 
-          applyDefaultProfileForSite(currentModalSiteKey, "sharepoint");
-          syncPickedLabels();
-        };
+          return `
+            <div class="browser-row ${isExcel ? "browser-row-clickable" : ""}" ${isExcel ? `data-file-id="${itemId}" data-file-name="${itemName}"` : ""}>
+              <div class="browser-main">
+                <div class="browser-name">
+                  <span class="browser-icon">${icon}</span>
+                  <span>${itemName}</span>
+                </div>
+                ${itemPath ? `<div class="browser-meta">${itemPath}</div>` : ""}
+              </div>
+              <div class="browser-actions">
+                ${
+                  isExcel && window.spBrowseMode === "source"
+                    ? `<button class="btn secondary small" type="button" data-pick-file-id="${itemId}" data-pick-file-name="${itemName}">
+                        Elegir
+                      </button>`
+                    : `<span class="muted-pill">Solo lectura</span>`
+                }
+              </div>
+            </div>
+          `;
+        }
 
-        const pickBtn = document.createElement("button");
-        pickBtn.className = "btn primary small";
-        pickBtn.textContent = "Elegir archivo";
-        pickBtn.onclick = (e) => {
-          e.stopPropagation();
-          main.onclick();
-        };
+        return "";
+      })
+      .join("");
 
-        actions.appendChild(pickBtn);
-      }
-    }
-
-    list.appendChild(row);
+    window.spModalBody.innerHTML = `<div class="browser-list">${rows}</div>`;
+    bindBrowserListEvents();
   }
 
-  spModalBody.appendChild(list);
-}
+  function bindBrowserListEvents() {
+    window.spModalBody?.querySelectorAll("[data-folder-id]").forEach((el) => {
+      el.addEventListener("click", async (event) => {
+        const nextFolderId = event.currentTarget.getAttribute("data-folder-id");
+        if (!nextFolderId) return;
+        await loadSharePointFolder(nextFolderId, false, false);
+      });
+    });
+
+    window.spModalBody?.querySelectorAll("[data-use-folder-id]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        const folderIdToUse = btn.getAttribute("data-use-folder-id");
+        const folderNameToUse = btn.getAttribute("data-use-folder-name");
+
+        window.selectedDestinationFolderId = folderIdToUse;
+        window.selectedDestinationFolderName = folderNameToUse;
+        window.selectedDestinationSiteKey = window.currentModalSiteKey;
+
+        const prefs = spLoadPrefsSafe();
+        prefs.destFolderId = window.selectedDestinationFolderId;
+        prefs.destFolderName = window.selectedDestinationFolderName;
+        prefs.destFolderSite = window.selectedDestinationSiteKey;
+        spSavePrefsSafe(prefs);
+
+        if (window.destinationSiteSelect) {
+          window.destinationSiteSelect.value = window.currentModalSiteKey;
+        }
+
+        syncPickedLabels();
+        closeSPModal();
+      });
+    });
+
+    window.spModalBody?.querySelectorAll("[data-pick-file-id]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        window.selectedSourceFileId = btn.getAttribute("data-pick-file-id");
+        window.selectedSourceFileName = btn.getAttribute("data-pick-file-name");
+        window.selectedSourceSiteKey = window.currentModalSiteKey;
+
+        const prefs = spLoadPrefsSafe();
+        prefs.sourceFileId = window.selectedSourceFileId;
+        prefs.sourceFileName = window.selectedSourceFileName;
+        prefs.sourceFileSite = window.selectedSourceSiteKey;
+        spSavePrefsSafe(prefs);
+
+        if (window.sourceSiteSelect) {
+          window.sourceSiteSelect.value = window.currentModalSiteKey;
+        }
+
+        if (typeof window.applyDefaultProfileForSite === "function") {
+          window.applyDefaultProfileForSite(window.currentModalSiteKey, "sharepoint");
+        }
+
+        syncPickedLabels();
+        closeSPModal();
+      });
+    });
+  }
+
+  function bindSharePointPickerEvents() {
+    if (window.__sharePointPickerEventsBound) return;
+    window.__sharePointPickerEventsBound = true;
+
+    const pickFileBtn = document.getElementById("pickSPFileBtn");
+    const pickFolderBtn = document.getElementById("pickSPFolderBtn");
+    const closeBtn = document.getElementById("closeSPModalBtn");
+    const backdrop = document.getElementById("spModalBackdrop");
+    const confirmBtn = document.getElementById("confirmSPSelectionBtn");
+    const backBtn = document.getElementById("spBackBtn");
+    const selectCurrentFolderBtn = document.getElementById("selectCurrentFolderBtn");
+    const modalSiteSelect = document.getElementById("modalSiteSelect");
+
+    pickFileBtn?.addEventListener("click", async () => {
+      console.log("[SP PICKER] click archivo");
+
+      try {
+        if (!window.authState?.authenticated) {
+          console.warn("[SP PICKER] sesión no autenticada");
+          window.handleExpiredSessionUI?.();
+          return;
+        }
+
+        const prefs = spLoadPrefsSafe();
+        window.spBrowseMode = "source";
+        window.currentModalSiteKey =
+          window.sourceSiteSelect?.value || window.getDefaultSiteKey?.();
+
+        if (modalSiteSelect) {
+          modalSiteSelect.value = window.currentModalSiteKey;
+        }
+
+        window.applyDefaultProfileForSite?.(window.currentModalSiteKey, "sharepoint");
+
+        console.log("[SP PICKER] abriendo modal source");
+        openSPModal();
+
+        const data =
+          prefs.sourceFolderId &&
+          prefs.sourceFolderSite &&
+          prefs.sourceFolderSite === window.currentModalSiteKey
+            ? await loadSharePointFolder(prefs.sourceFolderId, true, false)
+            : await loadSharePointFolder(null, true, false);
+
+        console.log("[SP PICKER] source data:", data);
+      } catch (error) {
+        console.error("[SP PICKER] error archivo:", error);
+        alert(error?.message || "Error abriendo explorador de SharePoint");
+      }
+    });
+
+    pickFolderBtn?.addEventListener("click", async () => {
+      console.log("[SP PICKER] click carpeta");
+
+      try {
+        if (!window.authState?.authenticated) {
+          console.warn("[SP PICKER] sesión no autenticada");
+          window.handleExpiredSessionUI?.();
+          return;
+        }
+
+        const prefs = spLoadPrefsSafe();
+        window.spBrowseMode = "dest";
+        window.currentModalSiteKey =
+          window.destinationSiteSelect?.value || window.getDefaultSiteKey?.();
+
+        if (modalSiteSelect) {
+          modalSiteSelect.value = window.currentModalSiteKey;
+        }
+
+        console.log("[SP PICKER] abriendo modal dest");
+        openSPModal();
+
+        const data =
+          prefs.destFolderId &&
+          prefs.destFolderSite &&
+          prefs.destFolderSite === window.currentModalSiteKey
+            ? await loadSharePointFolder(prefs.destFolderId, true, false)
+            : await loadSharePointFolder(null, true, false);
+
+        console.log("[SP PICKER] dest data:", data);
+      } catch (error) {
+        console.error("[SP PICKER] error carpeta:", error);
+        alert(error?.message || "Error abriendo explorador de SharePoint");
+      }
+    });
+
+    closeBtn?.addEventListener("click", closeSPModal);
+    backdrop?.addEventListener("click", closeSPModal);
+
+    confirmBtn?.addEventListener("click", () => {
+      syncPickedLabels();
+      closeSPModal();
+    });
+
+    backBtn?.addEventListener("click", async () => {
+      try {
+        if (!window.authState?.authenticated) {
+          window.handleExpiredSessionUI?.();
+          return;
+        }
+
+        if ((window.spFolderStack || []).length <= 1) {
+          await loadSharePointFolder(null, true, false);
+          return;
+        }
+
+        window.spFolderStack.pop();
+        const previous = window.spFolderStack[window.spFolderStack.length - 1] || null;
+        await loadSharePointFolder(previous?.id || null, false, true);
+      } catch (error) {
+        console.error("[SP PICKER] error volver:", error);
+      }
+    });
+
+    selectCurrentFolderBtn?.addEventListener("click", () => {
+      try {
+        if (!window.authState?.authenticated) {
+          window.handleExpiredSessionUI?.();
+          return;
+        }
+
+        if (!window.currentSharePointFolderId) return;
+
+        window.selectedDestinationFolderId = window.currentSharePointFolderId;
+        window.selectedDestinationFolderName = window.currentSharePointFolderName;
+        window.selectedDestinationSiteKey = window.currentModalSiteKey;
+
+        const prefs = spLoadPrefsSafe();
+        prefs.destFolderId = window.selectedDestinationFolderId;
+        prefs.destFolderName = window.selectedDestinationFolderName;
+        prefs.destFolderSite = window.selectedDestinationSiteKey;
+        spSavePrefsSafe(prefs);
+
+        if (window.destinationSiteSelect) {
+          window.destinationSiteSelect.value = window.currentModalSiteKey;
+        }
+
+        syncPickedLabels();
+        closeSPModal();
+      } catch (error) {
+        console.error("[SP PICKER] error seleccionar carpeta actual:", error);
+      }
+    });
+
+    modalSiteSelect?.addEventListener("change", async () => {
+      try {
+        if (!window.authState?.authenticated) {
+          window.handleExpiredSessionUI?.();
+          return;
+        }
+
+        window.currentModalSiteKey = modalSiteSelect.value;
+
+        if (window.spBrowseMode === "source") {
+          window.applyDefaultProfileForSite?.(window.currentModalSiteKey, "sharepoint");
+        }
+
+        await loadSharePointFolder(null, true, false);
+      } catch (error) {
+        console.error("[SP PICKER] error cambio site:", error);
+      }
+    });
+  }
+
+  window.openSPModal = openSPModal;
+  window.closeSPModal = closeSPModal;
+  window.updateModalContext = updateModalContext;
+  window.syncPickedLabels = syncPickedLabels;
+  window.loadSharePointFolder = loadSharePointFolder;
+  window.renderSharePointBrowser = renderSharePointBrowser;
+  window.bindSharePointPickerEvents = bindSharePointPickerEvents;
+})();

@@ -1,10 +1,4 @@
-const ALLOWED_EXCEL_EXTENSIONS = [".xlsx", ".xlsm", ".xls"];
-
-function getSelectedLanguage(selectEl) {
-  return selectEl?.value || "";
-}
-
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -13,18 +7,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function isValidExcelFilename(name) {
-  const lowerName = (name || "").toLowerCase();
-  return ALLOWED_EXCEL_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
-}
-
-function formatDate(ts) {
-  if (!ts) return "-";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString();
-}
-
-function getStepLabel(stepName) {
+export function getStepLabel(stepName) {
   const labels = {
     preparing_local_job: "Preparando ejecución local",
     preparing_sharepoint_job: "Preparando ejecución SharePoint",
@@ -35,12 +18,5 @@ function getStepLabel(stepName) {
     render_vouchers_html: "Generando vouchers",
     render_vouchers_pdf: "Generando PDFs finales",
   };
-
   return labels[stepName] || stepName || "Procesando";
 }
-
-window.getSelectedLanguage = getSelectedLanguage;
-window.escapeHtml = escapeHtml;
-window.isValidExcelFilename = isValidExcelFilename;
-window.formatDate = formatDate;
-window.getStepLabel = getStepLabel;
