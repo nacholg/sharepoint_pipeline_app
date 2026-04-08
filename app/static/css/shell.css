@@ -1,0 +1,55 @@
+/* ========================================================================== */
+/* 03 - APP SHELL / FONDO / ESTRUCTURA GENERAL                                */
+/* ========================================================================== */
+
+.app-shell {
+  position: relative;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 20px 48px;
+}
+
+.bg-orb {
+  position: fixed;
+  border-radius: 999px;
+  filter: blur(50px);
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.orb-1 {
+  width: 280px;
+  height: 280px;
+  background: rgba(91, 124, 255, 0.18);
+  top: -40px;
+  left: -60px;
+  animation: floatOrb 9s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 320px;
+  height: 320px;
+  background: rgba(139, 92, 246, 0.16);
+  right: -80px;
+  top: 120px;
+  animation: floatOrb 11s ease-in-out infinite reverse;
+}
+
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, rgba(0,0,0,0.7), transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.topbar,
+.main-layout {
+  position: relative;
+  z-index: 1;
+}

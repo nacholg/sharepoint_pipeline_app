@@ -1,0 +1,30 @@
+/* ========================================================================== */
+/* 22 - AUTH / SESSION STATE                                                  */
+/* ========================================================================== */
+/* -------------------------------------------------------------------------- */
+
+.user-pill.expired {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.session-banner {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  color: #ffe2a8;
+}
+
+.session-disabled {
+  opacity: 0.6;
+}
+
+.session-disabled .picker-card,
+.session-disabled .sp-site-grid,
+.session-disabled .panel-actions,
+.session-disabled .sp-picker-grid {
+  pointer-events: none;
+}
+

@@ -1,0 +1,125 @@
+/* ========================================================================== */
+/* 09 - STATUS / PROGRESO / STEPS                                             */
+/* ========================================================================== */
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.status-badge {
+  padding: 9px 12px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.05);
+}
+
+.status-badge.neutral {
+  color: #d6deef;
+}
+
+.status-badge.running {
+  color: #ffd89b;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.status-badge.success {
+  color: #b8f7ce;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.status-badge.error {
+  color: #ffc1c1;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.progress-wrap {
+  margin-bottom: 18px;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+#progressFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #22c55e);
+  box-shadow: 0 0 22px rgba(91,124,255,0.4);
+  transition: width 0.35s ease;
+}
+
+.steps-list {
+  display: grid;
+  gap: 12px;
+}
+
+.step {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.step-title {
+  font-weight: 700;
+}
+
+.step-state {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.step.ok {
+  border-left: 4px solid var(--success);
+}
+
+.step.error {
+  border-left: 4px solid var(--danger);
+}
+
+.step.running {
+  border-left: 4px solid var(--warning);
+  animation: pulseCard 1.3s ease-in-out infinite;
+}
+
+.step pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.2);
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #dbe6f7;
+  font-size: 0.8rem;
+}

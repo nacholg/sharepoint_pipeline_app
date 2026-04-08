@@ -1,0 +1,28 @@
+@import url("/static/css/root.css");
+@import url("/static/css/base-global.css");
+@import url("/static/css/animation.css");
+
+@import url("/static/css/shell.css");
+@import url("/static/css/topbar.css");
+@import url("/static/css/layout-hero.css");
+
+@import url("/static/css/switches.css");
+@import url("/static/css/buttons.css");
+
+@import url("/static/css/status.css");
+@import url("/static/css/executive-steps.css");
+@import url("/static/css/auth-session.css");
+
+@import url("/static/css/sharepoint.css");
+@import url("/static/css/modal.css");
+
+@import url("/static/css/preview-inline.css");
+
+@import url("/static/css/premium-clients.css");
+@import url("/static/css/file-group.css");
+@import url("/static/css/result-logs.css");
+@import url("/static/css/job-history.css");
+@import url("/static/css/user-validation.css");
+
+@import url("/static/css/responsive.css");
+@import url("/static/css/utils.css");

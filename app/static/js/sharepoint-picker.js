@@ -323,7 +323,6 @@
     const modalSiteSelect = document.getElementById("modalSiteSelect");
 
     pickFileBtn?.addEventListener("click", async () => {
-      console.log("[SP PICKER] click archivo");
 
       try {
         if (!window.authState?.authenticated) {
@@ -343,7 +342,6 @@
 
         window.applyDefaultProfileForSite?.(window.currentModalSiteKey, "sharepoint");
 
-        console.log("[SP PICKER] abriendo modal source");
         openSPModal();
 
         const data =
@@ -353,7 +351,7 @@
             ? await loadSharePointFolder(prefs.sourceFolderId, true, false)
             : await loadSharePointFolder(null, true, false);
 
-        console.log("[SP PICKER] source data:", data);
+        
       } catch (error) {
         console.error("[SP PICKER] error archivo:", error);
         alert(error?.message || "Error abriendo explorador de SharePoint");
@@ -361,7 +359,6 @@
     });
 
     pickFolderBtn?.addEventListener("click", async () => {
-      console.log("[SP PICKER] click carpeta");
 
       try {
         if (!window.authState?.authenticated) {
@@ -379,7 +376,6 @@
           modalSiteSelect.value = window.currentModalSiteKey;
         }
 
-        console.log("[SP PICKER] abriendo modal dest");
         openSPModal();
 
         const data =
@@ -389,7 +385,6 @@
             ? await loadSharePointFolder(prefs.destFolderId, true, false)
             : await loadSharePointFolder(null, true, false);
 
-        console.log("[SP PICKER] dest data:", data);
       } catch (error) {
         console.error("[SP PICKER] error carpeta:", error);
         alert(error?.message || "Error abriendo explorador de SharePoint");

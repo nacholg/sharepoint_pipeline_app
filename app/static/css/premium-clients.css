@@ -1,0 +1,229 @@
+/* ========================================================================== */
+/* 19 - PREMIUM CLIENT MODE                                                   */
+/* ========================================================================== */
+/* -------------------------------------------------------------------------- */
+
+.summary-card-highlight {
+  background: linear-gradient(135deg, rgba(91,124,255,0.16), rgba(139,92,246,0.16));
+  border-color: rgba(91,124,255,0.34);
+  box-shadow: 0 14px 34px rgba(91,124,255,0.12);
+}
+
+.premium-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(91,124,255,0.08), rgba(139,92,246,0.08));
+  border: 1px solid rgba(255,255,255,0.09);
+}
+
+.premium-hero-copy h4 {
+  margin: 0 0 6px;
+  font-size: 1.18rem;
+}
+
+.premium-kicker {
+  display: inline-block;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c8d5ee;
+  margin-bottom: 8px;
+}
+
+.premium-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.premium-zip-btn {
+  min-width: 170px;
+}
+
+.premium-collapsible-shell {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 14px;
+}
+
+.premium-collapsible-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.premium-collapsible-head h4 {
+  margin: 0 0 4px;
+}
+
+.premium-file-list {
+  gap: 10px;
+}
+
+.premium-file-row {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.premium-file-row:last-child {
+  border-bottom: none;
+}
+
+.premium-upload-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.premium-upload-row:last-child {
+  border-bottom: none;
+}
+
+.premium-ok-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(34,197,94,0.14);
+  color: #9ff0b4;
+  border: 1px solid rgba(34,197,94,0.24);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.file-path {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .premium-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .premium-hero-actions {
+    width: 100%;
+  }
+
+  .premium-zip-btn {
+    width: 100%;
+  }
+
+  .premium-upload-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.step-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.log-block.hidden {
+  display: none;
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.step-head-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.step-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.step-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: #d9e5ff;
+}
+
+.step-status-pill-success {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.28);
+  color: #a7f3c0;
+}
+
+.step-status-pill-running {
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #bfdbfe;
+}
+
+.step-status-pill-error {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+}
+
+.step-status-pill-pending {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+}
+
+.step-log-btn {
+  opacity: 0.92;
+}
+
+.log-block.hidden {
+  display: none;
+}
+
+.step-item.running .step-bullet {
+  box-shadow:
+    0 0 0 6px rgba(96, 165, 250, 0.10),
+    0 0 18px rgba(96, 165, 250, 0.35);
+  animation: stepPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes stepPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+}

@@ -78,6 +78,8 @@
     if (!pill) return;
 
     pill.classList.add("success");
+    pill.classList.remove("expired");
+
     pill.innerHTML = `
       <div class="user-avatar user-avatar-status" aria-label="Usuario conectado">
         <span class="status-dot status-dot-online"></span>
@@ -94,6 +96,8 @@
     if (!pill) return;
 
     pill.classList.remove("success");
+    pill.classList.toggle("expired", expired);
+
     pill.innerHTML = `
       <div class="user-avatar user-avatar-status" aria-label="Sin sesión activa">
         <span class="status-dot status-dot-idle"></span>
