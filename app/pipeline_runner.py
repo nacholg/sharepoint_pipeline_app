@@ -241,6 +241,30 @@ def _preflight_validate_pipeline(
         warnings=warnings,
     )
 
+def _extract_enrichment_warnings(enriched_json_path: Path) -> list:
+    data = _read_json_if_exists(enriched_json_path)
+    if not data or not isinstance(data, list):
+        return []
+
+    result = {}
+
+    for item in data:
+        hotel = item.get("hotel_name") or "Unknown hotel"
+        warnings = item.get("validation_warnings") or []
+
+        if warnings:
+            if hotel not in result:
+                result[hotel] = []
+            result[hotel].extend(warnings)
+
+    # formato final limpio
+    return [
+        {
+            "hotel_name": hotel,
+            "warnings": list(set(warns)),
+        }
+        for hotel, warns in result.items()
+    ]
 
 def run_full_voucher_pipeline(
     *,
@@ -489,4 +513,5 @@ def run_full_voucher_pipeline(
         rows_file=str(rows_file_path) if rows_file_path.exists() else None,
         profile_used=profile_name,
         language=resolved_language,
+        enrichment_warnings=enrichment_warnings, 
     )

@@ -441,6 +441,7 @@ function renderResult(result) {
     ${RR_PREMIUM_MODE ? rrBuildPremiumHero(result) : ""}
 
     ${rrRenderValidationBlock(result.validation || null)}
+    ${rrRenderEnrichmentWarnings(result.enrichment_warnings || [])}
 
     ${result.error ? `<div class="error-banner">${rrEscapeHtml(result.error)}</div>` : ""}
 
@@ -453,6 +454,26 @@ function renderResult(result) {
     ${rrBuildDebugSection(result)}
 
     ${rrBuildUploadsSection(uploadedFiles)}
+  `;
+}
+
+function rrRenderEnrichmentWarnings(enrichmentWarnings) {
+  if (!Array.isArray(enrichmentWarnings) || !enrichmentWarnings.length) {
+    return "";
+  }
+
+  return `
+    <section class="result-card validation-card">
+      <h3>⚠️ Enrichment de hoteles</h3>
+      ${enrichmentWarnings.map(h => `
+        <div class="validation-group validation-warnings">
+          <div class="validation-title">${rrEscapeHtml(h.hotel_name)}</div>
+          <ul>
+            ${h.warnings.map(w => `<li>${rrEscapeHtml(w)}</li>`).join("")}
+          </ul>
+        </div>
+      `).join("")}
+    </section>
   `;
 }
 
