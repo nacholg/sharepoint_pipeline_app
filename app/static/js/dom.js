@@ -58,6 +58,14 @@
     refreshHistoryBtn: document.getElementById("refreshHistoryBtn"),
     jobHistoryBody: document.getElementById("jobHistoryBody"),
     toggleHistoryBtn: document.getElementById("toggleHistoryBtn"),
+
+    hotelLogoBtn: document.getElementById("hotelLogoBtn"),
+    hotelLogoModal: document.getElementById("hotelLogoModal"),
+    hotelLogoModalBackdrop: document.getElementById("hotelLogoModalBackdrop"),
+    hotelLogoForm: document.getElementById("hotelLogoForm"),
+    hotelNameInput: document.getElementById("hotelNameInput"),
+    hotelLogoInput: document.getElementById("hotelLogoInput"),
+    closeHotelLogoModal: document.getElementById("closeHotelLogoModal"),
   };
 
   window.APP_DOM = dom;

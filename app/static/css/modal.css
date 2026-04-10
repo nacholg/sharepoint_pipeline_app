@@ -1,0 +1,35 @@
+/* =========================
+   HOTEL LOGO UPLOADER
+   ========================= */
+
+#hotelLogoModal .modal-dialog {
+  max-width: 480px;
+}
+
+#hotelLogoForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+#hotelLogoForm .field input[type="text"],
+#hotelLogoForm .field input[type="file"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+}
+
+#hotelLogoForm .field input[type="file"] {
+  padding: 6px;
+}
+
+#hotelLogoForm .panel-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}

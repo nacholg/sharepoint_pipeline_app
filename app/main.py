@@ -7,13 +7,14 @@ import shutil
 import threading
 import tempfile
 import time
+import re
 from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi import Query
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
@@ -31,6 +32,7 @@ from voucher_generator.profiles import list_profile_configs
 load_dotenv()
 
 GRAPH_ME_URL = "https://graph.microsoft.com/v1.0/me"
+
 
 def _load_sharepoint_sites() -> dict[str, dict]:
     raw = os.getenv("SHAREPOINT_SITES_JSON", "").strip()
@@ -96,7 +98,6 @@ BASE_WORK_DIR = Path("work/jobs").resolve()
 BASE_JOB_STATE_DIR = (Path(tempfile.gettempdir()) / "voucher_job_state").resolve()
 BASE_JOB_STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-
 STEP_DEFINITIONS = [
     {
         "name": "xlsx_to_voucher_json",
@@ -148,7 +149,6 @@ def get_session_user(request: Request):
     if not user:
         return None
     return user
-
 
 
 def get_access_token_from_session(request: Request):
@@ -333,12 +333,9 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
     }
 
 
-# -----------------------------------------------------------------------------
-# Job store helpers
-# -----------------------------------------------------------------------------
-
 def _job_state_file(job_id: str) -> Path:
     return (BASE_JOB_STATE_DIR / f"{job_id}.json").resolve()
+
 
 def _write_job_state(job_id: str) -> None:
     job = JOB_STORE.get(job_id)
@@ -389,7 +386,6 @@ def _build_initial_steps() -> list[dict]:
     return steps
 
 
-
 def _create_job_record(
     *,
     job_id: str,
@@ -420,12 +416,12 @@ def _create_job_record(
             "created_at": time.time(),
             "updated_at": time.time(),
             "_last_persist_ts": 0.0,
-            
         }
         print("JOB CREATED IN MEMORY:", job_id)
         print("JOB STORE KEYS AFTER CREATE:", list(JOB_STORE.keys()))
         _write_job_state(job_id)
         JOB_STORE[job_id]["_last_persist_ts"] = time.time()
+
 
 def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
     with JOB_STORE_LOCK:
@@ -443,6 +439,7 @@ def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
             _write_job_state(job_id)
             job["_last_persist_ts"] = now
 
+
 def _is_job_cancel_requested(job_id: str) -> bool:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
@@ -455,11 +452,12 @@ def _mark_job_cancelled(job_id: str, progress_label: str = "Ejecución cancelada
     _patch_job(
         job_id,
         status="cancelled",
-        progress=0,  # 👈 opcional
+        progress=0,
         progress_label=progress_label,
         current_step=None,
         force_persist=True,
-    )       
+    )
+
 
 def _get_job(job_id: str) -> dict | None:
     with JOB_STORE_LOCK:
@@ -590,7 +588,7 @@ def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
             return
 
         for idx, status in enumerate(steps_status):
-          job["steps"][idx]["status"] = status
+            job["steps"][idx]["status"] = status
 
         job["status"] = "running"
         job["progress"] = progress
@@ -598,6 +596,7 @@ def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
         job["current_step"] = current_step
         job["updated_at"] = time.time()
         _write_job_state(job_id)
+
 
 def _monitor_job_outputs(job_id: str, job_dir: Path, stop_event: threading.Event) -> None:
     while not stop_event.is_set():
@@ -608,10 +607,6 @@ def _monitor_job_outputs(job_id: str, job_dir: Path, stop_event: threading.Event
 
     if not _is_job_cancel_requested(job_id):
         _sync_job_progress_from_outputs(job_id, job_dir)
-
-# -----------------------------------------------------------------------------
-# Async job workers
-# -----------------------------------------------------------------------------
 
 
 def _run_local_job_async(
@@ -716,6 +711,7 @@ def _run_local_job_async(
     finally:
         stop_event.set()
         monitor.join(timeout=1.5)
+
 
 def _run_sharepoint_job_async(
     *,
@@ -969,10 +965,6 @@ def _run_sharepoint_job_async(
         if monitor_thread:
             monitor_thread.join(timeout=1.5)
 
-# -----------------------------------------------------------------------------
-# Public API
-# -----------------------------------------------------------------------------
-
 
 @app.get("/api/preview")
 def preview_file(path: str = Query(...)):
@@ -1042,6 +1034,59 @@ def api_clients():
     }
 
 
+@app.post("/api/hotel-logos/upload")
+async def upload_hotel_logo(
+    hotel_name: str = Form(...),
+    file: UploadFile = File(...),
+):
+    try:
+        normalized = hotel_name.strip().lower()
+        if not normalized:
+            raise HTTPException(status_code=400, detail="El nombre del hotel es obligatorio.")
+
+        slug = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+        if not slug:
+            raise HTTPException(status_code=400, detail="Nombre de hotel inválido.")
+
+        logos_dir = Path("voucher_generator/assets/logos/hotels")
+        logos_dir.mkdir(parents=True, exist_ok=True)
+
+        ext = Path(file.filename or "").suffix.lower() or ".png"
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
+            raise HTTPException(status_code=400, detail="Formato de archivo no permitido.")
+
+        filename = f"{slug}{ext}"
+        file_path = logos_dir / filename
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        registry_path = Path("voucher_generator/config/hotel_logo_registry.json")
+
+        if registry_path.exists():
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            if not isinstance(registry, dict):
+                registry = {}
+        else:
+            registry = {}
+
+        registry[normalized] = f"assets/logos/hotels/{filename}"
+
+        registry_path.write_text(
+            json.dumps(registry, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        return {
+            "ok": True,
+            "hotel_name": normalized,
+            "logo_path": registry[normalized],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def is_graph_session_valid(request: Request) -> bool:
@@ -1084,6 +1129,7 @@ def auth_session_status(request: Request):
             "email": user.get("email"),
         },
     }
+
 
 @app.get("/api/sharepoint/sites")
 def api_sharepoint_sites():
@@ -1155,8 +1201,6 @@ def api_profiles():
         "profiles": AVAILABLE_PROFILES,
         "default_profile": "default",
     }
-
-
 
 
 @app.post("/api/local/run")
@@ -1330,6 +1374,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         "mode": "graph_sharepoint_site",
     }
 
+
 @app.on_event("startup")
 def debug_routes():
     print("=== ROUTES LOADED ===")
@@ -1338,4 +1383,3 @@ def debug_routes():
             print(route.path)
         except Exception:
             pass
-    

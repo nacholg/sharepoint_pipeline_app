@@ -60,6 +60,7 @@ class PipelineRunResult:
 
     warning_rows: Optional[list] = None
     error_rows: Optional[list] = None
+    enrichment_warnings: Optional[list] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -179,6 +180,38 @@ def _read_json_if_exists(path: Path) -> Optional[Any]:
         return None
 
 
+def _extract_enrichment_warnings(enriched_json_path: Path) -> list[dict]:
+    data = _read_json_if_exists(enriched_json_path)
+    if not isinstance(data, list):
+        return []
+
+    grouped: dict[str, list[str]] = {}
+
+    for item in data:
+        hotel = item.get("hotel", {}) or {}
+        hotel_name = (
+            hotel.get("display_name")
+            or hotel.get("name")
+            or "Hotel sin nombre"
+        )
+        warnings = hotel.get("validation_warnings") or []
+
+        if not warnings:
+            continue
+
+        if hotel_name not in grouped:
+            grouped[hotel_name] = []
+
+        for warning in warnings:
+            if warning not in grouped[hotel_name]:
+                grouped[hotel_name].append(warning)
+
+    return [
+        {"hotel_name": hotel_name, "warnings": warnings}
+        for hotel_name, warnings in grouped.items()
+    ]
+
+
 def _preflight_validate_pipeline(
     *,
     source_excel: Path,
@@ -241,30 +274,46 @@ def _preflight_validate_pipeline(
         warnings=warnings,
     )
 
-def _extract_enrichment_warnings(enriched_json_path: Path) -> list:
-    data = _read_json_if_exists(enriched_json_path)
-    if not data or not isinstance(data, list):
-        return []
 
-    result = {}
+def _build_error_result(
+    *,
+    job_id: str,
+    local_excel: Path,
+    job_dir: Path,
+    steps: List[PipelineStepResult],
+    validation: PipelineValidationResult,
+    error_message: str,
+    summary_file_path: Path,
+    warnings_file_path: Path,
+    errors_file_path: Path,
+    rows_file_path: Path,
+    profile_name: Optional[str],
+    resolved_language: str,
+    enriched_json: Path,
+) -> PipelineRunResult:
+    enrichment_warnings = _extract_enrichment_warnings(enriched_json)
 
-    for item in data:
-        hotel = item.get("hotel_name") or "Unknown hotel"
-        warnings = item.get("validation_warnings") or []
+    return PipelineRunResult(
+        ok=False,
+        job_id=job_id,
+        working_dir=str(job_dir),
+        input_file=str(local_excel),
+        steps=steps,
+        generated_files=_collect_outputs(job_dir),
+        error=error_message,
+        validation=validation.to_dict(),
+        pipeline_summary=_read_json_if_exists(summary_file_path),
+        warning_rows=_read_json_if_exists(warnings_file_path),
+        error_rows=_read_json_if_exists(errors_file_path),
+        summary_file=str(summary_file_path) if summary_file_path.exists() else None,
+        warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
+        errors_file=str(errors_file_path) if errors_file_path.exists() else None,
+        rows_file=str(rows_file_path) if rows_file_path.exists() else None,
+        profile_used=profile_name,
+        language=resolved_language,
+        enrichment_warnings=enrichment_warnings,
+    )
 
-        if warnings:
-            if hotel not in result:
-                result[hotel] = []
-            result[hotel].extend(warnings)
-
-    # formato final limpio
-    return [
-        {
-            "hotel_name": hotel,
-            "warnings": list(set(warns)),
-        }
-        for hotel, warns in result.items()
-    ]
 
 def run_full_voucher_pipeline(
     *,
@@ -316,6 +365,7 @@ def run_full_voucher_pipeline(
             validation=validation.to_dict(),
             profile_used=profile_name,
             language=resolved_language,
+            enrichment_warnings=[],
         )
 
     job_dir = (jobs_root / job_id).resolve()
@@ -353,24 +403,20 @@ def run_full_voucher_pipeline(
     step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=project_root)
     steps.append(step_1)
     if not step_1.ok:
-        return PipelineRunResult(
-            ok=False,
+        return _build_error_result(
             job_id=job_id,
-            working_dir=str(job_dir),
-            input_file=str(local_excel),
+            local_excel=local_excel,
+            job_dir=job_dir,
             steps=steps,
-            generated_files=_collect_outputs(job_dir),
-            error="Falló xlsx_to_voucher_json.py",
-            validation=validation.to_dict(),
-            pipeline_summary=_read_json_if_exists(summary_file_path),
-            warning_rows=_read_json_if_exists(warnings_file_path),
-            error_rows=_read_json_if_exists(errors_file_path),
-            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
-            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
-            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
-            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
-            profile_used=profile_name,
-            language=resolved_language,
+            validation=validation,
+            error_message="Falló xlsx_to_voucher_json.py",
+            summary_file_path=summary_file_path,
+            warnings_file_path=warnings_file_path,
+            errors_file_path=errors_file_path,
+            rows_file_path=rows_file_path,
+            profile_name=profile_name,
+            resolved_language=resolved_language,
+            enriched_json=enriched_json,
         )
 
     cmd_2 = [
@@ -389,24 +435,20 @@ def run_full_voucher_pipeline(
     step_2 = _run_step("enrich_hotels", cmd_2, cwd=project_root)
     steps.append(step_2)
     if not step_2.ok:
-        return PipelineRunResult(
-            ok=False,
+        return _build_error_result(
             job_id=job_id,
-            working_dir=str(job_dir),
-            input_file=str(local_excel),
+            local_excel=local_excel,
+            job_dir=job_dir,
             steps=steps,
-            generated_files=_collect_outputs(job_dir),
-            error="Falló enrich_hotels.py",
-            validation=validation.to_dict(),
-            pipeline_summary=_read_json_if_exists(summary_file_path),
-            warning_rows=_read_json_if_exists(warnings_file_path),
-            error_rows=_read_json_if_exists(errors_file_path),
-            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
-            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
-            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
-            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
-            profile_used=profile_name,
-            language=resolved_language,
+            validation=validation,
+            error_message="Falló enrich_hotels.py",
+            summary_file_path=summary_file_path,
+            warnings_file_path=warnings_file_path,
+            errors_file_path=errors_file_path,
+            rows_file_path=rows_file_path,
+            profile_name=profile_name,
+            resolved_language=resolved_language,
+            enriched_json=enriched_json,
         )
 
     cmd_3 = [
@@ -437,24 +479,20 @@ def run_full_voucher_pipeline(
     step_3 = _run_step("render_vouchers_html", cmd_3, cwd=project_root)
     steps.append(step_3)
     if not step_3.ok:
-        return PipelineRunResult(
-            ok=False,
+        return _build_error_result(
             job_id=job_id,
-            working_dir=str(job_dir),
-            input_file=str(local_excel),
+            local_excel=local_excel,
+            job_dir=job_dir,
             steps=steps,
-            generated_files=_collect_outputs(job_dir),
-            error="Falló render_vouchers_html.py",
-            validation=validation.to_dict(),
-            pipeline_summary=_read_json_if_exists(summary_file_path),
-            warning_rows=_read_json_if_exists(warnings_file_path),
-            error_rows=_read_json_if_exists(errors_file_path),
-            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
-            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
-            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
-            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
-            profile_used=profile_name,
-            language=resolved_language,
+            validation=validation,
+            error_message="Falló render_vouchers_html.py",
+            summary_file_path=summary_file_path,
+            warnings_file_path=warnings_file_path,
+            errors_file_path=errors_file_path,
+            rows_file_path=rows_file_path,
+            profile_name=profile_name,
+            resolved_language=resolved_language,
+            enriched_json=enriched_json,
         )
 
     cmd_4 = [
@@ -469,30 +507,28 @@ def run_full_voucher_pipeline(
     step_4 = _run_step("render_vouchers_pdf", cmd_4, cwd=project_root)
     steps.append(step_4)
     if not step_4.ok:
-        return PipelineRunResult(
-            ok=False,
+        return _build_error_result(
             job_id=job_id,
-            working_dir=str(job_dir),
-            input_file=str(local_excel),
+            local_excel=local_excel,
+            job_dir=job_dir,
             steps=steps,
-            generated_files=_collect_outputs(job_dir),
-            error="Falló render_vouchers_pdf.py",
-            validation=validation.to_dict(),
-            pipeline_summary=_read_json_if_exists(summary_file_path),
-            warning_rows=_read_json_if_exists(warnings_file_path),
-            error_rows=_read_json_if_exists(errors_file_path),
-            summary_file=str(summary_file_path) if summary_file_path.exists() else None,
-            warnings_file=str(warnings_file_path) if warnings_file_path.exists() else None,
-            errors_file=str(errors_file_path) if errors_file_path.exists() else None,
-            rows_file=str(rows_file_path) if rows_file_path.exists() else None,
-            profile_used=profile_name,
-            language=resolved_language,
+            validation=validation,
+            error_message="Falló render_vouchers_pdf.py",
+            summary_file_path=summary_file_path,
+            warnings_file_path=warnings_file_path,
+            errors_file_path=errors_file_path,
+            rows_file_path=rows_file_path,
+            profile_name=profile_name,
+            resolved_language=resolved_language,
+            enriched_json=enriched_json,
         )
 
     generated_files = _collect_outputs(job_dir)
 
     zip_path = job_dir / "artifacts.zip"
     created_zip = _zip_folder(job_dir, zip_path)
+
+    enrichment_warnings = _extract_enrichment_warnings(enriched_json)
 
     return PipelineRunResult(
         ok=True,
@@ -513,5 +549,5 @@ def run_full_voucher_pipeline(
         rows_file=str(rows_file_path) if rows_file_path.exists() else None,
         profile_used=profile_name,
         language=resolved_language,
-        enrichment_warnings=enrichment_warnings, 
+        enrichment_warnings=enrichment_warnings,
     )

@@ -9,6 +9,7 @@
     jobsHistory: "/api/jobs/history",
     jobStatus: (jobId) => `/api/jobs/${encodeURIComponent(jobId)}`,
     jobCancel: (jobId) => `/api/jobs/${encodeURIComponent(jobId)}/cancel`,
+    uploadHotelLogo: "/api/hotel-logos/upload",
   };
 
   async function fetchJson(url, init = {}) {
