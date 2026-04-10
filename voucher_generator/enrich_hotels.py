@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 
+from voucher_generator.hotel_logo_registry import find_manual_logo, load_hotel_logo_registry
+
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
@@ -337,6 +339,7 @@ def enrich_hotel(
     destination: Optional[str],
     cache: Dict[str, Any],
     logos_dir: Path,
+    manual_logo_registry: Dict[str, str] | None = None,
 ) -> Dict[str, Any]:
     hotel_name = clean_text(hotel.get("name"))
     destination_name = clean_text(destination)
@@ -345,13 +348,29 @@ def enrich_hotel(
         return {**hotel, "enrichment_status": "missing_hotel_name"}
 
     cache_key = f"{hotel_name}|{destination_name or ''}"
+
+    manual_logo_path = find_manual_logo(hotel_name, registry=manual_logo_registry)
+
     if cache_key in cache:
         print(f"[CACHE] {cache_key}")
-        return cache[cache_key]
+        cached = dict(cache[cache_key])
+
+        if manual_logo_path:
+            cached["local_logo_path"] = manual_logo_path
+            cached["logo_source"] = "manual"
+            if "logo_url" not in cached:
+                cached["logo_url"] = None
+
+        return cached
 
     query = build_search_query(hotel, destination)
     if not query:
-        enriched = {**hotel, "enrichment_status": "missing_query"}
+        enriched = {
+            **hotel,
+            "enrichment_status": "missing_query",
+            "logo_source": "manual" if manual_logo_path else "none",
+            "local_logo_path": manual_logo_path,
+        }
         cache[cache_key] = enriched
         return enriched
 
@@ -359,13 +378,25 @@ def enrich_hotel(
     best_candidate = choose_best_candidate(candidates, hotel, destination)
 
     if not best_candidate:
-        enriched = {**hotel, "enrichment_status": "not_found"}
+        enriched = {
+            **hotel,
+            "enrichment_status": "not_found",
+            "logo_source": "manual" if manual_logo_path else "none",
+            "local_logo_path": manual_logo_path,
+            "logo_url": None,
+        }
         cache[cache_key] = enriched
         return enriched
 
     place_id = best_candidate.get("id")
     if not place_id:
-        enriched = {**hotel, "enrichment_status": "missing_place_id"}
+        enriched = {
+            **hotel,
+            "enrichment_status": "missing_place_id",
+            "logo_source": "manual" if manual_logo_path else "none",
+            "local_logo_path": manual_logo_path,
+            "logo_url": None,
+        }
         cache[cache_key] = enriched
         return enriched
 
@@ -382,7 +413,10 @@ def enrich_hotel(
         if domain:
             print(f"[FALLBACK_DOMAIN] hotel='{hotel_name}' -> {domain}")
 
-    remote_logo_url, local_logo_path = download_logo(domain, logos_dir)
+    remote_logo_url, downloaded_local_logo_path = download_logo(domain, logos_dir)
+
+    final_local_logo_path = manual_logo_path or downloaded_local_logo_path
+    logo_source = "manual" if manual_logo_path else ("google" if remote_logo_url or downloaded_local_logo_path else "none")
 
     enriched = {
         **hotel,
@@ -393,17 +427,23 @@ def enrich_hotel(
         "website": website,
         "domain": domain,
         "logo_url": remote_logo_url,
-        "local_logo_path": local_logo_path,
+        "local_logo_path": final_local_logo_path,
+        "logo_source": logo_source,
+        "manual_logo_path": manual_logo_path,
+        "downloaded_logo_path": downloaded_local_logo_path,
         "google_place_id": details.get("id") or place_id,
         "google_maps_uri": details.get("googleMapsUri"),
-        "enrichment_status": "ok" if website or local_logo_path else "partial",
+        "enrichment_status": "ok" if website or final_local_logo_path or remote_logo_url else "partial",
     }
 
     print(
         f"[ENRICH] hotel='{hotel_name}' | "
         f"website={website} | "
         f"domain={domain} | "
-        f"logo_local={local_logo_path}"
+        f"manual_logo={manual_logo_path} | "
+        f"downloaded_logo={downloaded_local_logo_path} | "
+        f"final_logo={final_local_logo_path} | "
+        f"logo_source={logo_source}"
     )
 
     cache[cache_key] = enriched
@@ -418,6 +458,11 @@ def main() -> None:
     parser.add_argument("-o", "--output", default="voucher_payloads_enriched.json", help="Output JSON path")
     parser.add_argument("--cache", default="hotel_cache.json", help="Cache JSON path")
     parser.add_argument("--logos-dir", default="assets/logos", help="Directory to save local logo files")
+    parser.add_argument(
+        "--manual-logo-registry",
+        default="voucher_generator/config/hotel_logo_registry.json",
+        help="JSON file with manual hotel_name -> logo path mappings",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -427,11 +472,20 @@ def main() -> None:
 
     vouchers = load_json(input_path)
     cache = load_cache(cache_path)
+    manual_logo_registry = load_hotel_logo_registry(args.manual_logo_registry)
+
+    print(f"[INFO] manual hotel logo entries: {len(manual_logo_registry)}")
 
     for voucher in vouchers:
         hotel = voucher.get("hotel", {})
         destination = voucher.get("destination", {}).get("name")
-        voucher["hotel"] = enrich_hotel(hotel, destination, cache, logos_dir)
+        voucher["hotel"] = enrich_hotel(
+            hotel,
+            destination,
+            cache,
+            logos_dir,
+            manual_logo_registry=manual_logo_registry,
+        )
 
     save_cache(cache_path, cache)
     save_json(output_path, vouchers)

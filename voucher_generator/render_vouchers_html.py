@@ -168,8 +168,13 @@ def resolve_logo_src(
 
 
 def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False) -> Optional[str]:
+    preferred_logo = (
+        hotel.get("manual_logo_path")
+        or hotel.get("local_logo_path")
+        or hotel.get("logo_url")
+    )
     return resolve_logo_src(
-        hotel.get("local_logo_path") or hotel.get("logo_url"),
+        preferred_logo,
         output_dir=output_dir,
         debug=debug,
         label="hotel_logo",
@@ -392,8 +397,8 @@ def build_html(
       --print-header-meta-width: {layout['print_header_meta_width']}px;
       --print-logo-box-width: {layout['print_logo_box_width']}px;
       --print-logo-box-min-height: {layout['print_logo_box_min_height']}px;
-      --meta-box-min-height: {layout['meta_box_min_height']}px;
-      --meta-box-min-height-print: {layout['meta_box_min_height_print']}px;
+      --meta-box-min-height: {layout['meta_box_min_height']};
+      --meta-box-min-height-print: {layout['meta_box_min_height_print']};
       --shadow: 0 12px 32px var(--shadow-color);
       --font-family: {fonts['family']};
     }}
