@@ -16,7 +16,6 @@ from voucher_generator.i18n import get_translations, normalize_language
 from voucher_generator.profiles.profile_loader import load_profile
 
 
-
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROFILE_KEY = "default"
 
@@ -181,21 +180,6 @@ def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False)
     )
 
 
-def load_profile_config(profile_name: str | None) -> dict:
-    profile_key = (profile_name or DEFAULT_PROFILE_KEY).strip().lower()
-    module_name = f"voucher_generator.profiles.{profile_key}_profile"
-
-    try:
-        module = import_module(module_name)
-    except ModuleNotFoundError as exc:
-        if profile_key != DEFAULT_PROFILE_KEY:
-            module = import_module("voucher_generator.profiles.default_profile")
-        else:
-            raise exc
-
-    return getattr(module, "PROFILE_CONFIG")
-
-
 def passenger_cards(passengers: List[Dict[str, Any]], t: dict[str, str], language: str) -> str:
     cards: List[str] = []
     for pax in passengers:
@@ -325,16 +309,13 @@ def build_html(
         or hotel.get("name")
         or voucher_kicker
     )
+
     city = hotel.get("city")
     country = hotel.get("country")
     subtitle_parts = [p for p in [city, country] if p]
     header_subtitle = e(" · ".join(subtitle_parts))
+
     conf_html = display_or_pending(voucher_payload.get("confirmation_number"), t["pending"])
-    issue_date_html = (
-        no_break_iso_date(voucher.get("issue_date"), language=language)
-        if voucher.get("issue_date") not in (None, "")
-        else e(t["pending"])
-    )
 
     city_html = format_fact_value("city", hotel.get("city"), t, language)
     country_html = format_fact_value("country", hotel.get("country"), t, language)
@@ -421,14 +402,6 @@ def build_html(
       border-radius: var(--radius-page);
       overflow: hidden;
       box-shadow: var(--shadow);
-    }}
-
-    .text-safe {{
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
-      display: block;
     }}
 
     .text-wrap {{
@@ -629,7 +602,6 @@ def build_html(
       font-weight: 800;
       letter-spacing: -0.02em;
       margin: 0 0 10px;
-      word-break: normal;
       overflow-wrap: break-word;
       hyphens: auto;
     }}
@@ -640,7 +612,6 @@ def build_html(
       margin-bottom: 16px;
       color: var(--hotel-address);
       overflow-wrap: break-word;
-      word-break: normal;
     }}
 
     .hotel-mini-logo {{
@@ -693,9 +664,6 @@ def build_html(
       font-size: 12.5px;
       line-height: 1.35;
       font-weight: 600;
-      overflow-wrap: normal;
-      word-break: normal;
-      hyphens: none;
     }}
 
     .summary-grid {{
@@ -725,9 +693,6 @@ def build_html(
       font-size: 15px;
       line-height: 1.18;
       font-weight: 800;
-      overflow-wrap: normal;
-      word-break: normal;
-      hyphens: none;
     }}
 
     .table-wrap {{
@@ -814,7 +779,6 @@ def build_html(
       line-height: 1.35;
       font-weight: 600;
       overflow-wrap: break-word;
-      word-break: normal;
     }}
 
     .footer-note {{

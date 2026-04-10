@@ -24,6 +24,7 @@ if not GOOGLE_API_KEY:
 TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 DETAILS_URL = "https://places.googleapis.com/v1/places"
 
+BASE_DIR = Path(__file__).resolve().parent
 
 HOTEL_LIKE_TYPES = {
     "lodging",
@@ -106,6 +107,31 @@ def logo_url_for_domain(domain: Optional[str]) -> Optional[str]:
     return None
 
 
+def append_warning(warnings: list[str], message: str) -> None:
+    if message and message not in warnings:
+        warnings.append(message)
+
+
+def resolve_local_asset_path(value: Optional[str]) -> Optional[Path]:
+    if not value:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+
+    return (BASE_DIR / path).resolve()
+
+
+def local_logo_exists(value: Optional[str]) -> bool:
+    candidate = resolve_local_asset_path(value)
+    return bool(candidate and candidate.exists() and candidate.is_file())
+
+
 def build_search_query(hotel: Dict[str, Any], destination: Optional[str]) -> Optional[str]:
     hotel_name = clean_text(hotel.get("name"))
     destination_name = clean_text(destination)
@@ -144,7 +170,11 @@ def search_places(query: str) -> list[Dict[str, Any]]:
     }
     payload = {"textQuery": query}
 
-    res = requests.post(TEXT_SEARCH_URL, headers=headers, json=payload, timeout=30)
+    try:
+        res = requests.post(TEXT_SEARCH_URL, headers=headers, json=payload, timeout=30)
+    except requests.RequestException as exc:
+        print(f"[ERROR] search_places exception for '{query}': {exc}")
+        return []
 
     if res.status_code != 200:
         print(f"[ERROR] search_places {query}: {res.status_code} {res.text}")
@@ -262,7 +292,12 @@ def get_place_details(place_id: str) -> Dict[str, Any]:
             "internationalPhoneNumber,websiteUri,googleMapsUri,types,primaryType"
         ),
     }
-    res = requests.get(url, headers=headers, timeout=30)
+
+    try:
+        res = requests.get(url, headers=headers, timeout=30)
+    except requests.RequestException as exc:
+        print(f"[ERROR] get_place_details exception {place_id}: {exc}")
+        return {}
 
     if res.status_code != 200:
         print(f"[ERROR] get_place_details {place_id}: {res.status_code} {res.text}")
@@ -319,7 +354,7 @@ def download_logo(
     local_filename = f"{slugify(domain)}.png"
     local_path = destination_dir / local_filename
 
-    if local_path.exists() and local_path.stat().st_size > 0:
+    if local_path.exists() and local_path.is_file() and local_path.stat().st_size > 0:
         return url, str(local_path.as_posix())
 
     try:
@@ -328,10 +363,43 @@ def download_logo(
             local_path.write_bytes(res.content)
             return url, str(local_path.as_posix())
         print(f"[WARN] logo download failed for {domain}: {res.status_code}")
-    except Exception as exc:
+    except requests.RequestException as exc:
         print(f"[WARN] logo download exception for {domain}: {exc}")
 
     return url, None
+
+
+def build_base_result(
+    hotel: Dict[str, Any],
+    *,
+    manual_logo_path: Optional[str],
+    warnings: list[str],
+    enrichment_status: str,
+    logo_source: str,
+    logo_status: str,
+    logo_url: Optional[str] = None,
+    local_logo_path: Optional[str] = None,
+    website: Optional[str] = None,
+    domain: Optional[str] = None,
+    google_place_id: Optional[str] = None,
+    google_maps_uri: Optional[str] = None,
+    downloaded_logo_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
+        **hotel,
+        "logo_url": logo_url,
+        "local_logo_path": local_logo_path,
+        "manual_logo_path": manual_logo_path,
+        "downloaded_logo_path": downloaded_logo_path,
+        "logo_source": logo_source,
+        "logo_status": logo_status,
+        "website": website,
+        "domain": domain,
+        "google_place_id": google_place_id,
+        "google_maps_uri": google_maps_uri,
+        "enrichment_status": enrichment_status,
+        "validation_warnings": warnings,
+    }
 
 
 def enrich_hotel(
@@ -343,64 +411,140 @@ def enrich_hotel(
 ) -> Dict[str, Any]:
     hotel_name = clean_text(hotel.get("name"))
     destination_name = clean_text(destination)
-
-    if not hotel_name:
-        return {**hotel, "enrichment_status": "missing_hotel_name"}
-
-    cache_key = f"{hotel_name}|{destination_name or ''}"
+    warnings: list[str] = []
 
     manual_logo_path = find_manual_logo(hotel_name, registry=manual_logo_registry)
+    manual_logo_valid = False
+
+    if manual_logo_path:
+        manual_logo_valid = local_logo_exists(manual_logo_path)
+        if not manual_logo_valid:
+            append_warning(
+                warnings,
+                f"Manual logo path does not exist: {manual_logo_path}",
+            )
+
+    if not hotel_name:
+        append_warning(warnings, "Missing hotel name")
+        return build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="missing_hotel_name",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+
+    cache_key = f"{hotel_name}|{destination_name or ''}"
 
     if cache_key in cache:
         print(f"[CACHE] {cache_key}")
         cached = dict(cache[cache_key])
+        cached_warnings = list(cached.get("validation_warnings") or [])
 
-        if manual_logo_path:
+        for item in warnings:
+            append_warning(cached_warnings, item)
+
+        if manual_logo_valid:
             cached["local_logo_path"] = manual_logo_path
+            cached["manual_logo_path"] = manual_logo_path
             cached["logo_source"] = "manual"
-            if "logo_url" not in cached:
-                cached["logo_url"] = None
+            cached["logo_status"] = "ok"
+        elif manual_logo_path:
+            cached["manual_logo_path"] = manual_logo_path
+            cached["logo_status"] = "missing_file"
 
+        cached["validation_warnings"] = cached_warnings
         return cached
 
     query = build_search_query(hotel, destination)
     if not query:
-        enriched = {
-            **hotel,
-            "enrichment_status": "missing_query",
-            "logo_source": "manual" if manual_logo_path else "none",
-            "local_logo_path": manual_logo_path,
-        }
-        cache[cache_key] = enriched
-        return enriched
+        append_warning(warnings, "Missing search query for Google Places")
+        result = build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="missing_query",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+        cache[cache_key] = result
+        return result
 
-    candidates = search_places(query)
+    try:
+        candidates = search_places(query)
+    except Exception as exc:
+        append_warning(warnings, f"Google Places search failed: {exc}")
+        result = build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="google_lookup_error",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+        cache[cache_key] = result
+        return result
+
+    if not candidates:
+        append_warning(warnings, "Google Places returned no candidates")
+        result = build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="not_found",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            logo_url=None,
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+        cache[cache_key] = result
+        return result
+
     best_candidate = choose_best_candidate(candidates, hotel, destination)
 
     if not best_candidate:
-        enriched = {
-            **hotel,
-            "enrichment_status": "not_found",
-            "logo_source": "manual" if manual_logo_path else "none",
-            "local_logo_path": manual_logo_path,
-            "logo_url": None,
-        }
-        cache[cache_key] = enriched
-        return enriched
+        append_warning(warnings, "Google Places best candidate was discarded")
+        result = build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="not_found",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            logo_url=None,
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+        cache[cache_key] = result
+        return result
 
     place_id = best_candidate.get("id")
     if not place_id:
-        enriched = {
-            **hotel,
-            "enrichment_status": "missing_place_id",
-            "logo_source": "manual" if manual_logo_path else "none",
-            "local_logo_path": manual_logo_path,
-            "logo_url": None,
-        }
-        cache[cache_key] = enriched
-        return enriched
+        append_warning(warnings, "Google Places candidate missing place_id")
+        result = build_base_result(
+            hotel,
+            manual_logo_path=manual_logo_path,
+            warnings=warnings,
+            enrichment_status="missing_place_id",
+            logo_source="manual" if manual_logo_valid else "none",
+            logo_status="ok" if manual_logo_valid else ("missing_file" if manual_logo_path else "none"),
+            logo_url=None,
+            local_logo_path=manual_logo_path if manual_logo_valid else None,
+        )
+        cache[cache_key] = result
+        return result
 
-    details = get_place_details(place_id)
+    try:
+        details = get_place_details(place_id)
+    except Exception as exc:
+        append_warning(warnings, f"Google Places details lookup failed: {exc}")
+        details = {}
+
+    if not details:
+        append_warning(warnings, "Google Places details response was empty")
 
     components = details.get("addressComponents", [])
     city, country = parse_address_components(components)
@@ -412,28 +556,77 @@ def enrich_hotel(
         domain = maybe_guess_domain(hotel_name)
         if domain:
             print(f"[FALLBACK_DOMAIN] hotel='{hotel_name}' -> {domain}")
+            append_warning(warnings, f"Website missing, using guessed domain: {domain}")
+        else:
+            append_warning(warnings, "Website/domain not available for logo lookup")
 
-    remote_logo_url, downloaded_local_logo_path = download_logo(domain, logos_dir)
+    remote_logo_url = None
+    downloaded_local_logo_path = None
+    if domain:
+        try:
+            remote_logo_url, downloaded_local_logo_path = download_logo(domain, logos_dir)
+        except Exception as exc:
+            append_warning(warnings, f"Logo download failed: {exc}")
 
-    final_local_logo_path = manual_logo_path or downloaded_local_logo_path
-    logo_source = "manual" if manual_logo_path else ("google" if remote_logo_url or downloaded_local_logo_path else "none")
+    final_local_logo_path = manual_logo_path if manual_logo_valid else downloaded_local_logo_path
+
+    if manual_logo_valid:
+        logo_source = "manual"
+        logo_status = "ok"
+    elif manual_logo_path and not manual_logo_valid and downloaded_local_logo_path:
+        logo_source = "google"
+        logo_status = "ok"
+        append_warning(warnings, "Manual logo missing; fallback logo was downloaded successfully")
+    elif manual_logo_path and not manual_logo_valid:
+        logo_source = "none"
+        logo_status = "missing_file"
+    elif downloaded_local_logo_path or remote_logo_url:
+        logo_source = "google"
+        logo_status = "ok"
+    else:
+        logo_source = "none"
+        logo_status = "none"
+        append_warning(warnings, "No hotel logo could be resolved")
+
+    address_value = details.get("formattedAddress") or hotel.get("address")
+    city_value = city or hotel.get("city")
+    country_value = country or hotel.get("country")
+    phone_value = details.get("internationalPhoneNumber") or hotel.get("phone")
+
+    if not address_value:
+        append_warning(warnings, "Missing hotel address after enrichment")
+    if not city_value:
+        append_warning(warnings, "Missing hotel city after enrichment")
+    if not country_value:
+        append_warning(warnings, "Missing hotel country after enrichment")
+    if not phone_value:
+        append_warning(warnings, "Missing hotel phone after enrichment")
+
+    if details:
+        enrichment_status = "ok"
+        if warnings:
+            enrichment_status = "partial"
+    else:
+        enrichment_status = "partial"
 
     enriched = {
         **hotel,
-        "address": details.get("formattedAddress") or hotel.get("address"),
-        "city": city or hotel.get("city"),
-        "country": country or hotel.get("country"),
-        "phone": details.get("internationalPhoneNumber") or hotel.get("phone"),
+        "address": address_value,
+        "city": city_value,
+        "country": country_value,
+        "phone": phone_value,
         "website": website,
         "domain": domain,
         "logo_url": remote_logo_url,
         "local_logo_path": final_local_logo_path,
-        "logo_source": logo_source,
         "manual_logo_path": manual_logo_path,
         "downloaded_logo_path": downloaded_local_logo_path,
+        "logo_source": logo_source,
+        "logo_status": logo_status,
         "google_place_id": details.get("id") or place_id,
         "google_maps_uri": details.get("googleMapsUri"),
-        "enrichment_status": "ok" if website or final_local_logo_path or remote_logo_url else "partial",
+        "enrichment_status": enrichment_status,
+        "validation_warnings": warnings,
     }
 
     print(
@@ -443,7 +636,9 @@ def enrich_hotel(
         f"manual_logo={manual_logo_path} | "
         f"downloaded_logo={downloaded_local_logo_path} | "
         f"final_logo={final_local_logo_path} | "
-        f"logo_source={logo_source}"
+        f"logo_source={logo_source} | "
+        f"logo_status={logo_status} | "
+        f"warnings={len(warnings)}"
     )
 
     cache[cache_key] = enriched
