@@ -10,6 +10,7 @@
     jobStatus: (jobId) => `/api/jobs/${encodeURIComponent(jobId)}`,
     jobCancel: (jobId) => `/api/jobs/${encodeURIComponent(jobId)}/cancel`,
     uploadHotelLogo: "/api/hotel-logos/upload",
+    hotelLogos: "/api/hotel-logos",
   };
 
   async function fetchJson(url, init = {}) {

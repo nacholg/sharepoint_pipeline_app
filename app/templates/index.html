@@ -337,13 +337,31 @@
       <form id="hotelLogoForm" class="modal-body">
         <label class="field">
           <span>Nombre del hotel</span>
-          <input type="text" id="hotelNameInput" required />
+          <input type="text" id="hotelNameInput" list="hotelNameSuggestions" autocomplete="off" required />
+          <datalist id="hotelNameSuggestions"></datalist>
         </label>
+
+        <div id="hotelDuplicateHint" class="notice warning hidden">
+          Ese hotel ya existe. Si guardás, se reemplaza el logo actual.
+        </div>
 
         <label class="field">
           <span>Logo</span>
           <input type="file" id="hotelLogoInput" accept="image/*" required />
         </label>
+
+        <div id="hotelLogoPreviewWrap" class="hidden" style="padding: 10px 0;">
+          <div class="field">
+            <span>Preview</span>
+            <div class="picker-card" style="display:flex; justify-content:center; align-items:center; min-height: 140px;">
+              <img
+                id="hotelLogoPreviewImg"
+                alt="Preview logo hotel"
+                style="max-width: 100%; max-height: 120px; object-fit: contain; display:block;"
+              />
+            </div>
+          </div>
+        </div>
 
         <div class="panel-actions">
           <button type="submit" class="btn primary">Guardar</button>

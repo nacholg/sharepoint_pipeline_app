@@ -60,12 +60,17 @@
     toggleHistoryBtn: document.getElementById("toggleHistoryBtn"),
 
     hotelLogoBtn: document.getElementById("hotelLogoBtn"),
+    hotelLogoStatus: document.getElementById("hotelLogoStatus"),
     hotelLogoModal: document.getElementById("hotelLogoModal"),
     hotelLogoModalBackdrop: document.getElementById("hotelLogoModalBackdrop"),
     hotelLogoForm: document.getElementById("hotelLogoForm"),
     hotelNameInput: document.getElementById("hotelNameInput"),
     hotelLogoInput: document.getElementById("hotelLogoInput"),
+    hotelNameDatalist: document.getElementById("hotelNameSuggestions"),
     closeHotelLogoModal: document.getElementById("closeHotelLogoModal"),
+    hotelLogoPreviewWrap: document.getElementById("hotelLogoPreviewWrap"),
+    hotelLogoPreviewImg: document.getElementById("hotelLogoPreviewImg"),
+    hotelDuplicateHint: document.getElementById("hotelDuplicateHint"),
   };
 
   window.APP_DOM = dom;

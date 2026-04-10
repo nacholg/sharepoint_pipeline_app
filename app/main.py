@@ -1033,11 +1033,39 @@ def api_clients():
         "default_client": "globalevents2" if "globalevents2" in CLIENTS else next(iter(CLIENTS.keys()), None),
     }
 
+@app.get("/api/hotel-logos")
+def api_hotel_logos():
+    try:
+        registry_path = Path("voucher_generator/config/hotel_logo_registry.json")
+
+        if registry_path.exists():
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            if not isinstance(registry, dict):
+                registry = {}
+        else:
+            registry = {}
+
+        items = [
+            {
+                "hotel_name": hotel_name,
+                "logo_path": logo_path,
+            }
+            for hotel_name, logo_path in sorted(registry.items(), key=lambda item: str(item[0]).lower())
+        ]
+
+        return {
+            "ok": True,
+            "items": items,
+            "count": len(items),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/hotel-logos/upload")
 async def upload_hotel_logo(
     hotel_name: str = Form(...),
     file: UploadFile = File(...),
+    overwrite: str = Form("false"),
 ):
     try:
         normalized = hotel_name.strip().lower()
@@ -1047,6 +1075,8 @@ async def upload_hotel_logo(
         slug = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
         if not slug:
             raise HTTPException(status_code=400, detail="Nombre de hotel inválido.")
+
+        overwrite_bool = str(overwrite).strip().lower() == "true"
 
         logos_dir = Path("voucher_generator/assets/logos/hotels")
         logos_dir.mkdir(parents=True, exist_ok=True)
@@ -1058,9 +1088,6 @@ async def upload_hotel_logo(
         filename = f"{slug}{ext}"
         file_path = logos_dir / filename
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
         registry_path = Path("voucher_generator/config/hotel_logo_registry.json")
 
         if registry_path.exists():
@@ -1069,6 +1096,26 @@ async def upload_hotel_logo(
                 registry = {}
         else:
             registry = {}
+
+        already_exists = normalized in registry
+        if already_exists and not overwrite_bool:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Ya existe un logo registrado para '{normalized}'.",
+            )
+
+        old_path = registry.get(normalized)
+        if old_path:
+            old_file = Path("voucher_generator") / old_path
+            if old_file.exists() and old_file.is_file():
+                try:
+                    if old_file.resolve() != file_path.resolve():
+                        old_file.unlink()
+                except Exception:
+                    pass
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
         registry[normalized] = f"assets/logos/hotels/{filename}"
 
@@ -1081,6 +1128,7 @@ async def upload_hotel_logo(
             "ok": True,
             "hotel_name": normalized,
             "logo_path": registry[normalized],
+            "overwritten": already_exists,
         }
 
     except HTTPException:
