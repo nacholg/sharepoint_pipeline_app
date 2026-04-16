@@ -446,16 +446,37 @@ def enrich_hotel(
         for item in warnings:
             append_warning(cached_warnings, item)
 
-        if manual_logo_valid:
-            cached["local_logo_path"] = manual_logo_path
-            cached["manual_logo_path"] = manual_logo_path
+        cached_manual_logo_path = cached.get("manual_logo_path")
+        cached_downloaded_logo_path = cached.get("downloaded_logo_path") or cached.get("local_logo_path")
+
+        final_manual_logo_path = manual_logo_path or cached_manual_logo_path
+        final_manual_logo_valid = local_logo_exists(final_manual_logo_path) if final_manual_logo_path else False
+
+        if final_manual_logo_path and not final_manual_logo_valid:
+            append_warning(
+                cached_warnings,
+                f"Manual logo path does not exist: {final_manual_logo_path}",
+            )
+
+        if final_manual_logo_valid:
+            cached["manual_logo_path"] = final_manual_logo_path
+            cached["local_logo_path"] = final_manual_logo_path
             cached["logo_source"] = "manual"
             cached["logo_status"] = "ok"
-        elif manual_logo_path:
-            cached["manual_logo_path"] = manual_logo_path
-            cached["logo_status"] = "missing_file"
+        else:
+            cached["manual_logo_path"] = final_manual_logo_path
+            cached["downloaded_logo_path"] = cached_downloaded_logo_path
+            if cached_downloaded_logo_path:
+                cached["local_logo_path"] = cached_downloaded_logo_path
+                cached["logo_source"] = "google"
+                cached["logo_status"] = "ok"
+            else:
+                cached["local_logo_path"] = None
+                cached["logo_source"] = "none"
+                cached["logo_status"] = "missing_file" if final_manual_logo_path else "none"
 
         cached["validation_warnings"] = cached_warnings
+        cache[cache_key] = cached
         return cached
 
     query = build_search_query(hotel, destination)
