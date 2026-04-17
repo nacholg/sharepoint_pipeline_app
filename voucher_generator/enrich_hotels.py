@@ -441,6 +441,7 @@ def enrich_hotel(
     if cache_key in cache:
         print(f"[CACHE] {cache_key}")
         cached = dict(cache[cache_key])
+
         cached_warnings = list(cached.get("validation_warnings") or [])
 
         for item in warnings:
@@ -452,20 +453,20 @@ def enrich_hotel(
         final_manual_logo_path = manual_logo_path or cached_manual_logo_path
         final_manual_logo_valid = local_logo_exists(final_manual_logo_path) if final_manual_logo_path else False
 
-        if final_manual_logo_path and not final_manual_logo_valid:
-            append_warning(
-                cached_warnings,
-                f"Manual logo path does not exist: {final_manual_logo_path}",
-            )
-
+        # 🔥 CAMBIO CLAVE: override fuerte
         if final_manual_logo_valid:
             cached["manual_logo_path"] = final_manual_logo_path
             cached["local_logo_path"] = final_manual_logo_path
+            cached["downloaded_logo_path"] = None
             cached["logo_source"] = "manual"
             cached["logo_status"] = "ok"
+
+            print(f"[CACHE OVERRIDE] manual logo aplicado para '{hotel_name}'")
+
         else:
             cached["manual_logo_path"] = final_manual_logo_path
             cached["downloaded_logo_path"] = cached_downloaded_logo_path
+
             if cached_downloaded_logo_path:
                 cached["local_logo_path"] = cached_downloaded_logo_path
                 cached["logo_source"] = "google"
@@ -476,7 +477,10 @@ def enrich_hotel(
                 cached["logo_status"] = "missing_file" if final_manual_logo_path else "none"
 
         cached["validation_warnings"] = cached_warnings
+
+        # 🔥 IMPORTANTE: persistimos SIEMPRE
         cache[cache_key] = cached
+
         return cached
 
     query = build_search_query(hotel, destination)

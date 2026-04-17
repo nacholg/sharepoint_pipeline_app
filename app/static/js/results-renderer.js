@@ -47,6 +47,11 @@ function rrToggleSection(sectionId, triggerEl) {
   }
 }
 
+function rrPluralize(count, singular, plural = null) {
+  const safeCount = Number(count || 0);
+  return `${safeCount} ${safeCount === 1 ? singular : (plural || `${singular}s`)}`;
+}
+
 function rrRenderValidationBlock(validation) {
   if (!validation) return "";
 
@@ -67,7 +72,7 @@ function rrRenderValidationBlock(validation) {
   const warningHtml = warnings.length
     ? `
       <div class="validation-group validation-warnings">
-        <div class="validation-title">Warnings</div>
+        <div class="validation-title">Warnings de validación</div>
         <ul>${warnings.map((w) => `<li>${rrEscapeHtml(w)}</li>`).join("")}</ul>
       </div>
     `
@@ -89,6 +94,7 @@ function rrBuildSummaryGrid(result) {
 
   const totalRows = summary.total_rows ?? "-";
   const validRows = summary.valid_rows ?? "-";
+  const skippedRows = summary.skipped_rows ?? 0;
   const errors = summary.errors ?? "-";
   const warnings = summary.warnings ?? "-";
   const vouchers = summary.vouchers ?? "-";
@@ -140,6 +146,11 @@ function rrBuildSummaryGrid(result) {
         <strong>${rrEscapeHtml(validRows)}</strong>
       </div>
 
+      <div class="summary-card">
+        <span>Rows omitidas</span>
+        <strong>${rrEscapeHtml(skippedRows)}</strong>
+      </div>
+
       <div
         class="summary-card summary-card-clickable"
         id="warningsSummaryCard"
@@ -172,19 +183,55 @@ function rrBuildSummaryGrid(result) {
 
 function rrBuildPremiumHero(result) {
   const summary = result.pipeline_summary || {};
-  const vouchers = summary.vouchers ?? 0;
-  const warnings = summary.warnings ?? 0;
+  const quality = result.job_quality || {};
+  const logoSummary = result.logo_summary || {};
+
+  const vouchers = Number(summary.vouchers ?? 0);
+  const warnings = Number(summary.warnings ?? 0);
+  const skippedRows = Number(summary.skipped_rows ?? 0);
   const zipFile = result.zip_file || null;
+
+  const qualityScore = Number(quality.score ?? 0);
+  const qualityLabel = quality.label || "-";
+  const logoCoverage = Number(logoSummary.coverage_pct ?? 0);
+
+  let heroText = `Se generaron ${rrPluralize(vouchers, "voucher")} correctamente.`;
+
+  if (skippedRows > 0) {
+    heroText += ` Se omitieron ${rrPluralize(skippedRows, "fila")} con error.`;
+  }
+
+  if (warnings > 0) {
+    heroText += ` Se detectaron ${rrPluralize(warnings, "warning")}.`;
+  }
+
+  heroText += ` Cobertura de logos: ${logoCoverage}%.`;
+
+  if (!zipFile) {
+    heroText += " El paquete ZIP no está disponible.";
+  }
 
   return `
     <section class="result-section premium-hero executive-hero">
       <div class="premium-hero-copy">
         <div class="premium-kicker">Resultado listo</div>
-        <h4>Se generaron ${rrEscapeHtml(vouchers)} voucher${vouchers === 1 ? "" : "s"}</h4>
-        <p class="muted-text">
-          Preview embebido disponible y paquete ZIP listo para descargar.
-          ${warnings ? ` Se detectaron ${rrEscapeHtml(warnings)} warning${warnings === 1 ? "" : "s"}.` : ""}
-        </p>
+        <h4>${rrPluralize(vouchers, "voucher")} generado${vouchers === 1 ? "" : "s"}</h4>
+        <p class="muted-text">${rrEscapeHtml(heroText)}</p>
+
+        <div class="summary-grid" style="margin-top:16px;">
+          <div class="summary-card summary-card-highlight">
+            <span>Score del job</span>
+            <strong>${rrEscapeHtml(qualityScore)}/100</strong>
+          </div>
+          <div class="summary-card">
+            <span>Calidad</span>
+            <strong>${rrEscapeHtml(qualityLabel)}</strong>
+          </div>
+          <div class="summary-card">
+            <span>Cobertura logos</span>
+            <strong>${rrEscapeHtml(logoCoverage)}%</strong>
+          </div>
+        </div>
       </div>
 
       <div class="premium-hero-actions">
@@ -409,15 +456,47 @@ function rrBuildUploadsSection(uploadedFiles) {
   `;
 }
 
+function rrBuildLogoSourceSection(result) {
+  const summary = result.logo_summary || null;
+  if (!summary) return "";
+
+  const manual = Number(summary.manual ?? 0);
+  const google = Number(summary.google ?? 0);
+  const none = Number(summary.none ?? 0);
+
+  return `
+    <section class="result-section premium-collapsible-shell">
+      <div class="premium-collapsible-head">
+        <div>
+          <h4>Fuente de logos</h4>
+          <p class="muted-text">Resumen de cómo se resolvieron los logos de hoteles en esta corrida.</p>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span>Manual</span>
+          <strong>${rrEscapeHtml(manual)}</strong>
+        </div>
+        <div class="summary-card">
+          <span>Google</span>
+          <strong>${rrEscapeHtml(google)}</strong>
+        </div>
+        <div class="summary-card">
+          <span>Sin logo</span>
+          <strong>${rrEscapeHtml(none)}</strong>
+        </div>
+      </div>
+    </section>
+  `;
+}
 
 function renderResult(result) {
   const container = document.getElementById("resultContent");
 
   if (!container) return;
 
-  // 🔥 CLAVE
   container.innerHTML = "";
-
 
   const warningRows = Array.isArray(result.warning_rows) ? result.warning_rows : [];
   const errorRows = Array.isArray(result.error_rows) ? result.error_rows : [];
@@ -442,6 +521,7 @@ function renderResult(result) {
 
     ${rrRenderValidationBlock(result.validation || null)}
     ${rrRenderEnrichmentWarnings(result.enrichment_warnings || [])}
+    ${rrBuildLogoSourceSection(result)}
 
     ${result.error ? `<div class="error-banner">${rrEscapeHtml(result.error)}</div>` : ""}
 
@@ -454,6 +534,8 @@ function renderResult(result) {
     ${rrBuildDebugSection(result)}
 
     ${rrBuildUploadsSection(uploadedFiles)}
+    ${rrBuildLogoSourceSection(result)}
+    ${rrBuildLogoDetailsSection(result)}
   `;
 }
 
@@ -469,10 +551,44 @@ function rrRenderEnrichmentWarnings(enrichmentWarnings) {
         <div class="validation-group validation-warnings">
           <div class="validation-title">${rrEscapeHtml(h.hotel_name)}</div>
           <ul>
-            ${h.warnings.map(w => `<li>${rrEscapeHtml(w)}</li>`).join("")}
+            ${(Array.isArray(h.warnings) ? h.warnings : []).map(w => `<li>${rrEscapeHtml(w)}</li>`).join("")}
           </ul>
         </div>
       `).join("")}
+    </section>
+  `;
+}
+
+
+function rrBuildLogoDetailsSection(result) {
+  const items = result.logo_details || [];
+  if (!items.length) return "";
+
+  return `
+    <section class="result-section">
+      <h4>Detalle de logos por hotel</h4>
+
+      <div class="summary-grid">
+        ${items.map(h => {
+          const source = h.logo_source || "none";
+
+          let badge = "";
+          if (source === "manual") {
+            badge = `<span class="badge success">Manual</span>`;
+          } else if (source === "google") {
+            badge = `<span class="badge info">Google</span>`;
+          } else {
+            badge = `<span class="badge warning">Sin logo</span>`;
+          }
+
+          return `
+            <div class="summary-card">
+              <span>${rrEscapeHtml(h.hotel_name)}</span>
+              <strong>${badge}</strong>
+            </div>
+          `;
+        }).join("")}
+      </div>
     </section>
   `;
 }

@@ -62,6 +62,10 @@ class PipelineRunResult:
     error_rows: Optional[list] = None
     enrichment_warnings: Optional[list] = None
 
+    logo_summary: Optional[dict] = None
+    job_quality: Optional[dict] = None
+    logo_details: Optional[list] = None
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -212,6 +216,73 @@ def _extract_enrichment_warnings(enriched_json_path: Path) -> list[dict]:
     ]
 
 
+def _build_logo_summary(enriched_json_path: Path) -> dict:
+    data = _read_json_if_exists(enriched_json_path)
+    if not isinstance(data, list):
+        return {"manual": 0, "google": 0, "none": 0, "coverage_pct": 0.0, "total_hotels": 0, "resolved_hotels": 0}
+
+    manual = 0
+    google = 0
+    none = 0
+
+    for item in data:
+        hotel = item.get("hotel") or {}
+        source = hotel.get("logo_source")
+
+        if source == "manual":
+            manual += 1
+        elif source == "google":
+            google += 1
+        else:
+            none += 1
+
+    total_hotels = manual + google + none
+    resolved_hotels = manual + google
+    coverage_pct = round((resolved_hotels / total_hotels) * 100, 1) if total_hotels > 0 else 0.0
+
+    return {
+        "manual": manual,
+        "google": google,
+        "none": none,
+        "total_hotels": total_hotels,
+        "resolved_hotels": resolved_hotels,
+        "coverage_pct": coverage_pct,
+    }
+
+
+def _build_job_quality_score(
+    *,
+    pipeline_summary: Optional[dict],
+    logo_metrics: Optional[dict],
+) -> dict:
+    summary = pipeline_summary or {}
+    logos = logo_metrics or {}
+
+    skipped_rows = int(summary.get("skipped_rows") or 0)
+    warnings = int(summary.get("warnings") or 0)
+    hotels_without_logo = int(logos.get("none") or 0)
+
+    score = 100
+    score -= skipped_rows * 8
+    score -= warnings * 2
+    score -= hotels_without_logo * 12
+    score = max(0, min(100, score))
+
+    if score >= 90:
+        label = "Excelente"
+    elif score >= 75:
+        label = "Bueno"
+    elif score >= 60:
+        label = "Aceptable"
+    else:
+        label = "Revisar"
+
+    return {
+        "score": score,
+        "label": label,
+    }
+
+
 def _preflight_validate_pipeline(
     *,
     source_excel: Path,
@@ -274,7 +345,36 @@ def _preflight_validate_pipeline(
         warnings=warnings,
     )
 
+def _build_logo_details(enriched_json_path: Path) -> list[dict]:
+    data = _read_json_if_exists(enriched_json_path)
+    if not isinstance(data, list):
+        return []
 
+    seen = {}
+    result = []
+
+    for item in data:
+        hotel = item.get("hotel") or {}
+        name = hotel.get("display_name") or hotel.get("name")
+        source = hotel.get("logo_source")
+
+        if not name:
+            continue
+
+        key = name.lower().strip()
+
+        if key in seen:
+            continue
+
+        seen[key] = True
+
+        result.append({
+            "hotel_name": name,
+            "logo_source": source or "none"
+        })
+
+    return result
+    
 def _build_error_result(
     *,
     job_id: str,
@@ -292,6 +392,12 @@ def _build_error_result(
     enriched_json: Path,
 ) -> PipelineRunResult:
     enrichment_warnings = _extract_enrichment_warnings(enriched_json)
+    pipeline_summary = _read_json_if_exists(summary_file_path)
+    logo_summary = _build_logo_summary(enriched_json)
+    job_quality = _build_job_quality_score(
+        pipeline_summary=pipeline_summary,
+        logo_metrics=logo_summary,
+    )
 
     return PipelineRunResult(
         ok=False,
@@ -302,7 +408,7 @@ def _build_error_result(
         generated_files=_collect_outputs(job_dir),
         error=error_message,
         validation=validation.to_dict(),
-        pipeline_summary=_read_json_if_exists(summary_file_path),
+        pipeline_summary=pipeline_summary,
         warning_rows=_read_json_if_exists(warnings_file_path),
         error_rows=_read_json_if_exists(errors_file_path),
         summary_file=str(summary_file_path) if summary_file_path.exists() else None,
@@ -312,6 +418,8 @@ def _build_error_result(
         profile_used=profile_name,
         language=resolved_language,
         enrichment_warnings=enrichment_warnings,
+        logo_summary=logo_summary,
+        job_quality=job_quality,
     )
 
 
@@ -366,6 +474,8 @@ def run_full_voucher_pipeline(
             profile_used=profile_name,
             language=resolved_language,
             enrichment_warnings=[],
+            logo_summary={"manual": 0, "google": 0, "none": 0, "coverage_pct": 0.0, "total_hotels": 0, "resolved_hotels": 0},
+            job_quality={"score": 0, "label": "Revisar"},
         )
 
     job_dir = (jobs_root / job_id).resolve()
@@ -529,6 +639,15 @@ def run_full_voucher_pipeline(
     created_zip = _zip_folder(job_dir, zip_path)
 
     enrichment_warnings = _extract_enrichment_warnings(enriched_json)
+    pipeline_summary = _read_json_if_exists(summary_file_path)
+    logo_summary = _build_logo_summary(enriched_json)
+    job_quality = _build_job_quality_score(
+        pipeline_summary=pipeline_summary,
+        logo_metrics=logo_summary,
+    )
+
+    logo_details = _build_logo_details(enriched_json),
+
 
     return PipelineRunResult(
         ok=True,
@@ -540,7 +659,7 @@ def run_full_voucher_pipeline(
         zip_file=str(created_zip.resolve()) if created_zip else None,
         error=None,
         validation=validation.to_dict(),
-        pipeline_summary=_read_json_if_exists(summary_file_path),
+        pipeline_summary=pipeline_summary,
         warning_rows=_read_json_if_exists(warnings_file_path),
         error_rows=_read_json_if_exists(errors_file_path),
         summary_file=str(summary_file_path) if summary_file_path.exists() else None,
@@ -550,4 +669,8 @@ def run_full_voucher_pipeline(
         profile_used=profile_name,
         language=resolved_language,
         enrichment_warnings=enrichment_warnings,
+        logo_summary=logo_summary,
+        job_quality=job_quality,
+        logo_details=logo_details, 
+        
     )
