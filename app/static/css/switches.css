@@ -10,6 +10,8 @@
   background: rgba(255,255,255,0.03);
   border-radius: 16px;
   padding: 6px;
+  position: relative;
+
 }
 
 .mode-btn {
@@ -22,11 +24,36 @@
   color: var(--text);
   background: transparent;
   transition: all 0.24s ease;
+  position: relative;
+  z-index: 2;
 }
 
+.mode-switch::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: 50%;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  transition: transform 0.3s ease;
+}
+
+.mode-switch[data-mode="sharepoint"]::before {
+  transform: translateX(100%);
+}
 .mode-btn.active {
-  background: linear-gradient(135deg, rgba(91,124,255,0.9), rgba(139,92,246,0.92));
-  box-shadow: 0 10px 26px rgba(91, 124, 255, 0.24);
+  background: linear-gradient(
+    135deg,
+    rgba(106,124,255,0.80),
+    rgba(138,120,240,0.82)
+  );
+  box-shadow: none;
+}
+
+.mode-panel {
+  margin-top: 16px;
 }
 
 .mode-panel.hidden,
@@ -46,11 +73,14 @@
 .panel-header h3,
 .section-head h3 {
   margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 720;
 }
 
 .panel-header p {
   margin: 0;
   color: var(--muted);
+  font-size: 0.98rem;
 }
 
 .notice {
@@ -78,8 +108,9 @@
 }
 
 .field span {
-  color: #dce5f6;
+  color: #dde6f6;
   font-size: 0.92rem;
+  font-weight: 600;
 }
 
 input[type="file"],
@@ -88,20 +119,29 @@ select {
   width: 100%;
   color: var(--text);
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 14px;
   padding: 14px 16px;
   outline: none;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+input[type="file"]:hover,
+input[type="text"]:hover,
+select:hover {
+  background: rgba(255,255,255,0.05);
 }
 
 input[type="file"]:focus,
 input[type="text"]:focus,
 select:focus {
-  border-color: rgba(91,124,255,0.55);
+  border-color: rgba(106,124,255,0.48);
   transform: translateY(-1px);
 }
 
+.mode-panel .form-grid {
+  gap: 18px;
+}
 .panel-actions {
   display: flex;
   gap: 12px;

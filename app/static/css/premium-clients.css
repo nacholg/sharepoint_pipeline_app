@@ -126,18 +126,14 @@
   }
 }
 
-.step-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 
 .log-block.hidden {
   display: none;
 }
 
-.step-head {
+
+
+#steps .step-item .step-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -145,19 +141,21 @@
   flex-wrap: wrap;
 }
 
-.step-head-main {
+#steps .step-item .step-head-main {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
-.step-head-actions {
+#steps .step-item .step-head-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
+
+
 
 .step-status-pill {
   display: inline-flex;

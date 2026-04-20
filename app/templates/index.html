@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voucher Pipeline</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -60,191 +60,271 @@
         </div>
       </section>
 
-      <section class="card">
-        <div class="panel-header" style="margin-bottom: 18px;">
-          <div>
-            <h3>Cliente</h3>
-            <p>Seleccioná el cliente para aplicar automáticamente site, profile y branding por defecto.</p>
-          </div>
-        </div>
-
-        <div class="form-grid" style="margin-bottom: 20px; align-items: end;">
-          <label class="field">
-            <span>Cliente</span>
-            <select id="clientSelect"></select>
-          </label>
-
-          <label class="field">
-            <span>Idioma</span>
-            <select id="languageSelect">
-              <option value="">Automático (perfil / fallback español)</option>
-              <option value="es">Español</option>
-              <option value="en">English</option>
-              <option value="pt">Português</option>
-            </select>
-            <small class="field-help">
-              El idioma elegido acá tiene prioridad sobre el idioma definido en el profile.
-            </small>
-          </label>
-
-          <div class="field">
-            <span>Configuración activa</span>
-            <div id="clientMeta" class="picker-card" style="min-height: 86px;">
-              Sin selección
-            </div>
-          </div>
-        </div>
-
-        <div class="panel-actions" style="margin-top: 0; margin-bottom: 20px; align-items: center; gap: 10px;">
-          <button id="hotelLogoBtn" class="btn secondary small" type="button">
-            + Cargar logo hotel
-          </button>
-
-          <span id="hotelLogoStatus" class="status-badge neutral hidden">
-            Sin cambios
-          </span>
-        </div>
-
-        <div class="mode-switch" role="tablist" aria-label="Origen del pipeline">
-          <button id="btnLocal" class="mode-btn active" type="button">Local</button>
-          <button id="btnSP" class="mode-btn" type="button">SharePoint</button>
-        </div>
-
-        <div id="localSection" class="mode-panel">
-          <div class="panel-header">
-            <div>
-              <h3>Modo Local</h3>
-              <p>Subí un Excel desde tu equipo y corré el pipeline directamente.</p>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <label class="field">
-              <span>Excel de entrada</span>
-              <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" />
-            </label>
-
-            <label class="field">
-              <span>Cliente / Profile</span>
-              <select id="localProfileSelect">
-                <option value="default">Default</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="panel-actions">
-            <button id="runLocalBtn" class="btn primary large" type="button">
-              Ejecutar pipeline local
-            </button>
-          </div>
-        </div>
-
-        <div id="spSection" class="mode-panel hidden">
-          <div class="panel-header">
-            <div>
-              <h3>Modo SharePoint</h3>
-              <p>Explorá tu biblioteca, elegí un Excel de origen y una carpeta destino.</p>
-            </div>
-            {% if not user %}
-              <div class="notice warning">
-                Necesitás iniciar sesión con Microsoft para usar SharePoint.
+      <div class="layout-grid">
+        <div class="layout-left">
+          <section class="card">
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <span class="setup-step-kicker">Paso 1</span>
+                <h3>Configuración</h3>
+                <p>Definí cliente, idioma y branding base para la corrida.</p>
               </div>
-            {% endif %}
-          </div>
 
-          <div id="sessionBanner" class="session-banner {% if user %}hidden{% endif %}">
-            {% if user %}
-            {% else %}
-              Iniciá sesión con Microsoft para usar SharePoint.
-            {% endif %}
-          </div>
+              <div class="setup-step-summary hidden" id="step1Summary"></div>
 
-          {% if user %}
-            <div class="sp-site-grid">
-              <label class="field">
-                <span>Site origen</span>
-                <select id="sourceSiteSelect"></select>
-              </label>
+              <div class="setup-step-body" id="step1Body">
+                <div class="form-grid client-config-grid">
+                  <label class="field">
+                    <span>Cliente</span>
+                    <select id="clientSelect"></select>
+                  </label>
 
-              <label class="field">
-                <span>Site destino</span>
-                <select id="destinationSiteSelect"></select>
-              </label>
+                  <label class="field">
+                    <span>Idioma</span>
+                    <select id="languageSelect">
+                      <option value="">Automático (perfil / fallback español)</option>
+                      <option value="es">Español</option>
+                      <option value="en">English</option>
+                      <option value="pt">Português</option>
+                    </select>
+                    <small class="field-help">
+                      El idioma elegido acá tiene prioridad sobre el idioma definido en el profile.
+                    </small>
+                  </label>
 
-              <label class="field">
-                <span>Cliente / Profile</span>
-                <select id="sharepointProfileSelect">
-                  <option value="default">Default</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="sp-picker-grid">
-              <div class="picker-card">
-                <div class="picker-header">
-                  <div>
-                    <span class="eyebrow">Origen</span>
-                    <h4>Excel desde SharePoint</h4>
+                  <div class="field field-full">
+                    <span>Configuración activa</span>
+                    <div id="clientMeta" class="picker-card client-meta-card">
+                      Sin selección
+                    </div>
                   </div>
-                  <button id="pickSPFileBtn" class="btn secondary" type="button">
-                    Elegir archivo
+                </div>
+
+                <div class="panel-actions">
+                  <button id="continueStep1Btn" class="btn secondary" type="button">
+                    Continuar
                   </button>
                 </div>
-                <p id="selectedSourceLabel" class="picker-label">Sin seleccionar</p>
+              </div>
+            </div>
+
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <span class="setup-step-kicker">Paso 2</span>
+                <h3>Origen del archivo</h3>
+                <p>Elegí si vas a trabajar con un Excel local o desde SharePoint.</p>
               </div>
 
-              <div class="picker-card">
-                <div class="picker-header">
-                  <div>
-                    <span class="eyebrow">Destino</span>
-                    <h4>Carpeta de salida</h4>
+              <div class="setup-step-summary hidden" id="step2Summary"></div>
+
+              <div class="setup-step-body" id="step2Body">
+                <div class="mode-switch" role="tablist" aria-label="Origen del pipeline">
+                  <button id="btnLocal" class="mode-btn active" type="button">Local</button>
+                  <button id="btnSP" class="mode-btn" type="button">SharePoint</button>
+                </div>
+
+                <div id="localSection" class="mode-panel">
+                  <div class="panel-header">
+                    <div>
+                      <h3>Modo Local</h3>
+                      <p>Subí un Excel desde tu equipo y corré el pipeline directamente.</p>
+                    </div>
                   </div>
-                  <button id="pickSPFolderBtn" class="btn secondary" type="button">
-                    Elegir carpeta
+
+                  <div class="form-grid">
+                    <label class="field">
+                      <span>Excel de entrada</span>
+                      <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" />
+                    </label>
+
+                    <label class="field">
+                      <span>Cliente / Profile</span>
+                      <select id="localProfileSelect">
+                        <option value="default">Default</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div id="spSection" class="mode-panel hidden">
+                  <div class="panel-header">
+                    <div>
+                      <h3>Modo SharePoint</h3>
+                      <p>Explorá tu biblioteca, elegí un Excel de origen y una carpeta destino.</p>
+                    </div>
+                    {% if not user %}
+                      <div class="notice warning">
+                        Necesitás iniciar sesión con Microsoft para usar SharePoint.
+                      </div>
+                    {% endif %}
+                  </div>
+
+                  <div id="sessionBanner" class="session-banner {% if user %}hidden{% endif %}">
+                    {% if user %}
+                    {% else %}
+                      Iniciá sesión con Microsoft para usar SharePoint.
+                    {% endif %}
+                  </div>
+
+                  {% if user %}
+                    <div class="sp-site-grid">
+                      <label class="field">
+                        <span>Site origen</span>
+                        <select id="sourceSiteSelect"></select>
+                      </label>
+
+                      <label class="field">
+                        <span>Site destino</span>
+                        <select id="destinationSiteSelect"></select>
+                      </label>
+
+                      <label class="field">
+                        <span>Cliente / Profile</span>
+                        <select id="sharepointProfileSelect">
+                          <option value="default">Default</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div class="sp-picker-grid">
+                      <div class="picker-card">
+                        <div class="picker-header">
+                          <div>
+                            <span class="eyebrow">Origen</span>
+                            <h4>Excel desde SharePoint</h4>
+                          </div>
+                          <button id="pickSPFileBtn" class="btn secondary" type="button">
+                            Elegir archivo
+                          </button>
+                        </div>
+                        <p id="selectedSourceLabel" class="picker-label">Sin seleccionar</p>
+                      </div>
+
+                      <div class="picker-card">
+                        <div class="picker-header">
+                          <div>
+                            <span class="eyebrow">Destino</span>
+                            <h4>Carpeta de salida</h4>
+                          </div>
+                          <button id="pickSPFolderBtn" class="btn secondary" type="button">
+                            Elegir carpeta
+                          </button>
+                        </div>
+                        <p id="selectedDestLabel" class="picker-label">Sin seleccionar</p>
+                      </div>
+                    </div>
+                  {% endif %}
+                </div>
+
+
+                <div class="panel-actions">
+                  <button id="backStep2Btn" class="btn ghost" type="button">
+                    ← Volver
+                  </button>
+                  <button id="continueStep2Btn" class="btn secondary" type="button">
+                    Continuar
                   </button>
                 </div>
-                <p id="selectedDestLabel" class="picker-label">Sin seleccionar</p>
               </div>
             </div>
 
-            <div class="panel-actions">
-              <button id="runSPBtn" class="btn primary large" type="button">
-                Ejecutar pipeline SharePoint
-              </button>
+            <div class="setup-step setup-step-final">
+              <div class="setup-step-head">
+                <span class="setup-step-kicker">Paso 3</span>
+                <h3>Ejecutar</h3>
+                <p>Lanzá la generación y seguí el estado en tiempo real desde el panel derecho.</p>
+              </div>
+
+              <div class="setup-step-summary hidden" id="step3Summary"></div>
+
+              <div class="setup-step-body" id="step3Body">
+                <div class="execution-actions">
+                  <div class="execution-main">
+
+                    <button id="backStep3Btn" class="btn ghost" type="button">
+                      ← Volver
+                    </button>
+
+                    <button id="runLocalBtn" class="btn primary large" type="button">
+                      Ejecutar pipeline local
+                    </button>
+
+                    <button id="runSPBtn" class="btn primary large hidden" type="button">
+                      Ejecutar pipeline SharePoint
+                    </button>
+                  </div>
+
+                  <div class="execution-secondary">
+                    <button id="hotelLogoBtn" class="btn secondary small" type="button">
+                      + Cargar logo hotel
+                    </button>
+
+                    <span id="hotelLogoStatus" class="status-badge neutral hidden">
+                      Sin cambios
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="layout-right">
+          <section id="statusCard" class="card">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Pipeline status</span>
+                <h3>Estado de ejecución</h3>
+              </div>
+
+              <div class="panel-actions panel-actions-inline">
+                <button id="cancelJobBtn" class="btn ghost small hidden" type="button">
+                  Cancelar ejecución
+                </button>
+                <div id="statusBadge" class="status-badge neutral">Idle</div>
+              </div>
             </div>
 
-          {% endif %}
+            <div class="progress-wrap">
+              <div class="progress-meta">
+                <div id="progressLabel">Esperando ejecución</div>
+                <div id="progressPercent">0%</div>
+              </div>
+
+              <div class="progress-bar">
+                <div id="progressFill"></div>
+              </div>
+            </div>
+
+            <div id="steps" class="steps-list"></div>
+          </section>
+
+          <section id="jobHistoryCard" class="card">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Job History</span>
+                <h3>Historial de ejecuciones</h3>
+              </div>
+
+              <div class="history-head-actions">
+                <span id="jobHistoryCount" class="muted-pill">0 jobs</span>
+                <button id="toggleHistoryBtn" class="btn secondary small" type="button">
+                  Expandir
+                </button>
+                <button id="refreshHistoryBtn" class="btn secondary small" type="button">
+                  Actualizar
+                </button>
+              </div>
+            </div>
+
+            <div id="jobHistoryBody" class="job-history-body hidden">
+              <div id="jobHistoryList" class="job-history-list"></div>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <section id="statusCard" class="card">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Pipeline status</span>
-            <h3>Estado de ejecución</h3>
-          </div>
-
-          <div class="panel-actions" style="margin-top:0;">
-            <button id="cancelJobBtn" class="btn ghost small hidden" type="button">
-              Cancelar ejecución
-            </button>
-            <div id="statusBadge" class="status-badge neutral">Idle</div>
-          </div>
-        </div>
-
-        <div class="progress-meta">
-          <div id="progressLabel">Esperando ejecución</div>
-          <div id="progressPercent">0%</div>
-        </div>
-
-        <div class="progress-bar">
-          <div id="progressFill"></div>
-        </div>
-
-        <div id="steps" class="steps-list"></div>
-      </section>
-
-      <section id="resultCard" class="card hidden">
+      <section id="resultCard" class="card result-full-width hidden">
         <div class="section-head">
           <div>
             <span class="eyebrow">Resultado</span>
@@ -253,29 +333,6 @@
         </div>
 
         <div id="resultContent"></div>
-      </section>
-
-      <section id="jobHistoryCard" class="card">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Job History</span>
-            <h3>Historial de ejecuciones</h3>
-          </div>
-
-          <div class="history-head-actions">
-            <span id="jobHistoryCount" class="muted-pill">0 jobs</span>
-            <button id="toggleHistoryBtn" class="btn secondary small" type="button">
-              Expandir
-            </button>
-            <button id="refreshHistoryBtn" class="btn secondary small" type="button">
-              Actualizar
-            </button>
-          </div>
-        </div>
-
-        <div id="jobHistoryBody" class="job-history-body hidden">
-          <div id="jobHistoryList" class="job-history-list"></div>
-        </div>
       </section>
     </main>
   </div>
@@ -306,7 +363,7 @@
           <strong>Carpeta actual:</strong>
           <span id="spCurrentPathLabel">Raíz</span>
         </div>
-        <div class="panel-actions" style="margin-top:0;">
+        <div class="panel-actions panel-actions-inline">
           <button id="spBackBtn" class="btn secondary small" type="button">Volver</button>
           <button id="selectCurrentFolderBtn" class="btn secondary small hidden" type="button">
             Usar carpeta actual como destino
@@ -350,14 +407,14 @@
           <input type="file" id="hotelLogoInput" accept="image/*" required />
         </label>
 
-        <div id="hotelLogoPreviewWrap" class="hidden" style="padding: 10px 0;">
+        <div id="hotelLogoPreviewWrap" class="hidden hotel-logo-preview-wrap">
           <div class="field">
             <span>Preview</span>
-            <div class="picker-card" style="display:flex; justify-content:center; align-items:center; min-height: 140px;">
+            <div class="picker-card hotel-logo-preview-card">
               <img
                 id="hotelLogoPreviewImg"
                 alt="Preview logo hotel"
-                style="max-width: 100%; max-height: 120px; object-fit: contain; display:block;"
+                class="hotel-logo-preview-img"
               />
             </div>
           </div>

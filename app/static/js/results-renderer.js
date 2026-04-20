@@ -517,11 +517,13 @@ function renderResult(result) {
   container.innerHTML = `
     ${rrBuildSummaryGrid(result)}
 
+    <div class="result-highlight">
     ${RR_PREMIUM_MODE ? rrBuildPremiumHero(result) : ""}
+    </div>
 
     ${rrRenderValidationBlock(result.validation || null)}
     ${rrRenderEnrichmentWarnings(result.enrichment_warnings || [])}
-    ${rrBuildLogoSourceSection(result)}
+    
 
     ${result.error ? `<div class="error-banner">${rrEscapeHtml(result.error)}</div>` : ""}
 

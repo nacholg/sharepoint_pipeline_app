@@ -15,6 +15,9 @@
     runSPBtn: document.getElementById("runSPBtn"),
     cancelJobBtn: document.getElementById("cancelJobBtn"),
 
+    continueStep1Btn: document.getElementById("continueStep1Btn"),
+    continueStep2Btn: document.getElementById("continueStep2Btn"),
+
     localProfileSelect: document.getElementById("localProfileSelect"),
     sharepointProfileSelect: document.getElementById("sharepointProfileSelect"),
 

@@ -3,20 +3,33 @@
 /* ========================================================================== */
 
 :root {
-  --bg-1: #07111f;
-  --bg-2: #0c1729;
-  --bg-3: #10213b;
-  --card: rgba(13, 23, 41, 0.78);
-  --card-2: rgba(255, 255, 255, 0.05);
-  --line: rgba(255, 255, 255, 0.1);
-  --text: #f3f6fb;
-  --muted: #96a4bf;
-  --primary: #5b7cff;
-  --primary-2: #8b5cf6;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  /* Fondos */
+  --bg-1: #08101b;
+  --bg-2: #0d1725;
+  --bg-3: #122033;
+
+  /* Superficies */
+  --card: rgba(12, 21, 37, 0.78);
+  --card-2: rgba(255, 255, 255, 0.045);
+  --line: rgba(255, 255, 255, 0.08);
+
+  /* Texto */
+  --text: #edf3fb;
+  --muted: #9caac0;
+
+  /* Marca */
+  --primary: #6a7cff;
+  --primary-2: #8a78f0;
+
+  /* Estados */
+  --success: #38b26b;
+  --warning: #d6a13d;
+  --danger: #d55d5d;
+
+  /* Profundidad */
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+
+  /* Radios */
   --radius-xl: 24px;
   --radius-lg: 18px;
   --radius-md: 14px;

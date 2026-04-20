@@ -1,0 +1,660 @@
+/* ========================================================================== */
+/* 05 - MAIN LAYOUT GRID                                                      */
+/* ========================================================================== */
+
+.main-layout {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Hero                                                                       */
+/* -------------------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 22px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.hero-copy,
+.hero-stats {
+  min-width: 0;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-copy h2 {
+  margin: 8px 0 12px;
+  font-size: clamp(1.9rem, 2.6vw, 2.8rem);
+  line-height: 1.06;
+}
+
+.hero-copy p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-content: center;
+}
+
+.stat-box {
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.stat-box strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layout grid principal                                                       */
+/* -------------------------------------------------------------------------- */
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  min-width: 0;
+}
+
+.layout-left,
+.layout-right {
+  min-width: 0;
+}
+
+.layout-left {
+  display: grid;
+  align-content: start;
+}
+
+.layout-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-content: start;
+}
+
+.layout-left > .card,
+.layout-right > .card,
+.result-full-width {
+  min-width: 0;
+}
+
+.result-full-width {
+  width: 100%;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cards                                                                      */
+/* -------------------------------------------------------------------------- */
+
+.layout-right > .card,
+.result-full-width {
+  position: relative;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.03),
+    0 14px 34px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared helpers                                                              */
+/* -------------------------------------------------------------------------- */
+
+.client-config-grid {
+  margin-bottom: 0;
+  align-items: end;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.client-meta-card {
+  min-height: 84px;
+  padding: 14px 16px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  line-height: 1.45;
+}
+
+.panel-actions-inline {
+  margin-top: 0;
+}
+
+.hotel-logo-preview-wrap {
+  padding: 10px 0;
+}
+
+.hotel-logo-preview-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 140px;
+}
+
+.hotel-logo-preview-img {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c8d5ee;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Left column - wizard                                                        */
+/* -------------------------------------------------------------------------- */
+
+.layout-left > .card {
+  border-radius: 22px;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.03),
+    0 14px 34px rgba(0,0,0,0.18);
+}
+
+.setup-step .panel-actions {
+  margin-top: 18px;
+}
+
+.setup-step .btn.secondary.is-disabled,
+.setup-step .btn.secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.setup-step {
+  position: relative;
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  opacity: 1;
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.setup-step:first-of-type {
+  margin-top: 0;
+}
+
+.setup-step.is-active {
+  border-color: rgba(106,124,255,0.26);
+  background:
+    linear-gradient(180deg, rgba(106,124,255,0.06), rgba(255,255,255,0.02));
+  box-shadow: 0 10px 24px rgba(0,0,0,0.14);
+}
+
+.setup-step.is-complete {
+  border-color: rgba(56,178,107,0.18);
+  background: rgba(255,255,255,0.025);
+}
+
+.setup-step.is-collapsed .setup-step-body {
+  display: none;
+}
+
+.setup-step-head {
+  margin-bottom: 14px;
+}
+
+.setup-step-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dce6fb;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+}
+
+.setup-step-head h3 {
+  margin: 0 0 6px;
+  font-size: 1.16rem;
+  font-weight: 740;
+}
+
+.setup-step-head p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 58ch;
+}
+
+.setup-step-summary {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.setup-step-summary strong {
+  color: var(--text);
+}
+
+.setup-step-summary br {
+  display: block;
+  content: "";
+  margin-top: 4px;
+}
+
+.setup-step,
+.setup-step-body,
+.setup-step-summary,
+.setup-step-summary * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.setup-step-body {
+  margin-top: 8px;
+}
+
+.setup-step .mode-switch {
+  margin-bottom: 16px;
+}
+
+.mode-panel {
+  margin-top: 16px;
+}
+
+.setup-step .sp-site-grid,
+.setup-step .sp-picker-grid {
+  margin-top: 16px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.execution-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.execution-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.execution-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.setup-step-final {
+  border-color: rgba(106,124,255,0.22);
+  background:
+    linear-gradient(180deg, rgba(106,124,255,0.06), rgba(255,255,255,0.02));
+}
+
+.setup-step-final .btn.primary.large {
+  min-width: 240px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Right column                                                                */
+/* -------------------------------------------------------------------------- */
+
+.layout-right .section-head,
+.result-full-width .section-head {
+  margin-bottom: 18px;
+}
+
+.layout-right .section-head h3,
+.result-full-width .section-head h3 {
+  margin: 4px 0 0;
+  font-size: 1.08rem;
+  line-height: 1.15;
+}
+
+/* Status card */
+
+#statusCard {
+  background:
+    radial-gradient(circle at top right, rgba(91,124,255,0.14), transparent 36%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
+}
+
+#statusCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 22px 0 0 22px;
+  background: linear-gradient(180deg, rgba(91,124,255,0.95), rgba(139,92,246,0.95));
+  opacity: 0.95;
+}
+
+#statusBadge {
+  min-width: 88px;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.progress-wrap {
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.progress-meta {
+  align-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+#progressLabel {
+  font-weight: 600;
+  color: #eef4ff;
+}
+
+#progressPercent {
+  font-weight: 700;
+  color: #d9e5ff;
+}
+
+.progress-bar {
+  height: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+#steps {
+  gap: 10px;
+}
+
+/* Job history */
+
+#jobHistoryCard {
+  background:
+    radial-gradient(circle at top right, rgba(139,92,246,0.10), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
+}
+
+#jobHistoryCount {
+  font-weight: 700;
+}
+
+#jobHistoryBody {
+  margin-top: 6px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Result full width                                                           */
+/* -------------------------------------------------------------------------- */
+
+#resultCard {
+  margin-top: 4px;
+  background:
+    radial-gradient(circle at top left, rgba(34,197,94,0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(91,124,255,0.10), transparent 24%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
+}
+
+#resultContent {
+  min-width: 0;
+}
+
+.result-highlight {
+  border: 1px solid rgba(106,124,255,0.22);
+  background: linear-gradient(
+    180deg,
+    rgba(106,124,255,0.06),
+    rgba(106,124,255,0.02)
+  );
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Voucher list / preview helpers                                              */
+/* -------------------------------------------------------------------------- */
+
+.voucher-list {
+  display: grid;
+  gap: 10px;
+}
+
+.voucher-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  transition: all 0.18s ease;
+}
+
+.voucher-item:hover {
+  background: rgba(106,124,255,0.08);
+  transform: translateY(-1px);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Preview inline more readable                                                */
+/* -------------------------------------------------------------------------- */
+
+.preview-shell {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 22px;
+}
+
+.preview-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.preview-sidebar {
+  padding: 16px;
+}
+
+.preview-voucher-list {
+  display: grid;
+  gap: 10px;
+}
+
+.preview-voucher-item {
+  padding: 13px 14px;
+  border-radius: 14px;
+}
+
+.preview-stage {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.preview-toolbar {
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+.preview-frame-wrap {
+  min-width: 0;
+  border-radius: 20px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.preview-frame {
+  width: 100%;
+  height: 980px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 16px;
+  overflow: hidden;
+  transform: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                  */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1280px) {
+  .layout-grid {
+    grid-template-columns: 380px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-right {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .preview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-sidebar {
+    order: 2;
+  }
+
+  .preview-stage {
+    order: 1;
+  }
+}
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .main-layout {
+    gap: 18px;
+  }
+
+  .hero {
+    gap: 16px;
+  }
+
+  .hero-copy h2 {
+    font-size: 1.7rem;
+  }
+
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-box {
+    padding: 13px 14px;
+  }
+
+  .execution-main,
+  .execution-secondary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .setup-step-final .btn.primary.large,
+  .execution-secondary .btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .preview-frame {
+    height: 760px;
+  }
+
+  .layout-right > .card,
+  .result-full-width,
+  .layout-left > .card {
+    border-radius: 18px;
+  }
+
+  #statusCard::before {
+    width: 3px;
+    border-radius: 18px 0 0 18px;
+  }
+}

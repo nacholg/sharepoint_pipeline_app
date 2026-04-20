@@ -45,6 +45,9 @@ async function runLocalPipeline(event) {
     if (!response.ok || !data?.ok || !data?.job_id) {
       throw new Error(data?.detail || "Error iniciando pipeline local.");
     }
+    window.fileInput?.addEventListener("change", () => {
+    window.setActiveStep?.(2);
+  });
 
     window.currentRunningJobId = data.job_id;
     await pollJob(data.job_id);

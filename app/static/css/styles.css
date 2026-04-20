@@ -2,8 +2,12 @@
 @import url("/static/css/base-global.css");
 @import url("/static/css/animation.css");
 
+
+
 @import url("/static/css/shell.css");
+@import url("/static/css/layout-grid.css");
 @import url("/static/css/topbar.css");
+@import url("/static/css/buttons.css");
 @import url("/static/css/layout-hero.css");
 
 @import url("/static/css/switches.css");
@@ -26,3 +30,309 @@
 
 @import url("/static/css/responsive.css");
 @import url("/static/css/utils.css");
+
+
+/* ========================================================================== */
+/* 16 - FIXES DE OVERFLOW + WIZARD UI                                         */
+/* ========================================================================== */
+
+/* Evita que los contenedores rompan el layout */
+.setup-step-summary,
+.client-meta-card,
+.picker-label {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Permite que los textos largos bajen de línea correctamente */
+.setup-step-summary {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Evita overflow en grids */
+.form-grid,
+.client-config-grid,
+.sp-site-grid {
+  min-width: 0;
+}
+
+/* Evita overflow en fields */
+.field,
+.field-full {
+  min-width: 0;
+}
+
+/* Versión más elegante: clamp a 2 líneas */
+.setup-step-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hover y spacing en lista de vouchers */
+.voucher-list {
+  gap: 10px;
+}
+
+.voucher-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  transition: all 0.18s ease;
+}
+
+.voucher-item:hover {
+  background: rgba(106,124,255,0.08);
+  transform: translateY(-1px);
+}
+
+/* Botones deshabilitados */
+.btn.is-disabled,
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Panel actions spacing */
+.setup-step .panel-actions {
+  margin-top: 18px;
+}
+
+/* Feedback visual de paso completado */
+.setup-step.is-complete {
+  border-color: rgba(80,200,120,0.25);
+}
+
+.setup-step.is-complete .setup-step-kicker {
+  background: rgba(80,200,120,0.15);
+}
+
+
+/* ========================================================================== */
+/* 17 - PIPELINE STATUS OVERFLOW FIXES                                        */
+/* ========================================================================== */
+
+#statusCard,
+#steps,
+.step,
+.step-item,
+.step-head,
+.step-head-main,
+.step-head-actions,
+.step-body {
+  min-width: 0;
+}
+
+.step-head,
+#steps .step-item .step-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.step-head-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.step-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-state,
+.step-status-pill,
+.step-log-btn,
+.step-head-actions .btn {
+  flex-shrink: 0;
+}
+
+.log-block,
+.step pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .step-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+  }
+
+  .step-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+
+/* ========================================================================== */
+/* 19 - PIPELINE STATUS LAYOUT TUNING                                         */
+/* ========================================================================== */
+
+#statusCard,
+#steps,
+.step-item,
+.step-head,
+.step-head-main,
+.step-head-actions,
+.step-body {
+  min-width: 0;
+}
+
+#steps .step-item {
+  padding: 18px 0;
+}
+
+#steps .step-item .step-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+#steps .step-item .step-head-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#steps .step-item .step-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.step-title {
+  min-width: 0;
+  font-size: 0.98rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-status-pill,
+.step-log-btn,
+.step-head-actions .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.step-status-pill {
+  min-width: 122px;
+  justify-content: center;
+}
+
+.step-log-btn,
+.step-head-actions .btn.small {
+  min-width: 88px;
+  justify-content: center;
+}
+
+@media (max-width: 980px) {
+  #steps .step-item .step-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  #steps .step-item .step-head-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .step-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 640px) {
+  #steps .step-item .step-head-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .step-status-pill,
+  .step-log-btn,
+  .step-head-actions .btn.small {
+    min-width: 0;
+  }
+}
+
+/* ========================================================================== */
+/* 18 - WIZARD COLLAPSE / EXPAND                                              */
+/* ========================================================================== */
+
+.setup-step {
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.setup-step.is-collapsed .setup-step-body {
+  display: none;
+}
+
+.setup-step.is-collapsed .setup-step-summary.hidden {
+  display: none !important;
+}
+
+.setup-step.is-active .setup-step-body {
+  display: block;
+}
+
+.setup-step:not(.is-active):not(.is-complete) {
+  opacity: 0.92;
+}
+
+.setup-step.is-complete .setup-step-summary {
+  display: block;
+}
+
+/* ========================================================================== */
+/* 20 - FIX CLIPPING TITULOS CARDS                                            */
+/* ========================================================================== */
+
+/* Asegura padding interno suficiente */
+.card {
+  padding-left: 22px !important;
+}
+
+/* Ajuste específico para headers de cards */
+.card-header,
+.pipeline-status-header,
+.job-history-header {
+  padding-left: 22px;
+}
+
+/* Evita que pseudo-elementos tapen texto */
+.card::before {
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Asegura que el contenido esté por encima */
+.card > * {
+  position: relative;
+  z-index: 1;
+}

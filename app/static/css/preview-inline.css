@@ -107,11 +107,17 @@
   font-size: 0.8rem;
   color: var(--muted);
 }
+.preview-panel {
+  padding: 18px;
+}
 
 .preview-stage {
   min-width: 0;
   display: grid;
   gap: 12px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #e5e7eb;
 }
 
 .preview-toolbar {
@@ -160,14 +166,6 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
-.preview-frame {
-  width: 100%;
-  height: 1100px;
-  border: none;
-  background: #e5e7eb;
-  border-radius: 14px;
-  overflow: hidden;
-}
 
 .preview-frame iframe,
 #previewFrame {
@@ -233,11 +231,12 @@
 
 .preview-frame {
   width: 100%;
-  height: 1100px;
   border: none;
   background: #e5e7eb;
   border-radius: 14px;
   overflow: hidden;
-  transform: scale(0.9);
+  transform: none;
+  height: 780px;
+  background: #f1f5f9;
   transform-origin: top center;
 }

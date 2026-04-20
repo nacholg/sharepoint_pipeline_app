@@ -7,12 +7,18 @@
       sessionExpiredAlertShown: false,
     },
 
+    wizard: {
+      step1Confirmed: false,
+      step2Confirmed: false,
+    },
+
     data: {
       sharepointSites: [],
       availableProfiles: [],
       availableClients: [],
       selectedClient: null,
     },
+    
 
     sharepoint: {
       selectedSourceFileId: null,
@@ -58,6 +64,17 @@
     (v) => { state.data.sharepointSites = Array.isArray(v) ? v : []; }
   );
 
+  proxy(
+    "step1Confirmed",
+    () => state.wizard.step1Confirmed,
+    (v) => { state.wizard.step1Confirmed = !!v; }
+  );
+
+  proxy(
+    "step2Confirmed",
+    () => state.wizard.step2Confirmed,
+    (v) => { state.wizard.step2Confirmed = !!v; }
+  );
   proxy(
     "availableProfiles",
     () => state.data.availableProfiles,

@@ -1,4 +1,4 @@
-function () {
+(function () {
   const PREFS_KEY = "voucher_prefs";
 
   function savePrefs(prefs) {

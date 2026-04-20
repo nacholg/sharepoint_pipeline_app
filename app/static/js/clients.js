@@ -240,6 +240,7 @@
   window.loadClients = loadClients;
   window.restoreDefaultClientSelection = restoreDefaultClientSelection;
   window.onClientChange = onClientChange;
+  window.setActiveStep?.(1);
   window.loadProfiles = loadProfiles;
   window.fillProfileSelect = fillProfileSelect;
   window.loadSharePointSites = loadSharePointSites;
