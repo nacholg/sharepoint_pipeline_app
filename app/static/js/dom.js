@@ -17,6 +17,8 @@
 
     continueStep1Btn: document.getElementById("continueStep1Btn"),
     continueStep2Btn: document.getElementById("continueStep2Btn"),
+    backStep2Btn: document.getElementById("backStep2Btn"),
+    backStep3Btn: document.getElementById("backStep3Btn"),
 
     localProfileSelect: document.getElementById("localProfileSelect"),
     sharepointProfileSelect: document.getElementById("sharepointProfileSelect"),

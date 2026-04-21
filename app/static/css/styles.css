@@ -336,3 +336,438 @@
   position: relative;
   z-index: 1;
 }
+
+/* ========================================================================== */
+/* 21 - MICROINTERACTIONS / POLISH                                            */
+/* ========================================================================== */
+
+/* Cards */
+.card,
+.setup-step,
+.summary-card,
+.executive-file-card,
+.preview-voucher-item,
+.history-item,
+.sp-item,
+.file-item {
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+/* Wizard */
+.setup-step.is-active {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.setup-step.is-complete .setup-step-summary {
+  animation: fadeStepIn 0.2s ease;
+}
+
+.setup-step-body {
+  animation: fadeStepIn 0.22s ease;
+}
+
+/* Buttons */
+.btn {
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Mode switch */
+.mode-btn {
+  transition:
+    transform 0.16s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.mode-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Summary cards */
+.summary-card:hover {
+  border-color: rgba(106,124,255,0.18);
+  background: rgba(255,255,255,0.055);
+}
+
+/* Preview list */
+.preview-voucher-item:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+}
+
+.preview-voucher-item.active {
+  box-shadow: 0 14px 28px rgba(0,0,0,0.18);
+}
+
+/* File cards */
+.executive-file-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(106,124,255,0.18);
+  background: rgba(255,255,255,0.045);
+}
+
+/* History */
+.history-item:hover {
+  background: rgba(255,255,255,0.035);
+}
+
+/* Status card states */
+#statusCard.is-running::before {
+  background: linear-gradient(180deg, rgba(214,161,61,0.95), rgba(106,124,255,0.95));
+}
+
+#statusCard.is-success::before {
+  background: linear-gradient(180deg, rgba(56,178,107,0.95), rgba(34,197,94,0.95));
+}
+
+#statusCard.is-error::before {
+  background: linear-gradient(180deg, rgba(213,93,93,0.95), rgba(239,68,68,0.95));
+}
+
+/* Progress */
+#progressFill {
+  transition:
+    width 0.35s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+/* Running pulse */
+.status-badge.running,
+.step-status-pill-running {
+  animation: softPulse 1.5s ease-in-out infinite;
+}
+
+/* Appear */
+@keyframes fadeStepIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes softPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(214,161,61,0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(214,161,61,0.08);
+  }
+}
+
+.setup-step-head h3 {
+  transition: color 0.18s ease;
+}
+
+.setup-step.is-active .setup-step-head h3 {
+  color: var(--text-primary);
+}
+
+.setup-step:not(.is-active):not(.is-complete) .setup-step-head h3 {
+  color: #d9e3f3;
+}
+
+#continueStep1Btn,
+#continueStep2Btn {
+  min-width: 120px;
+}
+
+#continueStep1Btn:not(:disabled):hover,
+#continueStep2Btn:not(:disabled):hover {
+  border-color: rgba(106,124,255,0.24);
+}
+
+/* ========================================================================== */
+/* 23 - MODAL OVERLAY FIX                                                     */
+/* ========================================================================== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 8, 18, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(18, 28, 45, 0.98), rgba(12, 21, 37, 0.98));
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.40);
+}
+
+.modal-header,
+.modal-toolbar,
+.modal-footer {
+  position: relative;
+  z-index: 1;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.modal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.modal-site,
+.modal-path {
+  min-width: 0;
+}
+
+.modal-path span {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.sharepoint-browser {
+  flex: 1 1 auto;
+  min-height: 280px;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 18px 22px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 22px 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.sp-selected {
+  min-width: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.sp-selected span {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .modal {
+    padding: 12px;
+  }
+
+  .modal-dialog {
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+
+  .modal-header,
+  .modal-toolbar,
+  .modal-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .sharepoint-browser {
+    padding: 14px;
+    max-height: 48vh;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ========================================================================== */
+/* 24 - SHAREPOINT EXPLORER UI                                                */
+/* ========================================================================== */
+
+.browser-list {
+  display: grid;
+  gap: 10px;
+}
+
+.browser-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+  min-width: 0;
+}
+
+.browser-row-clickable {
+  cursor: pointer;
+}
+
+.browser-row-clickable:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(106,124,255,0.22);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.14);
+}
+
+.browser-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.browser-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.browser-icon {
+  flex-shrink: 0;
+  font-size: 1.15rem;
+}
+
+.browser-name span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.browser-meta {
+  margin-top: 6px;
+  margin-left: 32px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.browser-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.browser-actions .btn {
+  min-width: 92px;
+  justify-content: center;
+}
+
+.browser-row .muted-pill {
+  white-space: nowrap;
+}
+
+.empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--text-secondary);
+  border-radius: 18px;
+  border: 1px dashed rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.025);
+}
+
+.empty-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.sharepoint-browser {
+  flex: 1 1 auto;
+  min-height: 320px;
+  max-height: 56vh;
+  overflow: auto;
+  padding: 18px 22px;
+}
+
+.modal-site select {
+  min-width: 280px;
+}
+
+@media (max-width: 900px) {
+  .browser-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .browser-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .browser-actions .btn {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .sharepoint-browser {
+    padding: 14px;
+    max-height: 48vh;
+  }
+
+  .modal-site select {
+    min-width: 0;
+    width: 100%;
+  }
+}

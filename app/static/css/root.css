@@ -3,35 +3,67 @@
 /* ========================================================================== */
 
 :root {
-  /* Fondos */
-  --bg-1: #08101b;
-  --bg-2: #0d1725;
-  --bg-3: #122033;
+  color-scheme: dark;
 
-  /* Superficies */
-  --card: rgba(12, 21, 37, 0.78);
-  --card-2: rgba(255, 255, 255, 0.045);
-  --line: rgba(255, 255, 255, 0.08);
+  /* App background */
+  --bg-app: #08101b;
+  --bg-app-2: #0d1725;
+  --bg-app-3: #122033;
 
-  /* Texto */
-  --text: #edf3fb;
-  --muted: #9caac0;
+  /* Surfaces */
+  --surface-1: rgba(12, 21, 37, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.045);
+  --surface-3: rgba(255, 255, 255, 0.03);
+  --surface-4: rgba(255, 255, 255, 0.06);
 
-  /* Marca */
-  --primary: #6a7cff;
-  --primary-2: #8a78f0;
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Estados */
+  /* Text */
+  --text-primary: #eef4fb;
+  --text-secondary: #9eacc2;
+  --text-muted: #7f8ba1;
+
+  /* Brand */
+  --accent-primary: #6a7cff;
+  --accent-secondary: #8a78f0;
+  --accent-soft: rgba(106, 124, 255, 0.14);
+
+  /* States */
   --success: #38b26b;
   --warning: #d6a13d;
   --danger: #d55d5d;
 
-  /* Profundidad */
-  --shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+  --success-soft: rgba(56, 178, 107, 0.14);
+  --warning-soft: rgba(214, 161, 61, 0.14);
+  --danger-soft: rgba(213, 93, 93, 0.14);
 
-  /* Radios */
+  /* Shadows */
+  --shadow-sm: 0 10px 24px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.30);
+
+  /* Radius */
   --radius-xl: 24px;
   --radius-lg: 18px;
   --radius-md: 14px;
   --radius-sm: 10px;
+
+  /* Legacy aliases to avoid breaking current CSS */
+  --bg-1: var(--bg-app);
+  --bg-2: var(--bg-app-2);
+  --bg-3: var(--bg-app-3);
+
+  --card: var(--surface-1);
+  --card-2: var(--surface-2);
+  --line: var(--border-subtle);
+
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+
+  --primary: var(--accent-primary);
+  --primary-2: var(--accent-secondary);
+
+  --shadow: var(--shadow-lg);
 }

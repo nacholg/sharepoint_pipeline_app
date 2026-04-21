@@ -25,6 +25,11 @@ function applyJobState(job) {
   const status = job.status || "pending";
   const progress = Number(job.progress) || 0;
   const progressText = job.progress_label || getStepLabel(job.current_step);
+  const statusCard = document.getElementById("statusCard");
+
+  if (statusCard) {
+    statusCard.classList.remove("is-running", "is-success", "is-error");
+  }
 
   if (status === "pending") {
     statusBadge.textContent = "Pending";
@@ -32,20 +37,21 @@ function applyJobState(job) {
   } else if (status === "running") {
     statusBadge.textContent = "Running";
     statusBadge.className = "status-badge running";
+    statusCard?.classList.add("is-running");
   } else if (status === "success") {
     statusBadge.textContent = "Success";
     statusBadge.className = "status-badge success";
+    statusCard?.classList.add("is-success");
   } else if (status === "error") {
     statusBadge.textContent = "Error";
     statusBadge.className = "status-badge error";
-  }
-    else if (status === "cancelling") {
-  statusBadge.textContent = "Cancelling";
-  statusBadge.className = "status-badge neutral";
-
+    statusCard?.classList.add("is-error");
+  } else if (status === "cancelling") {
+    statusBadge.textContent = "Cancelling";
+    statusBadge.className = "status-badge neutral";
   } else if (status === "cancelled") {
-  statusBadge.textContent = "Cancelled";
-  statusBadge.className = "status-badge neutral";
+    statusBadge.textContent = "Cancelled";
+    statusBadge.className = "status-badge neutral";
   }
 
   setProgress(progress, progressText || "Procesando");

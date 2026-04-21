@@ -21,8 +21,8 @@
 
 .btn.primary {
   color: white;
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
-  box-shadow: 0 16px 36px rgba(106,124,255,0.22);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  box-shadow: 0 16px 36px rgba(106,124,255,0.22); 
 }
 
 .btn.primary.large {
@@ -34,8 +34,8 @@
 
 .btn.ghost,
 .btn.secondary {
-  color: var(--text);
-  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.045);
   border: 1px solid rgba(255,255,255,0.08);
 }
 
@@ -48,4 +48,19 @@
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 0.86rem;
+}
+
+.status-badge.neutral {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.muted-pill,
+.summary-card span,
+.debug-card span,
+.preview-subtitle,
+.history-meta,
+.history-dates {
+  color: var(--text-secondary);
 }
