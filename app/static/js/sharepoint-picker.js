@@ -247,67 +247,99 @@
   }
 
   function bindBrowserListEvents() {
-    window.spModalBody?.querySelectorAll("[data-folder-id]").forEach((el) => {
-      el.addEventListener("click", async (event) => {
-        const nextFolderId = event.currentTarget.getAttribute("data-folder-id");
-        if (!nextFolderId) return;
-        await loadSharePointFolder(nextFolderId, false, false);
-      });
+  // Abrir carpetas clickeando toda la fila
+  window.spModalBody?.querySelectorAll("[data-folder-id]").forEach((el) => {
+    el.addEventListener("click", async (event) => {
+      const nextFolderId = event.currentTarget.getAttribute("data-folder-id");
+      if (!nextFolderId) return;
+      await loadSharePointFolder(nextFolderId, false, false);
     });
+  });
 
-    window.spModalBody?.querySelectorAll("[data-use-folder-id]").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.stopPropagation();
+  // Usar carpeta explícitamente (modo destino)
+  window.spModalBody?.querySelectorAll("[data-use-folder-id]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
 
-        const folderIdToUse = btn.getAttribute("data-use-folder-id");
-        const folderNameToUse = btn.getAttribute("data-use-folder-name");
+      const folderIdToUse = btn.getAttribute("data-use-folder-id");
+      const folderNameToUse = btn.getAttribute("data-use-folder-name");
 
-        window.selectedDestinationFolderId = folderIdToUse;
-        window.selectedDestinationFolderName = folderNameToUse;
-        window.selectedDestinationSiteKey = window.currentModalSiteKey;
+      window.selectedDestinationFolderId = folderIdToUse;
+      window.selectedDestinationFolderName = folderNameToUse;
+      window.selectedDestinationSiteKey = window.currentModalSiteKey;
 
-        const prefs = spLoadPrefsSafe();
-        prefs.destFolderId = window.selectedDestinationFolderId;
-        prefs.destFolderName = window.selectedDestinationFolderName;
-        prefs.destFolderSite = window.selectedDestinationSiteKey;
-        spSavePrefsSafe(prefs);
+      const prefs = spLoadPrefsSafe();
+      prefs.destFolderId = window.selectedDestinationFolderId;
+      prefs.destFolderName = window.selectedDestinationFolderName;
+      prefs.destFolderSite = window.selectedDestinationSiteKey;
+      spSavePrefsSafe(prefs);
 
-        if (window.destinationSiteSelect) {
-          window.destinationSiteSelect.value = window.currentModalSiteKey;
-        }
+      if (window.destinationSiteSelect) {
+        window.destinationSiteSelect.value = window.currentModalSiteKey;
+      }
 
-        syncPickedLabels();
-        closeSPModal();
-      });
+      syncPickedLabels();
+      window.refreshWizardState?.();
+      closeSPModal();
     });
+  });
 
-    window.spModalBody?.querySelectorAll("[data-pick-file-id]").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.stopPropagation();
+  // Seleccionar archivo haciendo click en la fila completa
+  window.spModalBody?.querySelectorAll("[data-file-id]").forEach((row) => {
+    row.addEventListener("click", () => {
+      window.selectedSourceFileId = row.getAttribute("data-file-id");
+      window.selectedSourceFileName = row.getAttribute("data-file-name");
+      window.selectedSourceSiteKey = window.currentModalSiteKey;
 
-        window.selectedSourceFileId = btn.getAttribute("data-pick-file-id");
-        window.selectedSourceFileName = btn.getAttribute("data-pick-file-name");
-        window.selectedSourceSiteKey = window.currentModalSiteKey;
+      const prefs = spLoadPrefsSafe();
+      prefs.sourceFileId = window.selectedSourceFileId;
+      prefs.sourceFileName = window.selectedSourceFileName;
+      prefs.sourceFileSite = window.selectedSourceSiteKey;
+      spSavePrefsSafe(prefs);
 
-        const prefs = spLoadPrefsSafe();
-        prefs.sourceFileId = window.selectedSourceFileId;
-        prefs.sourceFileName = window.selectedSourceFileName;
-        prefs.sourceFileSite = window.selectedSourceSiteKey;
-        spSavePrefsSafe(prefs);
+      if (window.sourceSiteSelect) {
+        window.sourceSiteSelect.value = window.currentModalSiteKey;
+      }
 
-        if (window.sourceSiteSelect) {
-          window.sourceSiteSelect.value = window.currentModalSiteKey;
-        }
+      if (typeof window.applyDefaultProfileForSite === "function") {
+        window.applyDefaultProfileForSite(window.currentModalSiteKey, "sharepoint");
+      }
 
-        if (typeof window.applyDefaultProfileForSite === "function") {
-          window.applyDefaultProfileForSite(window.currentModalSiteKey, "sharepoint");
-        }
-
-        syncPickedLabels();
-        closeSPModal();
-      });
+      syncPickedLabels();
+      window.refreshWizardState?.();
+      closeSPModal();
     });
-  }
+  });
+
+  // Botón Elegir sigue funcionando
+  window.spModalBody?.querySelectorAll("[data-pick-file-id]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      window.selectedSourceFileId = btn.getAttribute("data-pick-file-id");
+      window.selectedSourceFileName = btn.getAttribute("data-pick-file-name");
+      window.selectedSourceSiteKey = window.currentModalSiteKey;
+
+      const prefs = spLoadPrefsSafe();
+      prefs.sourceFileId = window.selectedSourceFileId;
+      prefs.sourceFileName = window.selectedSourceFileName;
+      prefs.sourceFileSite = window.selectedSourceSiteKey;
+      spSavePrefsSafe(prefs);
+
+      if (window.sourceSiteSelect) {
+        window.sourceSiteSelect.value = window.currentModalSiteKey;
+      }
+
+      if (typeof window.applyDefaultProfileForSite === "function") {
+        window.applyDefaultProfileForSite(window.currentModalSiteKey, "sharepoint");
+      }
+
+      syncPickedLabels();
+      window.refreshWizardState?.();
+      closeSPModal();
+    });
+  });
+}
 
   function bindSharePointPickerEvents() {
     if (window.__sharePointPickerEventsBound) return;

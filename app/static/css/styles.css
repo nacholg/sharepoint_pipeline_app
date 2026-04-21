@@ -771,3 +771,13 @@
     width: 100%;
   }
 }
+
+.browser-row[data-file-id] .browser-name,
+.browser-row[data-folder-id] .browser-name {
+  cursor: pointer;
+}
+
+.browser-row[data-file-id]:hover .browser-name span:last-child,
+.browser-row[data-folder-id]:hover .browser-name span:last-child {
+  color: #f4f7ff;
+}
