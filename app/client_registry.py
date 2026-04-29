@@ -7,7 +7,6 @@ from voucher_generator.profile_catalog import load_profiles_map
 
 PROFILES_MAP = load_profiles_map()
 
-
 BASE_CLIENTS = {
     "globalevents2": {
         "site_key": "globalevents2",
@@ -27,8 +26,13 @@ BASE_CLIENTS = {
         "destination_site_key": "globalevents2",
         "default_folder_path": "/General",
     },
+    "santander_mexico": {
+        "site_key": "globalevents2",
+        "source_site_key": "globalevents2",
+        "destination_site_key": "globalevents2",
+        "default_folder_path": "/General",
+    },
 }
-
 
 def build_clients() -> dict[str, dict[str, Any]]:
     clients: dict[str, dict[str, Any]] = {}
