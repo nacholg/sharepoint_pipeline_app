@@ -90,15 +90,24 @@ async function pollJob(jobId) {
         progressFill.style.width = "0%";
 
         resultCard.classList.remove("hidden");
-        resultContent.innerHTML = `
-          <div class="error-banner">El job fue cancelado por el usuario</div>
-        `;
+
+        if (typeof window.renderResult === "function") {
+          window.renderResult({
+            error: "El job fue cancelado por el usuario",
+            generated_files: [],
+            uploaded_files: [],
+            warning_rows: [],
+            error_rows: [],
+            validation: { errors: [], warnings: [] },
+            pipeline_summary: {},
+          });
+        }
 
         finishAndUnlock();
         window.currentRunningJobId = null;
         return;
       }
-      
+
       if (job.status === "success" && !hasRenderedResult) {
         hasRenderedResult = true;
         stopActivePolling();
@@ -108,10 +117,16 @@ async function pollJob(jobId) {
 
         if (job.result && typeof window.renderResult === "function") {
           window.renderResult(job.result);
-        } else {
-          resultContent.innerHTML = `
-            <div class="error-banner">El job finalizó correctamente pero no devolvió resultado renderizable.</div>
-          `;
+        } else if (typeof window.renderResult === "function") {
+          window.renderResult({
+            error: "El job finalizó correctamente pero no devolvió resultado renderizable.",
+            generated_files: [],
+            uploaded_files: [],
+            warning_rows: [],
+            error_rows: [],
+            validation: { errors: [], warnings: [] },
+            pipeline_summary: {},
+          });
         }
 
         finishAndUnlock();
@@ -130,10 +145,16 @@ async function pollJob(jobId) {
 
         if (job.result && typeof window.renderResult === "function") {
           window.renderResult(job.result);
-        } else {
-          resultContent.innerHTML = `
-            <div class="error-banner">${escapeHtml(job.error || "Error ejecutando pipeline")}</div>
-          `;
+        } else if (typeof window.renderResult === "function") {
+          window.renderResult({
+            error: job.error || "Error ejecutando pipeline",
+            generated_files: [],
+            uploaded_files: [],
+            warning_rows: [],
+            error_rows: [],
+            validation: { errors: [], warnings: [] },
+            pipeline_summary: {},
+          });
         }
 
         finishAndUnlock();
@@ -150,8 +171,7 @@ async function pollJob(jobId) {
       finishAndUnlock();
       renderFatalError(error);
     }
-      
-    };
+  };
 
   await tick();
 }

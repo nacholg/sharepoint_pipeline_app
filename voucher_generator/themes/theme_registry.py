@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict
 
+
 BASE_THEME: Dict[str, Any] = {
     "colors": {
         "navy": "#223a69",
@@ -66,6 +67,7 @@ BASE_THEME: Dict[str, Any] = {
     },
 }
 
+
 THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     "default": deepcopy(BASE_THEME),
 
@@ -101,7 +103,14 @@ THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
 
     "banco_guayaquil": deepcopy(BASE_THEME),
+
+    "santander": deepcopy(BASE_THEME),
 }
+
+
+# =============================================================================
+# Banco Guayaquil
+# =============================================================================
 
 THEME_REGISTRY["banco_guayaquil"]["colors"].update({
     "navy": "#D2006E",
@@ -136,6 +145,50 @@ THEME_REGISTRY["banco_guayaquil"]["layout"].update({
     "brand_logo_height_print": 72,
     "print_logo_box_width": 200,
     "print_logo_box_min_height": 98,
+    "header_title_size": "30px",
+    "header_title_size_print": "27px",
+    "header_subtitle_size": "13px",
+    "header_subtitle_size_print": "12px",
+})
+
+
+# =============================================================================
+# Santander México
+# =============================================================================
+
+THEME_REGISTRY["santander"]["colors"].update({
+    "navy": "#EC0000",
+    "navy_2": "#990000",
+    "paper": "#ffffff",
+    "panel": "#ffffff",
+    "page_bg": "#f7f7f7",
+    "border": "#ead6d6",
+    "line": "#ead6d6",
+    "text": "#000000",
+    "muted": "#666666",
+    "section_title": "#EC0000",
+    "hotel_address": "#333333",
+    "header_gradient_end": "#990000",
+    "table_head": "#FBF1EA",
+    "table_row": "#FCE8E4",
+    "footer_bg": "#FBF1EA",
+    "placeholder": "#F0B998",
+    "overlay": "rgba(255,255,255,0.16)",
+    "overlay_border": "rgba(255,255,255,0.28)",
+    "shadow": "rgba(0, 0, 0, 0.10)",
+})
+
+THEME_REGISTRY["santander"]["fonts"].update({
+    "family": "Inter, Arial, Helvetica, sans-serif",
+})
+
+THEME_REGISTRY["santander"]["layout"].update({
+    "logo_box_width": 210,
+    "logo_box_min_height": 100,
+    "brand_logo_height": 58,
+    "brand_logo_height_print": 50,
+    "print_logo_box_width": 190,
+    "print_logo_box_min_height": 90,
     "header_title_size": "30px",
     "header_title_size_print": "27px",
     "header_subtitle_size": "13px",

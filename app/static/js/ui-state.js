@@ -21,7 +21,6 @@ function resetUI(label = "Esperando ejecución") {
   progressFill.style.width = "0%";
   stepsEl.innerHTML = "";
   resultCard.classList.add("hidden");
-  resultContent.innerHTML = "";
   cancelJobBtn?.classList.add("hidden");
 }
 
@@ -39,7 +38,6 @@ function setRunningState(mode = "local") {
 
   stepsEl.innerHTML = "";
   resultCard.classList.add("hidden");
-  resultContent.innerHTML = "";
 }
 
 function setFinishedState(ok) {
@@ -74,7 +72,16 @@ function renderFatalError(error) {
   `;
 
   resultCard.classList.remove("hidden");
-  resultContent.innerHTML = `
-    <div class="error-banner">${escapeHtml(error?.message || String(error))}</div>
-  `;
+
+  if (typeof window.renderResult === "function") {
+    window.renderResult({
+      error: error?.message || String(error),
+      generated_files: [],
+      uploaded_files: [],
+      warning_rows: [],
+      error_rows: [],
+      validation: { errors: [], warnings: [] },
+      pipeline_summary: {},
+    });
+  }
 }

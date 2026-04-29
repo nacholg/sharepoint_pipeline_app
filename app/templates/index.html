@@ -325,14 +325,176 @@
       </div>
 
       <section id="resultCard" class="card result-full-width hidden">
-        <div class="section-head">
+        <div class="section-head result-head">
           <div>
             <span class="eyebrow">Resultado</span>
-            <h3>Archivos y salida del job</h3>
+            <h3>Salida del pipeline</h3>
+            <p class="section-subcopy">
+              Resumen ejecutivo, vista previa y entregables generados.
+            </p>
           </div>
         </div>
 
-        <div id="resultContent"></div>
+        <div id="resultContent" class="result-layout">
+          <!-- HERO -->
+          <section id="resultHero" class="result-hero">
+            <div class="result-hero-main">
+              <div class="result-hero-title-wrap">
+                <span id="resultHeroStatus" class="status-badge success">Completado</span>
+                <h4 id="resultHeroTitle">Job finalizado</h4>
+              </div>
+              <p id="resultHeroSubtitle" class="result-hero-subtitle">
+                Se generaron los archivos correctamente.
+              </p>
+            </div>
+
+            <div class="result-hero-metrics">
+              <div class="result-metric-card">
+                <span class="result-metric-label">Vouchers</span>
+                <strong id="resultMetricVouchers">—</strong>
+              </div>
+              <div class="result-metric-card">
+                <span class="result-metric-label">Duración</span>
+                <strong id="resultMetricDuration">—</strong>
+              </div>
+              <div class="result-metric-card">
+                <span class="result-metric-label">Origen</span>
+                <strong id="resultMetricSource">—</strong>
+              </div>
+              <div class="result-metric-card">
+                <span class="result-metric-label">Destino</span>
+                <strong id="resultMetricDestination">—</strong>
+              </div>
+            </div>
+
+            <div class="result-hero-flags">
+              <button id="resultWarningsBtn" class="result-flag warning hidden" type="button">
+                <span>Advertencias</span>
+                <strong id="resultWarningsCount">0</strong>
+              </button>
+
+              <button id="resultErrorsBtn" class="result-flag danger hidden" type="button">
+                <span>Errores</span>
+                <strong id="resultErrorsCount">0</strong>
+              </button>
+
+              <div id="resultProfilePill" class="muted-pill hidden"></div>
+            </div>
+          </section>
+
+          <!-- PREVIEW -->
+          <section id="resultPreviewSection" class="result-section">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Vista previa</span>
+                <h4>Preview del voucher</h4>
+              </div>
+
+              <div class="panel-actions panel-actions-inline">
+                <button id="previewPrevBtn" class="btn ghost small hidden" type="button">← Anterior</button>
+                <div id="previewCounter" class="muted-pill hidden">1 / 1</div>
+                <button id="previewNextBtn" class="btn ghost small hidden" type="button">Siguiente →</button>
+              </div>
+            </div>
+
+            <div id="resultPreviewHost" class="result-preview-host">
+              <div class="empty-state-inline">
+                La vista previa aparecerá acá cuando el job termine.
+              </div>
+            </div>
+          </section>
+
+          <!-- ENTREGABLES -->
+          <section id="resultDeliverablesSection" class="result-section">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Archivos generados</span>
+                <h4>Entregables</h4>
+              </div>
+            </div>
+
+            <div id="resultDeliverablesGrid" class="deliverables-grid">
+              <article class="deliverable-card">
+                <div class="deliverable-copy">
+                  <span class="eyebrow">HTML</span>
+                  <h5>Vouchers HTML</h5>
+                  <p id="resultHtmlSummary">Sin archivos generados todavía.</p>
+                </div>
+                <div id="resultHtmlActions" class="panel-actions"></div>
+              </article>
+
+              <article class="deliverable-card">
+                <div class="deliverable-copy">
+                  <span class="eyebrow">PDF</span>
+                  <h5>Vouchers PDF</h5>
+                  <p id="resultPdfSummary">Sin archivos generados todavía.</p>
+                </div>
+                <div id="resultPdfActions" class="panel-actions"></div>
+              </article>
+
+              <article class="deliverable-card">
+                <div class="deliverable-copy">
+                  <span class="eyebrow">ZIP</span>
+                  <h5>Paquete final</h5>
+                  <p id="resultZipSummary">Todavía no disponible.</p>
+                </div>
+                <div id="resultZipActions" class="panel-actions"></div>
+              </article>
+            </div>
+          </section>
+
+          <!-- LOGOS -->
+          <section id="resultLogosSection" class="result-section">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Branding</span>
+                <h4>Logos utilizados</h4>
+              </div>
+            </div>
+
+            <div id="resultLogosHost" class="logos-grid">
+              <div class="empty-state-inline">
+                Acá se mostrarán los logos detectados o aplicados manualmente.
+              </div>
+            </div>
+          </section>
+
+          <!-- VALIDACIONES -->
+          <section id="resultValidationSection" class="result-section">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Validaciones</span>
+                <h4>Advertencias y errores</h4>
+              </div>
+
+              <button id="toggleResultValidationBtn" class="btn secondary small" type="button">
+                Expandir
+              </button>
+            </div>
+
+            <div id="resultValidationBody" class="hidden">
+              <div id="resultValidationHost"></div>
+            </div>
+          </section>
+
+          <!-- DEBUG -->
+          <section id="resultDebugSection" class="result-section">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Modo técnico</span>
+                <h4>Debug del job</h4>
+              </div>
+
+              <button id="toggleResultDebugBtn" class="btn ghost small" type="button">
+                Mostrar
+              </button>
+            </div>
+
+            <div id="resultDebugBody" class="hidden">
+              <div id="resultDebugHost"></div>
+            </div>
+          </section>
+        </div>
       </section>
     </main>
   </div>

@@ -7,7 +7,6 @@ import json
 import mimetypes
 import os
 import re
-from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -170,6 +169,7 @@ def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False)
     preferred_logo = (
         hotel.get("manual_logo_path")
         or hotel.get("local_logo_path")
+        or hotel.get("downloaded_logo_path")
         or hotel.get("logo_url")
     )
     return resolve_logo_src(
@@ -378,8 +378,8 @@ def build_html(
       --print-header-meta-width: {layout['print_header_meta_width']}px;
       --print-logo-box-width: {layout['print_logo_box_width']}px;
       --print-logo-box-min-height: {layout['print_logo_box_min_height']}px;
-      --meta-box-min-height: {layout['meta_box_min_height']};
-      --meta-box-min-height-print: {layout['meta_box_min_height_print']};
+      --meta-box-min-height: {layout['meta_box_min_height']}px;
+      --meta-box-min-height-print: {layout['meta_box_min_height_print']}px;
       --shadow: 0 12px 32px var(--shadow-color);
       --font-family: {fonts['family']};
     }}
@@ -418,6 +418,37 @@ def build_html(
       grid-template-columns: minmax(0, 1fr) auto auto;
       gap: var(--header-gap);
       align-items: stretch;
+    }}
+
+    .header.theme-santander {{
+      background: #ffffff;
+      color: var(--text);
+      border-bottom: 3px solid var(--navy);
+    }}
+
+    .header.theme-santander .voucher-kicker {{
+      color: var(--navy);
+      opacity: 1;
+    }}
+
+    .header.theme-santander .header-subtitle {{
+      color: var(--hotel-address);
+      opacity: 1;
+    }}
+
+    .header.theme-santander .meta-box {{
+      background: var(--table-head);
+      border-color: var(--line);
+    }}
+
+    .header.theme-santander .meta-label {{
+      color: var(--muted);
+      opacity: 1;
+    }}
+
+    .header.theme-santander .logo-box {{
+      background: #ffffff;
+      border: 1px solid var(--line);
     }}
 
     .header-left {{
@@ -883,7 +914,7 @@ def build_html(
 </head>
 <body>
   <div class="page">
-    <header class="header">
+    <header class="header theme-{e(theme_key)}">
       <div class="header-left">
         <div class="voucher-kicker">{e(voucher_kicker)}</div>
         <div class="header-title">{header_title}</div>

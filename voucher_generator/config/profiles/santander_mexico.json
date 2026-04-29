@@ -1,0 +1,16 @@
+{
+  "key": "santander_mexico",
+  "label": "Santander México",
+  "language": "es",
+  "branding": {
+    "theme_key": "santander",
+    "brand_logo": "assets/logos/santander/santander-red.png",
+    "header_mode": "event_destination",
+    "show_hotel_logo": true
+  },
+  "copy": {
+    "voucher_title": "Confirmación de Reserva",
+    "remarks_label": "Observaciones",
+    "passengers_label": "Pasajeros"
+  }
+}

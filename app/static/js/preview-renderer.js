@@ -33,6 +33,7 @@ function prCollectArtifacts(result) {
 
     return {
       name: htmlPath.split(/[\\/]/).pop() || baseName,
+      shortName: baseName,
       htmlPath,
       previewUrl: prBuildPreviewUrl(htmlPath),
       pdfPath: pairedPdf,
@@ -59,6 +60,51 @@ function prSetActiveButton(listEl, activeIndex) {
   });
 }
 
+function prSetExternalNavState(total, activeIndex) {
+  const prevBtn = document.getElementById("previewPrevBtn");
+  const nextBtn = document.getElementById("previewNextBtn");
+  const counterEl = document.getElementById("previewCounter");
+
+  if (!prevBtn || !nextBtn || !counterEl) return;
+
+  if (total > 1) {
+    prevBtn.classList.remove("hidden");
+    nextBtn.classList.remove("hidden");
+    counterEl.classList.remove("hidden");
+  } else {
+    prevBtn.classList.add("hidden");
+    nextBtn.classList.add("hidden");
+    counterEl.classList.add("hidden");
+  }
+
+  prevBtn.disabled = activeIndex <= 0;
+  nextBtn.disabled = activeIndex >= total - 1;
+  counterEl.textContent = `${activeIndex + 1} / ${total}`;
+}
+
+function prClearExternalNavHandlers() {
+  const prevBtn = document.getElementById("previewPrevBtn");
+  const nextBtn = document.getElementById("previewNextBtn");
+  const counterEl = document.getElementById("previewCounter");
+
+  if (prevBtn) {
+    prevBtn.onclick = null;
+    prevBtn.classList.add("hidden");
+    prevBtn.disabled = false;
+  }
+
+  if (nextBtn) {
+    nextBtn.onclick = null;
+    nextBtn.classList.add("hidden");
+    nextBtn.disabled = false;
+  }
+
+  if (counterEl) {
+    counterEl.textContent = "";
+    counterEl.classList.add("hidden");
+  }
+}
+
 function prMountPreview(sectionEl, artifacts, initialIndex = 0) {
   const listEl = sectionEl.querySelector(".preview-voucher-list");
   const frameEl = sectionEl.querySelector(".preview-frame");
@@ -66,15 +112,24 @@ function prMountPreview(sectionEl, artifacts, initialIndex = 0) {
   const subtitleEl = sectionEl.querySelector(".preview-subtitle");
   const openHtmlBtn = sectionEl.querySelector(".preview-open-html");
   const downloadPdfBtn = sectionEl.querySelector(".preview-download-pdf");
+  const shellBadgeEl = sectionEl.querySelector(".preview-shell-badge");
+
+  const prevBtn = document.getElementById("previewPrevBtn");
+  const nextBtn = document.getElementById("previewNextBtn");
+
+  let activeIndex = Math.max(0, Math.min(initialIndex, artifacts.length - 1));
 
   function selectArtifact(index) {
     const item = artifacts[index];
     if (!item) return;
 
+    activeIndex = index;
+
     prSetActiveButton(listEl, index);
+    prSetExternalNavState(artifacts.length, activeIndex);
 
     titleEl.textContent = item.name;
-    subtitleEl.textContent = item.htmlPath;
+    subtitleEl.textContent = "Voucher HTML generado";
 
     frameEl.src = item.previewUrl;
     openHtmlBtn.href = item.previewUrl;
@@ -90,6 +145,10 @@ function prMountPreview(sectionEl, artifacts, initialIndex = 0) {
       downloadPdfBtn.classList.add("hidden");
       downloadPdfBtn.onclick = null;
     }
+
+    if (shellBadgeEl) {
+      shellBadgeEl.textContent = `${artifacts.length} voucher${artifacts.length > 1 ? "s" : ""}`;
+    }
   }
 
   artifacts.forEach((item, index) => {
@@ -98,17 +157,48 @@ function prMountPreview(sectionEl, artifacts, initialIndex = 0) {
     btn.className = "preview-voucher-item";
     btn.innerHTML = `
       <span class="preview-voucher-name">${prEscapeHtml(item.name)}</span>
-      <span class="preview-voucher-meta">${prEscapeHtml(prGetBaseName(item.htmlPath))}</span>
+      <span class="preview-voucher-meta">${prEscapeHtml(item.shortName)}</span>
     `;
     btn.addEventListener("click", () => selectArtifact(index));
     listEl.appendChild(btn);
   });
 
-  selectArtifact(initialIndex);
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      if (activeIndex > 0) {
+        selectArtifact(activeIndex - 1);
+      }
+    };
+  }
+
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      if (activeIndex < artifacts.length - 1) {
+        selectArtifact(activeIndex + 1);
+      }
+    };
+  }
+
+  sectionEl.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft" && activeIndex > 0) {
+      event.preventDefault();
+      selectArtifact(activeIndex - 1);
+    }
+
+    if (event.key === "ArrowRight" && activeIndex < artifacts.length - 1) {
+      event.preventDefault();
+      selectArtifact(activeIndex + 1);
+    }
+  });
+
+  sectionEl.tabIndex = 0;
+  selectArtifact(activeIndex);
 }
 
 function renderPreviewSection(result) {
   const artifacts = prCollectArtifacts(result);
+
+  prClearExternalNavHandlers();
 
   if (!artifacts.length) {
     return `
@@ -148,7 +238,7 @@ function renderPreviewSection(result) {
           <div class="preview-toolbar">
             <div class="preview-toolbar-main">
               <div class="preview-title">Preview</div>
-              <div class="preview-subtitle muted-text">—</div>
+              <div class="preview-subtitle muted-text">Voucher HTML generado</div>
             </div>
 
             <div class="preview-toolbar-actions">
