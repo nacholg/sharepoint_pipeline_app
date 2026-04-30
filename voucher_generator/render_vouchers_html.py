@@ -420,37 +420,6 @@ def build_html(
       align-items: stretch;
     }}
 
-    .header.theme-santander {{
-      background: #ffffff;
-      color: var(--text);
-      border-bottom: 3px solid var(--navy);
-    }}
-
-    .header.theme-santander .voucher-kicker {{
-      color: var(--navy);
-      opacity: 1;
-    }}
-
-    .header.theme-santander .header-subtitle {{
-      color: var(--hotel-address);
-      opacity: 1;
-    }}
-
-    .header.theme-santander .meta-box {{
-      background: var(--table-head);
-      border-color: var(--line);
-    }}
-
-    .header.theme-santander .meta-label {{
-      color: var(--muted);
-      opacity: 1;
-    }}
-
-    .header.theme-santander .logo-box {{
-      background: #ffffff;
-      border: 1px solid var(--line);
-    }}
-
     .header-left {{
       min-width: 0;
       display: flex;
@@ -512,6 +481,22 @@ def build_html(
       min-height: var(--meta-box-min-height);
       min-width: 0;
       overflow: hidden;
+    }}
+
+    /* Meta card lives over the colored header, but uses a light surface. */
+    .header .meta-box {{
+      background: var(--table-head);
+      border-color: var(--line);
+      color: var(--text);
+    }}
+
+    .header .meta-label {{
+      color: var(--muted);
+      opacity: 1;
+    }}
+
+    .header .meta-value {{
+      color: var(--text);
     }}
 
     .meta-label {{
@@ -914,7 +899,7 @@ def build_html(
 </head>
 <body>
   <div class="page">
-    <header class="header theme-{e(theme_key)}">
+    <header class="header">
       <div class="header-left">
         <div class="voucher-kicker">{e(voucher_kicker)}</div>
         <div class="header-title">{header_title}</div>
