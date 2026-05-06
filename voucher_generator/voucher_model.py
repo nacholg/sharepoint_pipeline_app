@@ -37,7 +37,7 @@ def dedupe_real_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any
                 "date_of_birth": row["date_of_birth"],
                 "passport_number": row["passport_number"],
                 "passport_expiration": row["passport_expiration"],
-                "food_restrictions": row["food_restrictions"],
+                "meals": row["meals"],
                 "remarks": row["remarks"],
             }
         )

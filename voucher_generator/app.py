@@ -154,7 +154,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
             "passport_number": clean_text(_first_present(row, "Passport Number", "PASSPORT NUMBER")),
             "passport_expiration": normalize_date(_first_present(row, "Passport Expiration", "EXPIRATION DATE ")),
             "remarks": clean_text(_first_present(row, "Remarks Raw", "REMARKS")),
-            "food_restrictions": clean_text(_first_present(row, "Food Restrictions", "FOOD RESTRICTIONS")),
+            "meals": clean_text(_first_present(row, "Meals", "MEALS", "Comidas", "COMIDAS", "Meal Plan", "MEAL PLAN", "Food", "FOOD", "Food Restrictions", "FOOD RESTRICTIONS")),
             "date_of_birth": normalize_date(_first_present(row, "Date of Birth", "DATE OF BIRTH")),
         }
 
@@ -181,7 +181,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
                 check_out=effective_check_out,
                 nights=effective_nights,
                 remarks=row_data["remarks"],
-                food_restrictions=row_data["food_restrictions"],
+                meals=row_data["meals"],
                 passenger_key=passenger_key,
             )
         )
@@ -241,7 +241,7 @@ def _build_passengers(rows: List[NormalizedRow]) -> List[Dict[str, Any]]:
                 "nationality": row.nationality,
                 "passport_number": row.passport_number,
                 "passport_expiration": row.passport_expiration,
-                "food_restrictions": row.food_restrictions,
+                "meals": row.meals,
                 "remarks": row.remarks,
             }
         )
@@ -263,7 +263,7 @@ def _build_passengers(rows: List[NormalizedRow]) -> List[Dict[str, Any]]:
                 "nationality": None,
                 "passport_number": None,
                 "passport_expiration": None,
-                "food_restrictions": None,
+                "meals": None,
                 "remarks": None,
             }
         )
