@@ -1599,6 +1599,132 @@ def api_sharepoint_explore(
         "items": folders + files,
     }
 
+@app.post("/api/sharepoint/preview-vouchers")
+def api_sharepoint_preview_vouchers(
+    payload: SharePointRunRequest,
+    request: Request,
+):
+    try:
+        access_token = get_graph_access_token_from_session(request)
+        graph = GraphSharePointService(access_token)
+
+        client_cfg = get_client_config(payload.client_key)
+
+        source_site_key = (
+            payload.source_site_key
+            or client_cfg.get("source_site_key")
+            or client_cfg.get("site_key")
+        )
+
+        resolved_profile = resolve_profile(
+            payload.profile or client_cfg.get("default_profile"),
+            site_key=source_site_key,
+        )
+
+        source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
+        source_drive = source_resolved["drive"]
+
+        source_file = graph.get_drive_item(
+            source_drive["id"],
+            payload.source_file_id,
+        )
+
+        if not source_file:
+            raise RuntimeError("Archivo origen no encontrado.")
+
+        if not source_file.get("is_file"):
+            raise RuntimeError("El item seleccionado no es un archivo.")
+
+        source_name = str(source_file.get("name", ""))
+
+        if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
+            raise RuntimeError("El archivo seleccionado no es un Excel válido.")
+
+        preview_id = str(uuid4())
+        preview_dir = (BASE_WORK_DIR / "_previews" / preview_id).resolve()
+        preview_dir.mkdir(parents=True, exist_ok=True)
+
+        local_excel_path = preview_dir / (source_name or "sharepoint_input.xlsx")
+
+        graph.download_drive_file(
+            source_drive["id"],
+            payload.source_file_id,
+            local_excel_path,
+        )
+
+        rows = read_effective_rows(
+            local_excel_path,
+            profile_name=resolved_profile,
+        )
+
+        validation = validate_rows(rows)
+
+        valid_rows = validation["valid_rows"]
+        rows_with_errors = validation["rows_with_errors"]
+        rows_with_warnings = validation["rows_with_warnings"]
+
+        payloads = build_voucher_payloads(valid_rows) if valid_rows else []
+
+        voucher_candidates = []
+
+        for index, voucher_payload in enumerate(payloads, start=1):
+            passengers = voucher_payload.get("passengers") or []
+            hotel = voucher_payload.get("hotel") or {}
+            destination = voucher_payload.get("destination") or {}
+            stay = voucher_payload.get("stay") or {}
+            rooms = voucher_payload.get("rooms") or []
+
+            first_room = rooms[0] if rooms else {}
+
+            passenger_names = [
+                p.get("full_name")
+                for p in passengers
+                if p.get("full_name")
+            ]
+
+            voucher_candidates.append(
+                {
+                    "selection_id": f"voucher-{index:04d}",
+                    "voucher_id": voucher_payload.get("voucher_id"),
+                    "voucher_group_key": voucher_payload.get("voucher_group_key"),
+                    "source_rows": voucher_payload.get("source_rows") or [],
+                    "passengers": passenger_names,
+                    "passenger_count": len(passengers),
+                    "hotel_name": hotel.get("display_name") or hotel.get("name"),
+                    "destination": destination.get("display_name") or destination.get("name"),
+                    "check_in": stay.get("check_in"),
+                    "check_out": stay.get("check_out"),
+                    "nights": stay.get("nights"),
+                    "room_category": first_room.get("room_category"),
+                    "pax_count": first_room.get("pax_count"),
+                    "status": "ok",
+                    "warnings": [],
+                    "errors": [],
+                }
+            )
+
+        return {
+            "ok": True,
+            "preview_id": preview_id,
+            "source_name": source_name,
+            "profile_used": resolved_profile,
+            "client_key": client_cfg["key"],
+            "client_label": client_cfg["label"],
+            "total_rows": len(rows),
+            "valid_rows": len(valid_rows),
+            "warnings_count": len(rows_with_warnings),
+            "errors_count": len(rows_with_errors),
+            "vouchers_count": len(voucher_candidates),
+            "voucher_candidates": voucher_candidates,
+            "warning_rows": rows_with_warnings,
+            "error_rows": rows_with_errors,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error leyendo vouchers desde SharePoint: {e}",
+        )
 
 @app.post("/api/sharepoint/run")
 def api_sharepoint_run(payload: SharePointRunRequest, request: Request):

@@ -107,6 +107,10 @@ async function runSharePointPipeline(event) {
       profile: selectedProfile,
       client_key: selectedClient?.key || null,
       language,
+      selected_voucher_ids:
+      window.APP_STATE?.data?.voucherPreview
+        ? window.APP_STATE?.data?.selectedVoucherIds || []
+        : [],
     };
 
     const response = await fetch(API.sharepointRun, {
