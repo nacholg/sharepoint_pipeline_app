@@ -1,6 +1,8 @@
 (function () {
   const API = {
     localRun: "/api/local/run",
+    localPreviewVouchers: "/api/local/preview-vouchers",
+    sharepointPreviewVouchers: "/api/sharepoint/preview-vouchers",
     sharepointRun: "/api/sharepoint/run",
     sharepointSites: "/api/sharepoint/sites",
     sharepointExplore: "/api/sharepoint/explore",

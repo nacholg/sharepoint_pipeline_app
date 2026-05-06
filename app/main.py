@@ -27,7 +27,11 @@ from app.routes.jobs import router as jobs_router
 from app.routes.ui import router as ui_router
 from app.services.sharepoint_graph import GraphSharePointService
 from app.token_store import get_user_token
+
 from voucher_generator.profiles import list_profile_configs
+from voucher_generator.xlsx_to_voucher_json import build_voucher_payloads
+from voucher_generator.xlsx_importer import read_effective_rows
+from voucher_generator.voucher_validator import validate_rows
 
 load_dotenv()
 
@@ -41,6 +45,7 @@ def _load_sharepoint_sites() -> dict[str, dict]:
         try:
             data = json.loads(raw)
             result = {}
+
             for item in data:
                 key = str(item["key"]).strip()
                 result[key] = {
@@ -52,8 +57,10 @@ def _load_sharepoint_sites() -> dict[str, dict]:
                     "brand_logo": item.get("brand_logo"),
                     "default_profile": item.get("default_profile", "default"),
                 }
+
             if result:
                 return result
+
         except Exception as e:
             raise RuntimeError(f"SHAREPOINT_SITES_JSON inválido: {e}")
 
@@ -85,6 +92,7 @@ def _load_sharepoint_sites() -> dict[str, dict]:
 
 SHAREPOINT_HOSTNAME = os.getenv("SHAREPOINT_HOSTNAME", "patagonik.sharepoint.com")
 SHAREPOINT_SITES = _load_sharepoint_sites()
+
 AVAILABLE_PROFILES = [
     {
         "key": p.get("key"),
@@ -142,6 +150,7 @@ class SharePointRunRequest(BaseModel):
     profile: str | None = None
     client_key: str | None = None
     language: str | None = None
+    selected_voucher_ids: list[str] | None = None
 
 
 def get_session_user(request: Request):
@@ -172,6 +181,7 @@ def validate_graph_access_token(access_token: str) -> bool:
 
 def get_graph_access_token_from_session(request: Request) -> str:
     user = request.session.get("user")
+
     if not user:
         raise HTTPException(
             status_code=401,
@@ -179,6 +189,7 @@ def get_graph_access_token_from_session(request: Request) -> str:
         )
 
     user_email = user.get("email")
+
     if not user_email:
         clear_auth_session(request)
         raise HTTPException(
@@ -187,6 +198,7 @@ def get_graph_access_token_from_session(request: Request) -> str:
         )
 
     access_token = get_user_token(user_email)
+
     if not access_token:
         clear_auth_session(request)
         raise HTTPException(
@@ -262,6 +274,22 @@ def resolve_language(language: str | None) -> str:
     return normalize_language(language) or DEFAULT_LANGUAGE
 
 
+def parse_selected_voucher_ids(value: str | None) -> list[str]:
+    if not value:
+        return []
+
+    try:
+        parsed = json.loads(value)
+
+        if not isinstance(parsed, list):
+            return []
+
+        return [str(item) for item in parsed if item]
+
+    except Exception:
+        return []
+
+
 def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None = None) -> dict:
     site_cfg = get_site_config(site_key)
 
@@ -274,6 +302,7 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
     )
 
     site = graph.get_site_by_path(SHAREPOINT_HOSTNAME, site_cfg["site_path"])
+
     if not site or not site.get("id"):
         raise HTTPException(
             status_code=500,
@@ -281,6 +310,7 @@ def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None =
         )
 
     drives = graph.list_site_drives(site["id"])
+
     print("AVAILABLE DRIVES:", [d.get("name") for d in drives])
     print("TARGET DRIVE NAME:", site_cfg["library_name"])
 
@@ -339,6 +369,7 @@ def _job_state_file(job_id: str) -> Path:
 
 def _write_job_state(job_id: str) -> None:
     job = JOB_STORE.get(job_id)
+
     if not job:
         print("WRITE JOB STATE SKIPPED, NOT IN MEMORY:", job_id)
         return
@@ -349,6 +380,7 @@ def _write_job_state(job_id: str) -> None:
         json.dumps(job, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
     print("JOB STATE WRITTEN:", state_file)
 
 
@@ -371,6 +403,7 @@ def _read_job_state_from_disk(job_id: str) -> dict | None:
 
 def _build_initial_steps() -> list[dict]:
     steps: list[dict] = []
+
     for item in STEP_DEFINITIONS:
         steps.append(
             {
@@ -383,6 +416,7 @@ def _build_initial_steps() -> list[dict]:
                 "ok": None,
             }
         )
+
     return steps
 
 
@@ -417,8 +451,10 @@ def _create_job_record(
             "updated_at": time.time(),
             "_last_persist_ts": 0.0,
         }
+
         print("JOB CREATED IN MEMORY:", job_id)
         print("JOB STORE KEYS AFTER CREATE:", list(JOB_STORE.keys()))
+
         _write_job_state(job_id)
         JOB_STORE[job_id]["_last_persist_ts"] = time.time()
 
@@ -426,6 +462,7 @@ def _create_job_record(
 def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if not job:
             return
 
@@ -443,8 +480,10 @@ def _patch_job(job_id: str, force_persist: bool = False, **values) -> None:
 def _is_job_cancel_requested(job_id: str) -> bool:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if not job:
             return False
+
         return bool(job.get("cancel_requested", False))
 
 
@@ -462,16 +501,21 @@ def _mark_job_cancelled(job_id: str, progress_label: str = "Ejecución cancelada
 def _get_job(job_id: str) -> dict | None:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if job:
             print("JOB FOUND IN MEMORY:", job_id)
             return json.loads(json.dumps(job))
 
     print("JOB NOT IN MEMORY, TRY DISK:", job_id)
+
     disk_job = _read_job_state_from_disk(job_id)
+
     if disk_job:
         print("JOB RECOVERED FROM DISK:", job_id)
+
         with JOB_STORE_LOCK:
             JOB_STORE[job_id] = disk_job
+
         return disk_job
 
     print("JOB NOT FOUND ANYWHERE:", job_id)
@@ -537,10 +581,13 @@ def _list_jobs(limit: int = 20) -> list[dict]:
 def _set_job_steps_from_result(job_id: str, result_steps: list[dict]) -> None:
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if not job:
             return
+
         job["steps"] = result_steps
         job["updated_at"] = time.time()
+
         _write_job_state(job_id)
 
 
@@ -584,6 +631,7 @@ def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
 
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if not job or job.get("status") not in {"pending", "running"}:
             return
 
@@ -595,6 +643,7 @@ def _sync_job_progress_from_outputs(job_id: str, job_dir: Path) -> None:
         job["progress_label"] = current_label
         job["current_step"] = current_step
         job["updated_at"] = time.time()
+
         _write_job_state(job_id)
 
 
@@ -602,6 +651,7 @@ def _monitor_job_outputs(job_id: str, job_dir: Path, stop_event: threading.Event
     while not stop_event.is_set():
         if _is_job_cancel_requested(job_id):
             return
+
         _sync_job_progress_from_outputs(job_id, job_dir)
         time.sleep(0.6)
 
@@ -618,9 +668,12 @@ def _run_local_job_async(
     profile_name: str,
     language: str,
     client_cfg: dict,
+    selected_voucher_ids: list[str] | None = None,
 ) -> None:
     job_dir = (jobs_root / job_id).resolve()
+
     stop_event = threading.Event()
+
     monitor = threading.Thread(
         target=_monitor_job_outputs,
         args=(job_id, job_dir, stop_event),
@@ -654,6 +707,7 @@ def _run_local_job_async(
             pretty_json=True,
             profile_name=profile_name,
             language=language,
+            selected_voucher_ids=selected_voucher_ids,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -661,6 +715,7 @@ def _run_local_job_async(
             return
 
         response = result.to_dict()
+
         response["mode"] = "local"
         response["requested_profile"] = profile_name
         response["resolved_profile"] = profile_name
@@ -670,8 +725,10 @@ def _run_local_job_async(
         response["resolved_language"] = language
         response["language"] = response.get("language") or language
         response["profile_used"] = response.get("profile_used") or profile_name
+        response["selected_voucher_ids"] = selected_voucher_ids or []
 
         result_steps = []
+
         for step in response.get("steps", []):
             step_copy = dict(step)
             step_copy["status"] = "done" if step_copy.get("ok") else "error"
@@ -723,6 +780,7 @@ def _run_sharepoint_job_async(
     destination_site_key: str | None,
     resolved_profile: str,
     resolved_language: str,
+    selected_voucher_ids: list[str] | None = None,
 ) -> None:
     jobs_root = Path("work/jobs").resolve()
     job_dir = (jobs_root / job_id).resolve()
@@ -768,6 +826,7 @@ def _run_sharepoint_job_async(
         )
 
         source_file = graph.get_drive_item(source_drive["id"], payload.source_file_id)
+
         if not source_file:
             raise RuntimeError("Archivo origen no encontrado.")
 
@@ -775,6 +834,7 @@ def _run_sharepoint_job_async(
             raise RuntimeError("El item seleccionado no es un archivo.")
 
         source_name = str(source_file.get("name", ""))
+
         if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
             raise RuntimeError("El archivo seleccionado no es un Excel válido.")
 
@@ -839,6 +899,7 @@ def _run_sharepoint_job_async(
             pretty_json=True,
             profile_name=resolved_profile,
             language=resolved_language,
+            selected_voucher_ids=selected_voucher_ids,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -874,6 +935,7 @@ def _run_sharepoint_job_async(
                         local_file_path=Path(file_path_str),
                     )
                     uploaded_files.append(uploaded)
+
                 except Exception as e:
                     uploaded_files.append(
                         {
@@ -883,6 +945,7 @@ def _run_sharepoint_job_async(
                     )
 
             zip_path = response.get("zip_file")
+
             if zip_path:
                 if _is_job_cancel_requested(job_id):
                     _mark_job_cancelled(job_id)
@@ -894,6 +957,7 @@ def _run_sharepoint_job_async(
                         folder_id=destination_folder["id"],
                         local_file_path=Path(zip_path),
                     )
+
                 except Exception as e:
                     uploaded_zip = {
                         "name": Path(zip_path).name,
@@ -923,8 +987,10 @@ def _run_sharepoint_job_async(
         response["downloaded_excel_path"] = str(local_excel_path)
         response["uploaded_files"] = uploaded_files
         response["uploaded_zip"] = uploaded_zip
+        response["selected_voucher_ids"] = selected_voucher_ids or []
 
         result_steps = []
+
         for step in response.get("steps", []):
             step_copy = dict(step)
             step_copy["status"] = "done" if step_copy.get("ok") else "error"
@@ -960,8 +1026,10 @@ def _run_sharepoint_job_async(
                 error=str(e),
                 force_persist=True,
             )
+
     finally:
         stop_event.set()
+
         if monitor_thread:
             monitor_thread.join(timeout=1.5)
 
@@ -981,8 +1049,10 @@ def preview_file(path: str = Query(...)):
             raise HTTPException(status_code=400, detail="Solo se permite preview de HTML")
 
         return FileResponse(file_path, media_type="text/html")
+
     except HTTPException:
         raise
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -990,6 +1060,7 @@ def preview_file(path: str = Query(...)):
 @app.get("/api/jobs/history")
 def api_job_history(limit: int = Query(20, ge=1, le=100)):
     jobs = _list_jobs(limit=limit)
+
     return {
         "ok": True,
         "jobs": jobs,
@@ -1000,8 +1071,10 @@ def api_job_history(limit: int = Query(20, ge=1, le=100)):
 @app.get("/api/jobs/{job_id}")
 def api_job_status(job_id: str):
     job = _get_job(job_id)
+
     if not job:
         raise HTTPException(status_code=404, detail="Job no encontrado")
+
     return {"ok": True, **job}
 
 
@@ -1009,11 +1082,16 @@ def api_job_status(job_id: str):
 def api_cancel_job(job_id: str):
     with JOB_STORE_LOCK:
         job = JOB_STORE.get(job_id)
+
         if not job:
             raise HTTPException(status_code=404, detail="Job no encontrado")
 
         if job.get("status") in {"success", "error", "cancelled"}:
-            return {"ok": True, "job_id": job_id, "status": job.get("status")}
+            return {
+                "ok": True,
+                "job_id": job_id,
+                "status": job.get("status"),
+            }
 
         job["cancel_requested"] = True
         job["status"] = "cancelling"
@@ -1022,7 +1100,11 @@ def api_cancel_job(job_id: str):
 
     _write_job_state(job_id)
 
-    return {"ok": True, "job_id": job_id, "status": "cancelling"}
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "status": "cancelling",
+    }
 
 
 @app.get("/api/clients")
@@ -1030,8 +1112,11 @@ def api_clients():
     return {
         "ok": True,
         "clients": list(CLIENTS.values()),
-        "default_client": "globalevents2" if "globalevents2" in CLIENTS else next(iter(CLIENTS.keys()), None),
+        "default_client": "globalevents2"
+        if "globalevents2" in CLIENTS
+        else next(iter(CLIENTS.keys()), None),
     }
+
 
 @app.get("/api/hotel-logos")
 def api_hotel_logos():
@@ -1040,6 +1125,7 @@ def api_hotel_logos():
 
         if registry_path.exists():
             registry = json.loads(registry_path.read_text(encoding="utf-8"))
+
             if not isinstance(registry, dict):
                 registry = {}
         else:
@@ -1050,7 +1136,10 @@ def api_hotel_logos():
                 "hotel_name": hotel_name,
                 "logo_path": logo_path,
             }
-            for hotel_name, logo_path in sorted(registry.items(), key=lambda item: str(item[0]).lower())
+            for hotel_name, logo_path in sorted(
+                registry.items(),
+                key=lambda item: str(item[0]).lower(),
+            )
         ]
 
         return {
@@ -1058,8 +1147,10 @@ def api_hotel_logos():
             "items": items,
             "count": len(items),
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/hotel-logos/upload")
 async def upload_hotel_logo(
@@ -1069,10 +1160,12 @@ async def upload_hotel_logo(
 ):
     try:
         normalized = hotel_name.strip().lower()
+
         if not normalized:
             raise HTTPException(status_code=400, detail="El nombre del hotel es obligatorio.")
 
         slug = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+
         if not slug:
             raise HTTPException(status_code=400, detail="Nombre de hotel inválido.")
 
@@ -1082,6 +1175,7 @@ async def upload_hotel_logo(
         logos_dir.mkdir(parents=True, exist_ok=True)
 
         ext = Path(file.filename or "").suffix.lower() or ".png"
+
         if ext not in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
             raise HTTPException(status_code=400, detail="Formato de archivo no permitido.")
 
@@ -1092,12 +1186,14 @@ async def upload_hotel_logo(
 
         if registry_path.exists():
             registry = json.loads(registry_path.read_text(encoding="utf-8"))
+
             if not isinstance(registry, dict):
                 registry = {}
         else:
             registry = {}
 
         already_exists = normalized in registry
+
         if already_exists and not overwrite_bool:
             raise HTTPException(
                 status_code=409,
@@ -1105,8 +1201,10 @@ async def upload_hotel_logo(
             )
 
         old_path = registry.get(normalized)
+
         if old_path:
             old_file = Path("voucher_generator") / old_path
+
             if old_file.exists() and old_file.is_file():
                 try:
                     if old_file.resolve() != file_path.resolve():
@@ -1133,20 +1231,24 @@ async def upload_hotel_logo(
 
     except HTTPException:
         raise
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 def is_graph_session_valid(request: Request) -> bool:
     user = get_session_user(request)
+
     if not user:
         return False
 
     user_email = user.get("email")
+
     if not user_email:
         return False
 
     access_token = get_user_token(user_email)
+
     if not access_token:
         return False
 
@@ -1156,6 +1258,7 @@ def is_graph_session_valid(request: Request) -> bool:
 @app.get("/auth/session-status")
 def auth_session_status(request: Request):
     user = get_session_user(request)
+
     if not user:
         return {
             "authenticated": False,
@@ -1163,8 +1266,10 @@ def auth_session_status(request: Request):
         }
 
     valid = is_graph_session_valid(request)
+
     if not valid:
         clear_auth_session(request)
+
         return {
             "authenticated": False,
             "reason": "expired",
@@ -1215,8 +1320,10 @@ def download_zip(path: str = Query(...)):
             filename=file_path.name,
             media_type="application/zip",
         )
+
     except HTTPException:
         raise
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1227,19 +1334,28 @@ def download_file(path: str = Query(...)):
         file_path = Path(path).resolve()
 
         if not str(file_path).startswith(str(BASE_WORK_DIR)):
-            return {"ok": False, "error": "Acceso no permitido"}
+            return {
+                "ok": False,
+                "error": "Acceso no permitido",
+            }
 
         if not file_path.exists() or not file_path.is_file():
-            return {"ok": False, "error": "Archivo inválido"}
+            return {
+                "ok": False,
+                "error": "Archivo inválido",
+            }
 
         return FileResponse(
             path=file_path,
             filename=file_path.name,
-            media_type="application/octet-stream"
+            media_type="application/octet-stream",
         )
 
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {
+            "ok": False,
+            "error": str(e),
+        }
 
 
 @app.get("/api/profiles")
@@ -1257,15 +1373,22 @@ async def api_local_run(
     profile: str = Form(""),
     client_key: str = Form(""),
     language: str = Form(""),
+    selected_voucher_ids: str = Form(""),
 ):
     try:
         client_cfg = get_client_config(client_key or None)
+
         resolved_profile = resolve_profile(
             profile or client_cfg.get("default_profile"),
             site_key=client_cfg.get("site_key"),
         )
+
         brand_logo = client_cfg.get("brand_logo")
         resolved_language = resolve_language(language)
+
+        parsed_selected_voucher_ids = parse_selected_voucher_ids(selected_voucher_ids)
+
+        print("LOCAL SELECTED VOUCHER IDS:", parsed_selected_voucher_ids)
 
         job_id = str(uuid4())
         jobs_root = BASE_WORK_DIR
@@ -1299,9 +1422,11 @@ async def api_local_run(
                 "profile_name": resolved_profile,
                 "language": resolved_language,
                 "client_cfg": client_cfg,
+                "selected_voucher_ids": parsed_selected_voucher_ids,
             },
             daemon=True,
         )
+
         worker.start()
 
         return {
@@ -1314,6 +1439,106 @@ async def api_local_run(
         raise HTTPException(
             status_code=500,
             detail=f"Error iniciando pipeline local: {e}",
+        )
+
+
+@app.post("/api/local/preview-vouchers")
+async def api_local_preview_vouchers(
+    file: UploadFile = File(...),
+    profile: str = Form(""),
+    client_key: str = Form(""),
+    language: str = Form(""),
+):
+    try:
+        client_cfg = get_client_config(client_key or None)
+
+        resolved_profile = resolve_profile(
+            profile or client_cfg.get("default_profile"),
+            site_key=client_cfg.get("site_key"),
+        )
+
+        preview_id = str(uuid4())
+        preview_dir = (BASE_WORK_DIR / "_previews" / preview_id).resolve()
+        preview_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = file.filename or "input.xlsx"
+        local_excel_path = preview_dir / filename
+
+        with open(local_excel_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        rows = read_effective_rows(
+            local_excel_path,
+            profile_name=resolved_profile,
+        )
+
+        validation = validate_rows(rows)
+
+        valid_rows = validation["valid_rows"]
+        rows_with_errors = validation["rows_with_errors"]
+        rows_with_warnings = validation["rows_with_warnings"]
+
+        payloads = build_voucher_payloads(valid_rows) if valid_rows else []
+
+        voucher_candidates = []
+
+        for index, payload in enumerate(payloads, start=1):
+            passengers = payload.get("passengers") or []
+            hotel = payload.get("hotel") or {}
+            destination = payload.get("destination") or {}
+            stay = payload.get("stay") or {}
+            rooms = payload.get("rooms") or []
+
+            first_room = rooms[0] if rooms else {}
+
+            passenger_names = [
+                p.get("full_name")
+                for p in passengers
+                if p.get("full_name")
+            ]
+
+            voucher_candidates.append(
+                {
+                    "selection_id": f"voucher-{index:04d}",
+                    "voucher_id": payload.get("voucher_id"),
+                    "voucher_group_key": payload.get("voucher_group_key"),
+                    "source_rows": payload.get("source_rows") or [],
+                    "passengers": passenger_names,
+                    "passenger_count": len(passengers),
+                    "hotel_name": hotel.get("display_name") or hotel.get("name"),
+                    "destination": destination.get("display_name") or destination.get("name"),
+                    "check_in": stay.get("check_in"),
+                    "check_out": stay.get("check_out"),
+                    "nights": stay.get("nights"),
+                    "room_category": first_room.get("room_category"),
+                    "pax_count": first_room.get("pax_count"),
+                    "status": "ok",
+                    "warnings": [],
+                    "errors": [],
+                }
+            )
+
+        return {
+            "ok": True,
+            "preview_id": preview_id,
+            "source_name": filename,
+            "profile_used": resolved_profile,
+            "client_key": client_cfg["key"],
+            "client_label": client_cfg["label"],
+            "total_rows": len(rows),
+            "valid_rows": len(valid_rows),
+            "warnings_count": len(rows_with_warnings),
+            "errors_count": len(rows_with_errors),
+            "vouchers_count": len(voucher_candidates),
+            "voucher_candidates": voucher_candidates,
+            "warning_rows": rows_with_warnings,
+            "error_rows": rows_with_errors,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error leyendo vouchers del Excel: {e}",
         )
 
 
@@ -1335,11 +1560,15 @@ def api_sharepoint_explore(
 
         if folder_id:
             current_folder = graph.get_drive_item(drive["id"], folder_id)
+
             if not current_folder or not current_folder.get("is_folder"):
                 raise HTTPException(status_code=400, detail="La carpeta solicitada no es válida.")
+
             items = graph.list_drive_children(drive["id"], folder_id)
+
         else:
             current_folder = base_folder
+
             if base_folder:
                 items = graph.list_drive_children(drive["id"], base_folder["id"])
             else:
@@ -1348,6 +1577,7 @@ def api_sharepoint_explore(
 
     except HTTPException:
         raise
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -1369,24 +1599,165 @@ def api_sharepoint_explore(
         "items": folders + files,
     }
 
+@app.post("/api/sharepoint/preview-vouchers")
+def api_sharepoint_preview_vouchers(
+    payload: SharePointRunRequest,
+    request: Request,
+):
+    try:
+        access_token = get_graph_access_token_from_session(request)
+        graph = GraphSharePointService(access_token)
+
+        client_cfg = get_client_config(payload.client_key)
+
+        source_site_key = (
+            payload.source_site_key
+            or client_cfg.get("source_site_key")
+            or client_cfg.get("site_key")
+        )
+
+        resolved_profile = resolve_profile(
+            payload.profile or client_cfg.get("default_profile"),
+            site_key=source_site_key,
+        )
+
+        source_resolved = get_sharepoint_context(graph, site_key=source_site_key)
+        source_drive = source_resolved["drive"]
+
+        source_file = graph.get_drive_item(
+            source_drive["id"],
+            payload.source_file_id,
+        )
+
+        if not source_file:
+            raise RuntimeError("Archivo origen no encontrado.")
+
+        if not source_file.get("is_file"):
+            raise RuntimeError("El item seleccionado no es un archivo.")
+
+        source_name = str(source_file.get("name", ""))
+
+        if not source_name.lower().endswith((".xlsx", ".xlsm", ".xls")):
+            raise RuntimeError("El archivo seleccionado no es un Excel válido.")
+
+        preview_id = str(uuid4())
+        preview_dir = (BASE_WORK_DIR / "_previews" / preview_id).resolve()
+        preview_dir.mkdir(parents=True, exist_ok=True)
+
+        local_excel_path = preview_dir / (source_name or "sharepoint_input.xlsx")
+
+        graph.download_drive_file(
+            source_drive["id"],
+            payload.source_file_id,
+            local_excel_path,
+        )
+
+        rows = read_effective_rows(
+            local_excel_path,
+            profile_name=resolved_profile,
+        )
+
+        validation = validate_rows(rows)
+
+        valid_rows = validation["valid_rows"]
+        rows_with_errors = validation["rows_with_errors"]
+        rows_with_warnings = validation["rows_with_warnings"]
+
+        payloads = build_voucher_payloads(valid_rows) if valid_rows else []
+
+        voucher_candidates = []
+
+        for index, voucher_payload in enumerate(payloads, start=1):
+            passengers = voucher_payload.get("passengers") or []
+            hotel = voucher_payload.get("hotel") or {}
+            destination = voucher_payload.get("destination") or {}
+            stay = voucher_payload.get("stay") or {}
+            rooms = voucher_payload.get("rooms") or []
+
+            first_room = rooms[0] if rooms else {}
+
+            passenger_names = [
+                p.get("full_name")
+                for p in passengers
+                if p.get("full_name")
+            ]
+
+            voucher_candidates.append(
+                {
+                    "selection_id": f"voucher-{index:04d}",
+                    "voucher_id": voucher_payload.get("voucher_id"),
+                    "voucher_group_key": voucher_payload.get("voucher_group_key"),
+                    "source_rows": voucher_payload.get("source_rows") or [],
+                    "passengers": passenger_names,
+                    "passenger_count": len(passengers),
+                    "hotel_name": hotel.get("display_name") or hotel.get("name"),
+                    "destination": destination.get("display_name") or destination.get("name"),
+                    "check_in": stay.get("check_in"),
+                    "check_out": stay.get("check_out"),
+                    "nights": stay.get("nights"),
+                    "room_category": first_room.get("room_category"),
+                    "pax_count": first_room.get("pax_count"),
+                    "status": "ok",
+                    "warnings": [],
+                    "errors": [],
+                }
+            )
+
+        return {
+            "ok": True,
+            "preview_id": preview_id,
+            "source_name": source_name,
+            "profile_used": resolved_profile,
+            "client_key": client_cfg["key"],
+            "client_label": client_cfg["label"],
+            "total_rows": len(rows),
+            "valid_rows": len(valid_rows),
+            "warnings_count": len(rows_with_warnings),
+            "errors_count": len(rows_with_errors),
+            "vouchers_count": len(voucher_candidates),
+            "voucher_candidates": voucher_candidates,
+            "warning_rows": rows_with_warnings,
+            "error_rows": rows_with_errors,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error leyendo vouchers desde SharePoint: {e}",
+        )
 
 @app.post("/api/sharepoint/run")
 def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     access_token = get_graph_access_token_from_session(request)
     client_cfg = get_client_config(payload.client_key)
 
-    source_site_key = payload.source_site_key or client_cfg.get("source_site_key") or client_cfg.get("site_key")
+    source_site_key = (
+        payload.source_site_key
+        or client_cfg.get("source_site_key")
+        or client_cfg.get("site_key")
+    )
+
     destination_site_key = (
         payload.destination_site_key
         or client_cfg.get("destination_site_key")
         or client_cfg.get("site_key")
         or source_site_key
     )
+
     resolved_profile = resolve_profile(
         payload.profile or client_cfg.get("default_profile"),
         site_key=source_site_key,
     )
+
     resolved_language = resolve_language(payload.language)
+
+    parsed_selected_voucher_ids = [
+        str(item)
+        for item in (payload.selected_voucher_ids or [])
+        if item
+    ]
+
+    print("SHAREPOINT SELECTED VOUCHER IDS:", parsed_selected_voucher_ids)
 
     job_id = str(uuid4())
 
@@ -1411,9 +1782,11 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             "destination_site_key": destination_site_key,
             "resolved_profile": resolved_profile,
             "resolved_language": resolved_language,
+            "selected_voucher_ids": parsed_selected_voucher_ids,
         },
         daemon=True,
     )
+
     worker.start()
 
     return {
@@ -1426,6 +1799,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
 @app.on_event("startup")
 def debug_routes():
     print("=== ROUTES LOADED ===")
+
     for route in app.routes:
         try:
             print(route.path)

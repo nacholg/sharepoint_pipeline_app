@@ -184,36 +184,38 @@ function refreshWizardState() {
   refreshContinueButtons();
 }
 
-  function switchMode(mode) {
-    const isLocal = mode === "local";
+function switchMode(mode) {
+  window.currentMode = mode;
 
-    window.btnLocal?.classList.toggle("active", isLocal);
-    window.btnSP?.classList.toggle("active", !isLocal);
+  const isLocal = mode === "local";
 
-    window.localSection?.classList.toggle("hidden", !isLocal);
-    window.spSection?.classList.toggle("hidden", isLocal);
+  window.btnLocal?.classList.toggle("active", isLocal);
+  window.btnSP?.classList.toggle("active", !isLocal);
 
-    window.runLocalBtn?.classList.toggle("hidden", !isLocal);
-    window.runSPBtn?.classList.toggle("hidden", isLocal);
+  window.localSection?.classList.toggle("hidden", !isLocal);
+  window.spSection?.classList.toggle("hidden", isLocal);
 
-    window.step2Confirmed = false;
+  window.runLocalBtn?.classList.toggle("hidden", !isLocal);
+  window.runSPBtn?.classList.toggle("hidden", isLocal);
 
-    if (isLocal) {
-      if (window.selectedClient?.default_profile && window.localProfileSelect) {
-        window.localProfileSelect.value = window.selectedClient.default_profile;
-      }
-    } else {
-      if (window.selectedClient?.default_profile && window.sharepointProfileSelect) {
-        window.sharepointProfileSelect.value = window.selectedClient.default_profile;
-      }
+  window.step2Confirmed = false;
+
+  if (isLocal) {
+    if (window.selectedClient?.default_profile && window.localProfileSelect) {
+      window.localProfileSelect.value = window.selectedClient.default_profile;
     }
-
-    if (!isLocal && !window.authState?.authenticated) {
-      window.setSharePointControlsEnabled?.(false);
+  } else {
+    if (window.selectedClient?.default_profile && window.sharepointProfileSelect) {
+      window.sharepointProfileSelect.value = window.selectedClient.default_profile;
     }
-
-    refreshWizardState();
   }
+
+  if (!isLocal && !window.authState?.authenticated) {
+    window.setSharePointControlsEnabled?.(false);
+  }
+
+  refreshWizardState();
+}
 
   function setPipelineButtonsDisabled(disabled) {
     if (window.runLocalBtn) window.runLocalBtn.disabled = disabled;
@@ -325,6 +327,12 @@ function refreshWizardState() {
       }
       return window.runSharePointPipeline?.(...args);
     });
+    
+    window.bindVoucherPreviewModalEvents?.();
+    window.loadVoucherPreviewBtn?.addEventListener(
+      "click",
+      window.loadVoucherPreview
+    );
 
     window.cancelJobBtn?.addEventListener("click", async () => {
       if (!window.currentRunningJobId) return;

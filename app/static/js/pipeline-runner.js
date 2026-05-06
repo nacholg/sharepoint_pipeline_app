@@ -35,6 +35,16 @@ async function runLocalPipeline(event) {
     formData.append("client_key", selectedClient?.key || "");
     formData.append("language", language);
 
+    const selectedVoucherIds =
+      window.APP_STATE?.data?.selectedVoucherIds || [];
+
+    if (window.APP_STATE?.data?.voucherPreview) {
+      formData.append(
+        "selected_voucher_ids",
+        JSON.stringify(selectedVoucherIds)
+      );
+    }
+
     const response = await fetch(API.localRun, {
       method: "POST",
       body: formData,
@@ -97,6 +107,10 @@ async function runSharePointPipeline(event) {
       profile: selectedProfile,
       client_key: selectedClient?.key || null,
       language,
+      selected_voucher_ids:
+      window.APP_STATE?.data?.voucherPreview
+        ? window.APP_STATE?.data?.selectedVoucherIds || []
+        : [],
     };
 
     const response = await fetch(API.sharepointRun, {
