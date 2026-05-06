@@ -20,18 +20,8 @@ function rrDownloadZip(path) {
 window.downloadFile = rrDownloadFile;
 window.downloadZip = rrDownloadZip;
 
-// -----------------------------------------------------------------------------
-// Premium mode flags
-// -----------------------------------------------------------------------------
-
-const RR_PREMIUM_MODE = true;
 const RR_SHOW_DEBUG_BY_DEFAULT = false;
-const RR_SHOW_FILES_BY_DEFAULT = false;
-const RR_SHOW_UPLOADS_BY_DEFAULT = false;
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+const RR_SHOW_VALIDATION_BY_DEFAULT = false;
 
 function rrBaseName(path) {
   return String(path || "").split(/[\\/]/).pop() || "";
@@ -48,13 +38,8 @@ function rrFormatDuration(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return rrEscapeHtml(value);
 
-  if (num < 1) {
-    return `${Math.round(num * 1000)} ms`;
-  }
-
-  if (num < 60) {
-    return `${num.toFixed(1)} s`;
-  }
+  if (num < 1) return `${Math.round(num * 1000)} ms`;
+  if (num < 60) return `${num.toFixed(1)} s`;
 
   const minutes = Math.floor(num / 60);
   const seconds = Math.round(num % 60);
@@ -64,10 +49,6 @@ function rrFormatDuration(value) {
 function rrTextOrDash(value) {
   if (value == null || value === "") return "—";
   return String(value);
-}
-
-function rrCountFilesByExt(files, ext) {
-  return files.filter((f) => String(f).toLowerCase().endsWith(ext)).length;
 }
 
 function rrBuildDownloadButtons(files) {
@@ -90,34 +71,6 @@ function rrBuildDownloadButtons(files) {
     .join("");
 }
 
-function rrBuildUploadedFilesHtml(uploadedFiles) {
-  if (!uploadedFiles.length) {
-    return `<div class="empty-state-inline">No hubo uploads a SharePoint en esta corrida.</div>`;
-  }
-
-  return `
-    <div class="upload-results-list">
-      ${uploadedFiles
-        .map((item) => {
-          const name = item.name || item.displayName || "archivo";
-          const error = item.upload_error;
-
-          return `
-            <div class="premium-upload-row">
-              <span class="file-name">${rrEscapeHtml(name)}</span>
-              ${
-                error
-                  ? `<span class="error-text">${rrEscapeHtml(error)}</span>`
-                  : `<span class="premium-ok-pill">OK</span>`
-              }
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
 function rrBuildValidationSummary(result) {
   const summary = result.pipeline_summary || {};
   const validation = result.validation || {};
@@ -133,95 +86,192 @@ function rrBuildValidationSummary(result) {
   };
 }
 
-function rrRenderValidationBlock(validation) {
-  if (!validation) return "";
+function rrRenderHero(result) {
+  const summary = result.pipeline_summary || {};
+  const quality = result.job_quality || {};
+  const logoSummary = result.logo_summary || {};
+  const validationSummary = rrBuildValidationSummary(result);
 
-  const errors = Array.isArray(validation.errors) ? validation.errors : [];
-  const warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
+  const vouchers = Number(summary.vouchers ?? 0);
+  const skippedRows = Number(summary.skipped_rows ?? 0);
+  const warnings = validationSummary.totalWarnings;
+  const errors = validationSummary.totalErrors;
+  const qualityScore = Number(quality.score ?? 0);
 
-  if (!errors.length && !warnings.length) return "";
+  const titleEl = document.getElementById("resultHeroTitle");
+  const subtitleEl = document.getElementById("resultHeroSubtitle");
+  const statusEl = document.getElementById("resultHeroStatus");
+  const vouchersEl = document.getElementById("resultMetricVouchers");
+  const durationEl = document.getElementById("resultMetricDuration");
+  const sourceEl = document.getElementById("resultMetricSource");
+  const destinationEl = document.getElementById("resultMetricDestination");
+  const warningsBtn = document.getElementById("resultWarningsBtn");
+  const warningsCountEl = document.getElementById("resultWarningsCount");
+  const errorsBtn = document.getElementById("resultErrorsBtn");
+  const errorsCountEl = document.getElementById("resultErrorsCount");
+  const profilePillEl = document.getElementById("resultProfilePill");
 
-  const errorHtml = errors.length
-    ? `
-      <div class="validation-group validation-errors">
-        <div class="validation-title">Errores de validación previa</div>
-        <ul>${errors.map((e) => `<li>${rrEscapeHtml(e)}</li>`).join("")}</ul>
-      </div>
-    `
-    : "";
-
-  const warningHtml = warnings.length
-    ? `
-      <div class="validation-group validation-warnings">
-        <div class="validation-title">Advertencias de validación previa</div>
-        <ul>${warnings.map((w) => `<li>${rrEscapeHtml(w)}</li>`).join("")}</ul>
-      </div>
-    `
-    : "";
-
-  return `
-    <section class="result-card validation-card">
-      <h3>Validación previa</h3>
-      ${errorHtml}
-      ${warningHtml}
-    </section>
-  `;
-}
-
-function rrRenderEnrichmentWarnings(enrichmentWarnings) {
-  if (!Array.isArray(enrichmentWarnings) || !enrichmentWarnings.length) {
-    return "";
+  if (statusEl) {
+    statusEl.className = errors > 0 ? "status-badge running" : "status-badge success";
+    statusEl.textContent = errors > 0 ? "Completado con observaciones" : "Completado";
   }
 
-  return `
-    <section class="result-card validation-card">
-      <h3>Enrichment de hoteles</h3>
-      ${enrichmentWarnings
-        .map(
-          (hotel) => `
-            <div class="validation-group validation-warnings">
-              <div class="validation-title">${rrEscapeHtml(hotel.hotel_name)}</div>
-              <ul>
-                ${(Array.isArray(hotel.warnings) ? hotel.warnings : [])
-                  .map((warning) => `<li>${rrEscapeHtml(warning)}</li>`)
-                  .join("")}
-              </ul>
-            </div>
-          `
-        )
-        .join("")}
-    </section>
-  `;
-}
-
-function rrBuildDebugFilesGrid(result) {
-  const debugItems = [
-    { label: "Summary JSON", value: result.summary_file },
-    { label: "Rows JSON", value: result.rows_file },
-    { label: "Warnings JSON", value: result.warnings_file },
-    { label: "Errors JSON", value: result.errors_file },
-    { label: "Input file", value: result.input_file },
-    { label: "Working dir", value: result.working_dir },
-  ].filter((item) => !!item.value);
-
-  if (!debugItems.length) {
-    return `<p class="muted-text">No hay artifacts de debug expuestos.</p>`;
+  if (titleEl) {
+    titleEl.textContent = `${rrPluralize(vouchers, "voucher")} generado${vouchers === 1 ? "" : "s"}`;
   }
 
-  return `
-    <div class="debug-grid">
-      ${debugItems
-        .map(
-          (item) => `
-            <div class="debug-card">
-              <span>${rrEscapeHtml(item.label)}</span>
-              <code>${rrEscapeHtml(item.value)}</code>
-            </div>
-          `
-        )
-        .join("")}
+  const subtitleParts = [`Score ${qualityScore}/100`];
+
+  if (warnings > 0) subtitleParts.push(`${warnings} warning${warnings === 1 ? "" : "s"}`);
+  if (errors > 0) subtitleParts.push(`${errors} error${errors === 1 ? "" : "es"}`);
+  if (skippedRows > 0) subtitleParts.push(`${skippedRows} fila${skippedRows === 1 ? "" : "s"} omitida${skippedRows === 1 ? "" : "s"}`);
+
+  if (subtitleEl) {
+    subtitleEl.textContent = subtitleParts.join(" · ");
+  }
+
+  if (vouchersEl) {
+    vouchersEl.textContent = String(summary.vouchers ?? "—");
+  }
+
+  if (durationEl) {
+    durationEl.textContent = rrFormatDuration(
+      result.duration_seconds || result.duration || result.elapsed_seconds
+    );
+  }
+
+  if (sourceEl) {
+    sourceEl.textContent = rrTextOrDash(
+      result.source_label ||
+      result.source_mode ||
+      result.input_mode ||
+      result.mode
+    );
+  }
+
+  if (destinationEl) {
+    destinationEl.textContent = rrTextOrDash(
+      result.destination_label ||
+      result.destination_path ||
+      result.output_folder ||
+      (Array.isArray(result.uploaded_files) && result.uploaded_files.length ? "SharePoint" : "Local")
+    );
+  }
+
+  if (warningsBtn && warningsCountEl) {
+    if (warnings > 0) {
+      warningsBtn.classList.remove("hidden");
+      warningsCountEl.textContent = String(warnings);
+      warningsBtn.onclick = () => window.__openWarningsModal && window.__openWarningsModal();
+    } else {
+      warningsBtn.classList.add("hidden");
+    }
+  }
+
+  if (errorsBtn && errorsCountEl) {
+    if (errors > 0) {
+      errorsBtn.classList.remove("hidden");
+      errorsCountEl.textContent = String(errors);
+      errorsBtn.onclick = () => window.__openErrorsModal && window.__openErrorsModal();
+    } else {
+      errorsBtn.classList.add("hidden");
+    }
+  }
+
+  if (profilePillEl) {
+    const resolvedProfile = result.resolved_profile || result.profile_used || result.client_label || "";
+
+    if (resolvedProfile) {
+      profilePillEl.classList.remove("hidden");
+      profilePillEl.textContent = `Profile: ${resolvedProfile}`;
+    } else {
+      profilePillEl.classList.add("hidden");
+    }
+  }
+}
+
+function rrRenderPreviewIntoHost(result) {
+  const host = document.getElementById("resultPreviewHost");
+  if (!host) return;
+
+  if (typeof window.renderPreviewSection === "function") {
+    host.innerHTML = window.renderPreviewSection(result) || "";
+
+    if (!host.innerHTML.trim()) {
+      host.innerHTML = `
+        <div class="empty-state-inline">
+          La vista previa no está disponible para este resultado.
+        </div>
+      `;
+    }
+
+    return;
+  }
+
+  host.innerHTML = `
+    <div class="empty-state-inline">
+      La vista previa no está disponible para este resultado.
     </div>
   `;
+}
+
+function rrRenderDeliverables(result) {
+  const files = Array.isArray(result.generated_files) ? result.generated_files : [];
+
+  const htmlFiles = files.filter((f) => String(f).toLowerCase().endsWith(".html"));
+  const pdfFiles = files.filter((f) => String(f).toLowerCase().endsWith(".pdf"));
+
+  const htmlSummaryEl = document.getElementById("resultHtmlSummary");
+  const pdfSummaryEl = document.getElementById("resultPdfSummary");
+  const zipSummaryEl = document.getElementById("resultZipSummary");
+
+  const htmlActionsEl = document.getElementById("resultHtmlActions");
+  const pdfActionsEl = document.getElementById("resultPdfActions");
+  const zipActionsEl = document.getElementById("resultZipActions");
+
+  if (htmlSummaryEl) {
+    htmlSummaryEl.textContent = htmlFiles.length
+      ? `${rrPluralize(htmlFiles.length, "archivo")} HTML disponible${htmlFiles.length === 1 ? "" : "s"}.`
+      : "Sin archivos HTML generados.";
+  }
+
+  if (pdfSummaryEl) {
+    pdfSummaryEl.textContent = pdfFiles.length
+      ? `${rrPluralize(pdfFiles.length, "archivo")} PDF disponible${pdfFiles.length === 1 ? "" : "s"}.`
+      : "Sin archivos PDF generados.";
+  }
+
+  if (zipSummaryEl) {
+    zipSummaryEl.textContent = result.zip_file
+      ? "Descargá el paquete completo con todos los entregables."
+      : "Todavía no hay ZIP disponible para esta ejecución.";
+  }
+
+  if (htmlActionsEl) {
+    htmlActionsEl.innerHTML = htmlFiles.length
+      ? rrBuildDownloadButtons(htmlFiles)
+      : `<span class="muted-text">Sin descargas</span>`;
+  }
+
+  if (pdfActionsEl) {
+    pdfActionsEl.innerHTML = pdfFiles.length
+      ? rrBuildDownloadButtons(pdfFiles)
+      : `<span class="muted-text">Sin descargas</span>`;
+  }
+
+  if (zipActionsEl) {
+    zipActionsEl.innerHTML = result.zip_file
+      ? `
+        <button
+          class="btn primary small"
+          type="button"
+          onclick='downloadZip(${JSON.stringify(result.zip_file)})'
+        >
+          Descargar ZIP
+        </button>
+      `
+      : `<span class="muted-text">Sin descargas</span>`;
+  }
 }
 
 function rrBuildLogoSourceSummary(result) {
@@ -292,204 +342,6 @@ function rrBuildLogoDetailsSection(result) {
   `;
 }
 
-function rrRenderPreviewIntoHost(result) {
-  const host = document.getElementById("resultPreviewHost");
-  if (!host) return;
-
-  if (typeof window.renderPreviewSection === "function") {
-    host.innerHTML = window.renderPreviewSection(result) || "";
-    if (!host.innerHTML.trim()) {
-      host.innerHTML = `
-        <div class="empty-state-inline">
-          La vista previa no está disponible para este resultado.
-        </div>
-      `;
-    }
-    return;
-  }
-
-  host.innerHTML = `
-    <div class="empty-state-inline">
-      La vista previa no está disponible para este resultado.
-    </div>
-  `;
-}
-
-function rrRenderHero(result) {
-  const summary = result.pipeline_summary || {};
-  const quality = result.job_quality || {};
-  const logoSummary = result.logo_summary || {};
-  const validationSummary = rrBuildValidationSummary(result);
-
-  const vouchers = Number(summary.vouchers ?? 0);
-  const skippedRows = Number(summary.skipped_rows ?? 0);
-  const warnings = validationSummary.totalWarnings;
-  const errors = validationSummary.totalErrors;
-  const qualityScore = Number(quality.score ?? 0);
-  const qualityLabel = quality.label || "Resultado listo";
-  const logoCoverage = Number(logoSummary.coverage_pct ?? 0);
-
-  const titleEl = document.getElementById("resultHeroTitle");
-  const subtitleEl = document.getElementById("resultHeroSubtitle");
-  const statusEl = document.getElementById("resultHeroStatus");
-  const vouchersEl = document.getElementById("resultMetricVouchers");
-  const durationEl = document.getElementById("resultMetricDuration");
-  const sourceEl = document.getElementById("resultMetricSource");
-  const destinationEl = document.getElementById("resultMetricDestination");
-  const warningsBtn = document.getElementById("resultWarningsBtn");
-  const warningsCountEl = document.getElementById("resultWarningsCount");
-  const errorsBtn = document.getElementById("resultErrorsBtn");
-  const errorsCountEl = document.getElementById("resultErrorsCount");
-  const profilePillEl = document.getElementById("resultProfilePill");
-
-  if (statusEl) {
-    statusEl.className = "status-badge success";
-    statusEl.textContent = errors > 0 ? "Completado con observaciones" : "Completado";
-  }
-
-  if (titleEl) {
-    titleEl.textContent = `${rrPluralize(vouchers, "voucher")} generado${vouchers === 1 ? "" : "s"}`;
-  }
-
-  let subtitle = `Score ${qualityScore}/100`;
-
-  if (warnings > 0) {
-    subtitle += ` · ${warnings} warnings`;
-  }
-  if (skippedRows > 0) {
-    subtitle += ` · ${skippedRows} omitidas`;
-  }
-
-  if (subtitleEl) {
-    subtitleEl.textContent = subtitle;
-  }
-
-  if (vouchersEl) {
-    vouchersEl.textContent = String(summary.vouchers ?? "—");
-  }
-
-  if (durationEl) {
-    durationEl.textContent = rrFormatDuration(result.duration_seconds || result.duration || result.elapsed_seconds);
-  }
-
-  if (sourceEl) {
-    sourceEl.textContent = rrTextOrDash(
-      result.source_label ||
-      result.source_mode ||
-      result.input_mode ||
-      result.mode
-    );
-  }
-
-  if (destinationEl) {
-    destinationEl.textContent = rrTextOrDash(
-      result.destination_label ||
-      result.destination_path ||
-      result.output_folder ||
-      (Array.isArray(result.uploaded_files) && result.uploaded_files.length ? "SharePoint" : "Local")
-    );
-  }
-
-  if (warningsBtn && warningsCountEl) {
-    if (warnings > 0) {
-      warningsBtn.classList.remove("hidden");
-      warningsCountEl.textContent = String(warnings);
-      warningsBtn.onclick = () => window.__openWarningsModal && window.__openWarningsModal();
-    } else {
-      warningsBtn.classList.add("hidden");
-    }
-  }
-
-  if (errorsBtn && errorsCountEl) {
-    if (errors > 0) {
-      errorsBtn.classList.remove("hidden");
-      errorsCountEl.textContent = String(errors);
-      errorsBtn.onclick = () => window.__openErrorsModal && window.__openErrorsModal();
-    } else {
-      errorsBtn.classList.add("hidden");
-    }
-  }
-
-  if (profilePillEl) {
-    const resolvedProfile = result.resolved_profile || result.profile_used || result.client_label || "";
-    if (resolvedProfile) {
-      profilePillEl.classList.remove("hidden");
-      profilePillEl.textContent = `Profile: ${resolvedProfile}`;
-    } else {
-      profilePillEl.classList.add("hidden");
-    }
-  }
-}
-
-function rrRenderDeliverables(result) {
-  const files = Array.isArray(result.generated_files) ? result.generated_files : [];
-  const htmlFiles = files.filter((f) => String(f).toLowerCase().endsWith(".html"));
-  const pdfFiles = files.filter((f) => String(f).toLowerCase().endsWith(".pdf"));
-  const jsonFiles = files.filter((f) => String(f).toLowerCase().endsWith(".json"));
-
-  const htmlSummaryEl = document.getElementById("resultHtmlSummary");
-  const pdfSummaryEl = document.getElementById("resultPdfSummary");
-  const zipSummaryEl = document.getElementById("resultZipSummary");
-
-  const htmlActionsEl = document.getElementById("resultHtmlActions");
-  const pdfActionsEl = document.getElementById("resultPdfActions");
-  const zipActionsEl = document.getElementById("resultZipActions");
-
-  if (htmlSummaryEl) {
-    htmlSummaryEl.textContent = htmlFiles.length
-      ? `${rrPluralize(htmlFiles.length, "archivo")} HTML disponible${htmlFiles.length === 1 ? "" : "s"}.`
-      : "Sin archivos HTML generados.";
-  }
-
-  if (pdfSummaryEl) {
-    pdfSummaryEl.textContent = pdfFiles.length
-      ? `${rrPluralize(pdfFiles.length, "archivo")} PDF disponible${pdfFiles.length === 1 ? "" : "s"}.`
-      : "Sin archivos PDF generados.";
-  }
-
-  if (zipSummaryEl) {
-    zipSummaryEl.textContent = result.zip_file
-      ? "Descargá el paquete completo con todos los entregables."
-      : "Todavía no hay ZIP disponible para esta ejecución.";
-  }
-
-  if (htmlActionsEl) {
-    htmlActionsEl.innerHTML = htmlFiles.length
-      ? rrBuildDownloadButtons(htmlFiles)
-      : `<span class="muted-text">Sin descargas</span>`;
-  }
-
-  if (pdfActionsEl) {
-    pdfActionsEl.innerHTML = pdfFiles.length
-      ? rrBuildDownloadButtons(pdfFiles)
-      : `<span class="muted-text">Sin descargas</span>`;
-  }
-
-  if (zipActionsEl) {
-    const zipActions = [];
-
-    if (result.zip_file) {
-      zipActions.push(`
-        <button
-          class="btn primary small"
-          type="button"
-          onclick='downloadZip(${JSON.stringify(result.zip_file)})'
-        >
-          Descargar ZIP
-        </button>
-      `);
-    }
-
-    if (!RR_PREMIUM_MODE && jsonFiles.length) {
-      zipActions.push(rrBuildDownloadButtons(jsonFiles));
-    }
-
-    zipActionsEl.innerHTML = zipActions.length
-      ? zipActions.join("")
-      : `<span class="muted-text">Sin descargas</span>`;
-  }
-}
-
 function rrRenderLogos(result) {
   const host = document.getElementById("resultLogosHost");
   if (!host) return;
@@ -509,6 +361,65 @@ function rrRenderLogos(result) {
   host.innerHTML = `
     ${logoSummaryHtml}
     ${logoDetailsHtml}
+  `;
+}
+
+function rrRenderValidationBlock(validation) {
+  if (!validation) return "";
+
+  const errors = Array.isArray(validation.errors) ? validation.errors : [];
+  const warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
+
+  if (!errors.length && !warnings.length) return "";
+
+  const errorHtml = errors.length
+    ? `
+      <div class="validation-group validation-errors">
+        <div class="validation-title">Errores de validación previa</div>
+        <ul>${errors.map((e) => `<li>${rrEscapeHtml(e)}</li>`).join("")}</ul>
+      </div>
+    `
+    : "";
+
+  const warningHtml = warnings.length
+    ? `
+      <div class="validation-group validation-warnings">
+        <div class="validation-title">Advertencias de validación previa</div>
+        <ul>${warnings.map((w) => `<li>${rrEscapeHtml(w)}</li>`).join("")}</ul>
+      </div>
+    `
+    : "";
+
+  return `
+    <section class="result-card validation-card">
+      <h3>Validación previa</h3>
+      ${errorHtml}
+      ${warningHtml}
+    </section>
+  `;
+}
+
+function rrRenderEnrichmentWarnings(enrichmentWarnings) {
+  if (!Array.isArray(enrichmentWarnings) || !enrichmentWarnings.length) return "";
+
+  return `
+    <section class="result-card validation-card">
+      <h3>Enrichment de hoteles</h3>
+      ${enrichmentWarnings
+        .map(
+          (hotel) => `
+            <div class="validation-group validation-warnings">
+              <div class="validation-title">${rrEscapeHtml(hotel.hotel_name)}</div>
+              <ul>
+                ${(Array.isArray(hotel.warnings) ? hotel.warnings : [])
+                  .map((warning) => `<li>${rrEscapeHtml(warning)}</li>`)
+                  .join("")}
+              </ul>
+            </div>
+          `
+        )
+        .join("")}
+    </section>
   `;
 }
 
@@ -575,18 +486,76 @@ function rrRenderValidationSection(result) {
 
   host.innerHTML = blocks.join("");
 
-  if (RR_PREMIUM_MODE) {
-    body.classList.add("hidden");
-    toggleBtn.textContent = "Expandir";
-  } else {
+  if (RR_SHOW_VALIDATION_BY_DEFAULT) {
     body.classList.remove("hidden");
     toggleBtn.textContent = "Ocultar";
+  } else {
+    body.classList.add("hidden");
+    toggleBtn.textContent = "Mostrar";
   }
 
   toggleBtn.onclick = () => {
     const isHidden = body.classList.toggle("hidden");
-    toggleBtn.textContent = isHidden ? "Expandir" : "Ocultar";
+    toggleBtn.textContent = isHidden ? "Mostrar" : "Ocultar";
   };
+}
+
+function rrBuildUploadedFilesHtml(uploadedFiles) {
+  if (!uploadedFiles.length) {
+    return `<div class="empty-state-inline">No hubo uploads a SharePoint en esta corrida.</div>`;
+  }
+
+  return `
+    <div class="upload-results-list">
+      ${uploadedFiles
+        .map((item) => {
+          const name = item.name || item.displayName || "archivo";
+          const error = item.upload_error;
+
+          return `
+            <div class="premium-upload-row">
+              <span class="file-name">${rrEscapeHtml(name)}</span>
+              ${
+                error
+                  ? `<span class="error-text">${rrEscapeHtml(error)}</span>`
+                  : `<span class="premium-ok-pill">OK</span>`
+              }
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function rrBuildDebugFilesGrid(result) {
+  const debugItems = [
+    { label: "Summary JSON", value: result.summary_file },
+    { label: "Rows JSON", value: result.rows_file },
+    { label: "Warnings JSON", value: result.warnings_file },
+    { label: "Errors JSON", value: result.errors_file },
+    { label: "Input file", value: result.input_file },
+    { label: "Working dir", value: result.working_dir },
+  ].filter((item) => !!item.value);
+
+  if (!debugItems.length) {
+    return `<p class="muted-text">No hay artifacts de debug expuestos.</p>`;
+  }
+
+  return `
+    <div class="debug-grid">
+      ${debugItems
+        .map(
+          (item) => `
+            <div class="debug-card">
+              <span>${rrEscapeHtml(item.label)}</span>
+              <code>${rrEscapeHtml(item.value)}</code>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 function rrRenderDebugSection(result) {
@@ -634,6 +603,7 @@ function rrResetResultSkeleton() {
   if (logosHost) logosHost.innerHTML = "";
   if (validationHost) validationHost.innerHTML = "";
   if (debugHost) debugHost.innerHTML = "";
+
   if (previewHost) {
     previewHost.innerHTML = `
       <div class="empty-state-inline">

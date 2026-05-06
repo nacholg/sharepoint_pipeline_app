@@ -901,3 +901,145 @@ select option {
   background: #ffffff;
   color: #222;
 }
+
+
+.result-hero {
+  display: grid;
+  gap: 24px;
+  padding: 26px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(91,124,255,0.14), transparent 34%),
+    rgba(255,255,255,0.03);
+
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.result-hero-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.result-hero-title-wrap h4 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.05;
+  color: #f8fbff;
+}
+
+.result-hero-subtitle {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.result-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.result-metric-card {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.07);
+  min-width: 0;
+}
+
+.result-metric-highlight {
+  background:
+    linear-gradient(135deg, rgba(91,124,255,0.18), rgba(139,92,246,0.12));
+
+  border-color: rgba(91,124,255,0.24);
+}
+
+.result-metric-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.result-metric-card strong {
+  display: block;
+  font-size: 1.35rem;
+  color: #f8fbff;
+  overflow-wrap: anywhere;
+}
+
+.result-hero-flags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.result-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+}
+
+.result-flag.warning {
+  color: #ffd89b;
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.18);
+}
+
+.result-flag.danger {
+  color: #ffc1c1;
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.18);
+}
+
+.executive-deliverables {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.deliverable-card {
+  min-height: 220px;
+  justify-content: space-between;
+}
+
+.deliverable-copy h5 {
+  margin: 6px 0 10px;
+  font-size: 1.1rem;
+}
+
+.deliverable-copy p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .result-hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .executive-deliverables {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .result-hero {
+    padding: 20px;
+  }
+
+  .result-hero-title-wrap h4 {
+    font-size: 1.5rem;
+  }
+
+  .result-hero-metrics {
+    grid-template-columns: 1fr;
+  }
+}

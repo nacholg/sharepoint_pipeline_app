@@ -2,15 +2,39 @@
 /* 14 - RESULTADOS / LOGS / STEPS DETALLADOS                                  */
 /* ========================================================================== */
 
+.muted-text {
+  color: var(--muted);
+}
+
+.error-text {
+  color: #ff9ca3;
+}
+
 .muted-pill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 8px 10px;
   border-radius: 999px;
   color: var(--muted);
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Result layout                                                              */
+/* -------------------------------------------------------------------------- */
+
+.result-section {
+  margin-top: 28px;
+}
+
+.result-section h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--text-primary);
 }
 
 .result-grid {
@@ -20,12 +44,80 @@
   margin-bottom: 18px;
 }
 
-.result-section {
-  margin-top: 20px;
+/* -------------------------------------------------------------------------- */
+/* Result cards                                                               */
+/* -------------------------------------------------------------------------- */
+
+.result-card {
+  border-radius: 20px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  padding: 18px;
+  min-width: 0;
 }
 
-.result-section h4 {
-  margin: 0 0 10px;
+.result-card h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.validation-card {
+  background: rgba(255,255,255,0.03);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Summary / metrics                                                          */
+/* -------------------------------------------------------------------------- */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.075);
+}
+
+.summary-card span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.summary-card-highlight {
+  background: linear-gradient(135deg, rgba(91,124,255,0.13), rgba(139,92,246,0.10));
+  border-color: rgba(91,124,255,0.22);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Deliverables                                                               */
+/* -------------------------------------------------------------------------- */
+
+.executive-file-card,
+.deliverable-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 .file-list {
@@ -35,13 +127,139 @@
   gap: 8px;
 }
 
-.muted-text {
+.file-name {
+  color: var(--text-primary);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.result-actions,
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Empty states                                                               */
+/* -------------------------------------------------------------------------- */
+
+.empty-state-inline {
+  padding: 18px;
+  border-radius: 18px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.025);
+  border: 1px dashed rgba(255,255,255,0.12);
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Validation                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.validation-group {
+  padding: 14px 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.validation-group:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.validation-title {
+  margin-bottom: 8px;
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.validation-group ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
   color: var(--muted);
 }
 
-.error-text {
-  color: #ff9ca3;
+.validation-errors .validation-title {
+  color: #ffc1c1;
 }
+
+.validation-warnings .validation-title {
+  color: #ffd89b;
+}
+
+.error-banner {
+  padding: 14px 16px;
+  border-radius: 16px;
+  color: #ffc1c1;
+  background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.22);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Uploads / debug                                                            */
+/* -------------------------------------------------------------------------- */
+
+.upload-results-list {
+  display: grid;
+  gap: 10px;
+}
+
+.premium-upload-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.premium-ok-pill {
+  flex-shrink: 0;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #b8f7ce;
+  background: rgba(34,197,94,0.10);
+  border: 1px solid rgba(34,197,94,0.20);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.debug-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.debug-card {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.debug-card span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.debug-card code {
+  display: block;
+  color: #d9e4ff;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Logs / detailed steps                                                      */
+/* -------------------------------------------------------------------------- */
 
 .log-block {
   margin: 10px 0 0;
@@ -91,8 +309,35 @@
   box-shadow: 0 0 0 6px rgba(239,68,68,0.14);
 }
 
+/* -------------------------------------------------------------------------- */
+/* Voucher list                                                               */
+/* -------------------------------------------------------------------------- */
 
-.voucher-list { gap: 10px; } .voucher-item { padding: 12px 14px; border-radius: 14px; transition: all 0.18s ease; } .voucher-item:hover { background: rgba(106,124,255,0.08); transform: translateY(-1px); }
+.voucher-list {
+  display: grid;
+  gap: 10px;
+}
+
+.voucher-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  transition: all 0.18s ease;
+}
+
+.voucher-item:hover {
+  background: rgba(106,124,255,0.08);
+  transform: translateY(-1px);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                 */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
 @media (max-width: 900px) {
   .sp-site-grid,
@@ -111,5 +356,16 @@
 
   .modal-toolbar {
     gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-upload-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

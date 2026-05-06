@@ -216,7 +216,6 @@
                   {% endif %}
                 </div>
 
-
                 <div class="panel-actions">
                   <button id="backStep2Btn" class="btn ghost" type="button">
                     ← Volver
@@ -240,7 +239,6 @@
               <div class="setup-step-body" id="step3Body">
                 <div class="execution-actions">
                   <div class="execution-main">
-
                     <button id="backStep3Btn" class="btn ghost" type="button">
                       ← Volver
                     </button>
@@ -336,31 +334,39 @@
         </div>
 
         <div id="resultContent" class="result-layout">
-          <!-- HERO -->
           <section id="resultHero" class="result-hero">
             <div class="result-hero-main">
               <div class="result-hero-title-wrap">
-                <span id="resultHeroStatus" class="status-badge success">Completado</span>
-                <h4 id="resultHeroTitle">Job finalizado</h4>
+                <span id="resultHeroStatus" class="status-badge success">
+                  Completado
+                </span>
+
+                <h4 id="resultHeroTitle">
+                  Job finalizado
+                </h4>
               </div>
+
               <p id="resultHeroSubtitle" class="result-hero-subtitle">
                 Se generaron los archivos correctamente.
               </p>
             </div>
 
             <div class="result-hero-metrics">
-              <div class="result-metric-card">
+              <div class="result-metric-card result-metric-highlight">
                 <span class="result-metric-label">Vouchers</span>
                 <strong id="resultMetricVouchers">—</strong>
               </div>
+
               <div class="result-metric-card">
                 <span class="result-metric-label">Duración</span>
                 <strong id="resultMetricDuration">—</strong>
               </div>
+
               <div class="result-metric-card">
                 <span class="result-metric-label">Origen</span>
                 <strong id="resultMetricSource">—</strong>
               </div>
+
               <div class="result-metric-card">
                 <span class="result-metric-label">Destino</span>
                 <strong id="resultMetricDestination">—</strong>
@@ -368,12 +374,20 @@
             </div>
 
             <div class="result-hero-flags">
-              <button id="resultWarningsBtn" class="result-flag warning hidden" type="button">
+              <button
+                id="resultWarningsBtn"
+                class="result-flag warning hidden"
+                type="button"
+              >
                 <span>Advertencias</span>
                 <strong id="resultWarningsCount">0</strong>
               </button>
 
-              <button id="resultErrorsBtn" class="result-flag danger hidden" type="button">
+              <button
+                id="resultErrorsBtn"
+                class="result-flag danger hidden"
+                type="button"
+              >
                 <span>Errores</span>
                 <strong id="resultErrorsCount">0</strong>
               </button>
@@ -382,7 +396,6 @@
             </div>
           </section>
 
-          <!-- PREVIEW -->
           <section id="resultPreviewSection" class="result-section">
             <div class="section-head">
               <div>
@@ -391,9 +404,25 @@
               </div>
 
               <div class="panel-actions panel-actions-inline">
-                <button id="previewPrevBtn" class="btn ghost small hidden" type="button">← Anterior</button>
-                <div id="previewCounter" class="muted-pill hidden">1 / 1</div>
-                <button id="previewNextBtn" class="btn ghost small hidden" type="button">Siguiente →</button>
+                <button
+                  id="previewPrevBtn"
+                  class="btn ghost small hidden"
+                  type="button"
+                >
+                  ← Anterior
+                </button>
+
+                <div id="previewCounter" class="muted-pill hidden">
+                  1 / 1
+                </div>
+
+                <button
+                  id="previewNextBtn"
+                  class="btn ghost small hidden"
+                  type="button"
+                >
+                  Siguiente →
+                </button>
               </div>
             </div>
 
@@ -404,7 +433,6 @@
             </div>
           </section>
 
-          <!-- ENTREGABLES -->
           <section id="resultDeliverablesSection" class="result-section">
             <div class="section-head">
               <div>
@@ -413,13 +441,20 @@
               </div>
             </div>
 
-            <div id="resultDeliverablesGrid" class="deliverables-grid">
+            <div
+              id="resultDeliverablesGrid"
+              class="deliverables-grid executive-deliverables"
+            >
               <article class="deliverable-card">
                 <div class="deliverable-copy">
                   <span class="eyebrow">HTML</span>
                   <h5>Vouchers HTML</h5>
-                  <p id="resultHtmlSummary">Sin archivos generados todavía.</p>
+
+                  <p id="resultHtmlSummary">
+                    Sin archivos generados todavía.
+                  </p>
                 </div>
+
                 <div id="resultHtmlActions" class="panel-actions"></div>
               </article>
 
@@ -427,8 +462,12 @@
                 <div class="deliverable-copy">
                   <span class="eyebrow">PDF</span>
                   <h5>Vouchers PDF</h5>
-                  <p id="resultPdfSummary">Sin archivos generados todavía.</p>
+
+                  <p id="resultPdfSummary">
+                    Sin archivos generados todavía.
+                  </p>
                 </div>
+
                 <div id="resultPdfActions" class="panel-actions"></div>
               </article>
 
@@ -436,14 +475,17 @@
                 <div class="deliverable-copy">
                   <span class="eyebrow">ZIP</span>
                   <h5>Paquete final</h5>
-                  <p id="resultZipSummary">Todavía no disponible.</p>
+
+                  <p id="resultZipSummary">
+                    Todavía no disponible.
+                  </p>
                 </div>
+
                 <div id="resultZipActions" class="panel-actions"></div>
               </article>
             </div>
           </section>
 
-          <!-- LOGOS -->
           <section id="resultLogosSection" class="result-section">
             <div class="section-head">
               <div>
@@ -459,7 +501,6 @@
             </div>
           </section>
 
-          <!-- VALIDACIONES -->
           <section id="resultValidationSection" class="result-section">
             <div class="section-head">
               <div>
@@ -467,8 +508,12 @@
                 <h4>Advertencias y errores</h4>
               </div>
 
-              <button id="toggleResultValidationBtn" class="btn secondary small" type="button">
-                Expandir
+              <button
+                id="toggleResultValidationBtn"
+                class="btn secondary small"
+                type="button"
+              >
+                Mostrar
               </button>
             </div>
 
@@ -477,7 +522,6 @@
             </div>
           </section>
 
-          <!-- DEBUG -->
           <section id="resultDebugSection" class="result-section">
             <div class="section-head">
               <div>
@@ -485,7 +529,11 @@
                 <h4>Debug del job</h4>
               </div>
 
-              <button id="toggleResultDebugBtn" class="btn ghost small" type="button">
+              <button
+                id="toggleResultDebugBtn"
+                class="btn ghost small"
+                type="button"
+              >
                 Mostrar
               </button>
             </div>
