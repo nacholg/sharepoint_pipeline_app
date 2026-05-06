@@ -95,6 +95,159 @@ def _zip_folder(folder: Path, zip_path: Path) -> Optional[Path]:
     return zip_path
 
 
+def _filter_payloads_by_selection(
+    *,
+    payload_json: Path,
+    summary_file_path: Path,
+    selected_voucher_ids: Optional[list[str]],
+) -> None:
+    if not selected_voucher_ids:
+        return
+
+    selected = set(str(x) for x in selected_voucher_ids if x)
+
+    payloads = _read_json_if_exists(payload_json)
+    if not isinstance(payloads, list):
+        return
+
+    filtered_payloads = []
+    selected_indexes = set()
+
+    for index, payload in enumerate(payloads, start=1):
+        selection_id = f"voucher-{index:04d}"
+
+        if selection_id in selected:
+            filtered_payloads.append(payload)
+            selected_indexes.add(index - 1)
+
+    if not filtered_payloads:
+        raise RuntimeError(
+            "No hay vouchers seleccionados para generar."
+        )
+
+    payload_json.write_text(
+        json.dumps(
+            filtered_payloads,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    # =====================================================
+    # FILTER WARNINGS / ERRORS / ROWS
+    # =====================================================
+
+    warnings_path = payload_json.with_suffix(".warnings.json")
+    errors_path = payload_json.with_suffix(".errors.json")
+    rows_path = payload_json.with_suffix(".rows.json")
+
+    warnings_data = (
+        _read_json_if_exists(warnings_path) or []
+    )
+
+    errors_data = (
+        _read_json_if_exists(errors_path) or []
+    )
+
+    rows_data = (
+        _read_json_if_exists(rows_path) or []
+    )
+
+    filtered_warnings = [
+        item
+        for item in warnings_data
+        if item.get("row_index") in selected_indexes
+    ]
+
+    filtered_errors = [
+        item
+        for item in errors_data
+        if item.get("row_index") in selected_indexes
+    ]
+
+    filtered_rows = [
+        row
+        for idx, row in enumerate(rows_data)
+        if idx in selected_indexes
+    ]
+
+    warnings_path.write_text(
+        json.dumps(
+            filtered_warnings,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    errors_path.write_text(
+        json.dumps(
+            filtered_errors,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    rows_path.write_text(
+        json.dumps(
+            filtered_rows,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    # =====================================================
+    # UPDATE SUMMARY
+    # =====================================================
+
+    summary = _read_json_if_exists(
+        summary_file_path
+    )
+
+    if isinstance(summary, dict):
+        summary["vouchers"] = len(
+            filtered_payloads
+        )
+
+        summary["selected_vouchers"] = len(
+            filtered_payloads
+        )
+
+        summary["selection_applied"] = True
+
+        summary["warnings"] = len(
+            filtered_warnings
+        )
+
+        summary["errors"] = len(
+            filtered_errors
+        )
+
+        summary["skipped_rows"] = len(
+            filtered_errors
+        )
+
+        summary["total_rows"] = len(
+            filtered_rows
+        )
+
+        summary["valid_rows"] = (
+            len(filtered_rows)
+            - len(filtered_errors)
+        )
+
+        summary_file_path.write_text(
+            json.dumps(
+                summary,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
 def _run_step(
     name: str,
     command: List[str],
@@ -433,6 +586,7 @@ def run_full_voucher_pipeline(
     profile: Optional[str] = None,
     pretty_json: bool = True,
     language: Optional[str] = None,
+    selected_voucher_ids: Optional[list[str]] = None,
 ) -> PipelineRunResult:
     if profile_name is None and profile is not None:
         profile_name = profile
@@ -512,6 +666,7 @@ def run_full_voucher_pipeline(
 
     step_1 = _run_step("xlsx_to_voucher_json", cmd_1, cwd=project_root)
     steps.append(step_1)
+
     if not step_1.ok:
         return _build_error_result(
             job_id=job_id,
@@ -528,6 +683,12 @@ def run_full_voucher_pipeline(
             resolved_language=resolved_language,
             enriched_json=enriched_json,
         )
+
+    _filter_payloads_by_selection(
+        payload_json=payload_json,
+        summary_file_path=summary_file_path,
+        selected_voucher_ids=selected_voucher_ids,
+    ) 
 
     cmd_2 = [
         str(python_exe),

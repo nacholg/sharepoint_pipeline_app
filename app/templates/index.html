@@ -228,6 +228,32 @@
               </div>
             </div>
 
+            <section id="voucherPreviewSection" class="card">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Preview</span>
+                  <h3>Vouchers detectados</h3>
+                  <p class="section-subcopy">
+                    Revisá qué vouchers serán generados antes de ejecutar.
+                  </p>
+                </div>
+
+                <button
+                  id="loadVoucherPreviewBtn"
+                  class="btn secondary"
+                  type="button"
+                >
+                  Leer Excel
+                </button>
+              </div>
+
+              <div id="voucherPreviewHost">
+                <div class="empty-state-inline">
+                  Todavía no se analizó el Excel.
+                </div>
+              </div>
+            </section>
+
             <div class="setup-step setup-step-final">
               <div class="setup-step-head">
                 <span class="setup-step-kicker">Paso 3</span>
@@ -545,6 +571,68 @@
     </div>
   </div>
 
+
+  <div id="voucherPreviewModal" class="modal hidden">
+    <div class="modal-backdrop" id="voucherPreviewModalBackdrop"></div>
+
+    <div class="modal-dialog voucher-preview-modal-dialog">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Preview de vouchers</span>
+          <h3>Seleccionar vouchers a generar</h3>
+          <p id="voucherPreviewModalSubtitle" class="section-subcopy">
+            Revisá los vouchers detectados en el Excel.
+          </p>
+        </div>
+
+        <button id="closeVoucherPreviewModalBtn" class="btn ghost small" type="button">
+          Cerrar
+        </button>
+      </div>
+
+      <div class="modal-toolbar">
+        <div>
+          <strong id="voucherPreviewSelectionSummary">
+            0 vouchers seleccionados
+          </strong>
+          <div id="voucherPreviewRunHint" class="muted-text">
+            Se generarán únicamente los vouchers seleccionados.
+          </div>
+        </div>
+
+        <div class="panel-actions panel-actions-inline">
+          <button id="selectAllVouchersBtn" class="btn secondary small" type="button">
+            Seleccionar todos
+          </button>
+
+          <button id="selectOkVouchersBtn" class="btn secondary small" type="button">
+            Seleccionar OK
+          </button>
+
+          <button id="deselectReviewVouchersBtn" class="btn ghost small" type="button">
+            Deseleccionar revisar
+          </button>
+
+          <button id="clearVoucherSelectionBtn" class="btn ghost small" type="button">
+            Limpiar selección
+          </button>
+        </div>
+      </div>
+
+      <div id="voucherPreviewModalBody" class="voucher-preview-modal-body"></div>
+
+      <div class="modal-footer">
+        <div id="voucherPreviewModalFooterLabel" class="muted-text">
+          Confirmá la selección para continuar.
+        </div>
+
+        <button id="confirmVoucherSelectionBtn" class="btn primary" type="button">
+          Confirmar selección
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="hotelLogoModal" class="modal hidden">
     <div class="modal-backdrop" id="hotelLogoModalBackdrop"></div>
     <div class="modal-dialog">
@@ -589,6 +677,7 @@
     </div>
   </div>
 
+
   <script src="/static/js/dom.js"></script>
   <script src="/static/js/app-state.js"></script>
   <script src="/static/js/prefs.js"></script>
@@ -608,6 +697,7 @@
   <script src="/static/js/sharepoint-picker.js"></script>
   <script src="/static/js/job-history.js"></script>
   <script src="/static/js/bootstrap.js"></script>
+  <script src="/static/js/voucher-preview.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

@@ -33,3 +33,28 @@
   display: flex;
   justify-content: flex-end;
 }
+
+
+.voucher-preview-modal {
+  width: min(1400px, 96vw);
+  max-height: 92vh;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  border-radius: 28px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(20, 26, 48, 0.96) 0%,
+      rgba(11, 18, 38, 0.98) 100%
+    );
+
+  border: 1px solid rgba(255,255,255,0.08);
+
+  box-shadow:
+    0 30px 90px rgba(0,0,0,0.45);
+}

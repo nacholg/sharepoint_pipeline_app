@@ -325,6 +325,12 @@ function refreshWizardState() {
       }
       return window.runSharePointPipeline?.(...args);
     });
+    
+    window.bindVoucherPreviewModalEvents?.();
+    window.loadVoucherPreviewBtn?.addEventListener(
+      "click",
+      window.loadVoucherPreview
+    );
 
     window.cancelJobBtn?.addEventListener("click", async () => {
       if (!window.currentRunningJobId) return;

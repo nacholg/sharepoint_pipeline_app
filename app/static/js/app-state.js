@@ -13,6 +13,8 @@
     },
 
     data: {
+      voucherPreview: null,
+      selectedVoucherIds: [],
       sharepointSites: [],
       availableProfiles: [],
       availableClients: [],
