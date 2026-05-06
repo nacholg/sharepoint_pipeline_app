@@ -316,8 +316,8 @@ def read_effective_rows(
                 "remarks": clean_text(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "remarks")
                 ),
-                "food_restrictions": clean_text(
-                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "food_restrictions")
+                "meals": clean_text(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "meals")
                 ),
                 "confirmation_number": confirmation_number,
                 "qty": qty,

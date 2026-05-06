@@ -88,7 +88,7 @@ class NormalizedRow:
     check_out: Optional[str]
     nights: Optional[int]
     remarks: Optional[str]
-    food_restrictions: Optional[str]
+    meals: Optional[str]
     passenger_key: str
 
     @property
@@ -153,7 +153,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
             "nationality": clean_text(_first_present(row, "Nationality", "NATIONALITY")),
             "passport_number": clean_text(_first_present(row, "Passport Number", "PASSPORT NUMBER")),
             "passport_expiration": normalize_date(_first_present(row, "Passport Expiration", "EXPIRATION DATE ")),
-            "remarks": clean_text(_first_present(row, "Remarks Raw", "REMARKS")),
+            "remarks": clean_text(_first_present(row, "Remarks Raw", "REMARKS", "COMMENTS", "NOTES", "ADDITIONAL INFO", "OBSERVACIONES", "COMENTARIOS",)),
             "meals": clean_text(_first_present(row, "Meals", "MEALS", "Comidas", "COMIDAS", "Meal Plan", "MEAL PLAN", "Food", "FOOD", "Food Restrictions", "FOOD RESTRICTIONS")),
             "date_of_birth": normalize_date(_first_present(row, "Date of Birth", "DATE OF BIRTH")),
         }
