@@ -89,12 +89,20 @@ class NormalizedRow:
     nights: Optional[int]
     remarks: Optional[str]
     meals: Optional[str]
+    food_restrictions: Optional[str]
     passenger_key: str
 
     @property
     def full_name(self) -> str:
         value = " ".join(filter(None, [self.first_name, self.last_name])).strip()
         return value or "NAME PENDING"
+
+
+def first_present(*values):
+    for value in values:
+        if value not in (None, "", "-", "--"):
+            return value
+    return None
 
 
 def _first_present(row: Dict[str, Any], *keys: str) -> Any:
@@ -107,14 +115,6 @@ def _first_present(row: Dict[str, Any], *keys: str) -> Any:
 
 
 def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
-    """
-    Regla de negocio:
-    - 1 voucher por bloque lógico.
-    - Un bloque lógico empieza cuando la fila trae QTY / QTY Raw con valor.
-    - Si QTY está mergeado en Excel, las filas siguientes vienen sin QTY y pertenecen
-      al mismo voucher hasta encontrar otro QTY con valor.
-    - El campo # se usa como número de pasajero dentro del voucher.
-    """
     last_values: Dict[str, Any] = {
         "group_label": None,
         "hotel_name": None,
@@ -129,6 +129,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
 
     for idx, row in enumerate(import_rows, start=1):
         qty_raw = _first_present(row, "QTY Raw", "QTY")
+
         effective_group_label = clean_text(_first_present(row, "Group Label")) or last_values["group_label"]
         effective_hotel = clean_text(_first_present(row, "Hotel Name Raw", "HOTEL NAME", "Hotel Name")) or last_values["hotel_name"]
         effective_room = clean_text(_first_present(row, "Room Raw", "HAB", "Room")) or last_values["room"]
@@ -137,13 +138,15 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
         effective_check_out = normalize_date(_first_present(row, "Check Out Raw", "CHECK OUT HOTEL", "Check Out")) or last_values["check_out"]
         effective_nights = normalize_int(_first_present(row, "Nights Raw", "ROOM NIGHTS", "Nights")) or last_values["nights"]
 
-        last_values["group_label"] = effective_group_label
-        last_values["hotel_name"] = effective_hotel
-        last_values["room"] = effective_room
-        last_values["destination"] = effective_destination
-        last_values["check_in"] = effective_check_in
-        last_values["check_out"] = effective_check_out
-        last_values["nights"] = effective_nights
+        last_values.update({
+            "group_label": effective_group_label,
+            "hotel_name": effective_hotel,
+            "room": effective_room,
+            "destination": effective_destination,
+            "check_in": effective_check_in,
+            "check_out": effective_check_out,
+            "nights": effective_nights,
+        })
 
         row_data = {
             "first_name": clean_text(_first_present(row, "Traveler First Name Raw", "TRAVELER FIRST NAME", "First Name")),
@@ -153,8 +156,9 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
             "nationality": clean_text(_first_present(row, "Nationality", "NATIONALITY")),
             "passport_number": clean_text(_first_present(row, "Passport Number", "PASSPORT NUMBER")),
             "passport_expiration": normalize_date(_first_present(row, "Passport Expiration", "EXPIRATION DATE ")),
-            "remarks": clean_text(_first_present(row, "Remarks Raw", "REMARKS", "COMMENTS", "NOTES", "ADDITIONAL INFO", "OBSERVACIONES", "COMENTARIOS",)),
-            "meals": clean_text(_first_present(row, "Meals", "MEALS", "Comidas", "COMIDAS", "Meal Plan", "MEAL PLAN", "Food", "FOOD", "Food Restrictions", "FOOD RESTRICTIONS")),
+            "remarks": clean_text(_first_present(row, "COMMENTS", "NOTES", "ADDITIONAL INFO", "OBSERVACIONES", "COMENTARIOS")),
+            "meals": clean_text(_first_present(row, "Meals", "MEALS", "Comidas", "COMIDAS", "Meal Plan", "MEAL PLAN", "Food", "FOOD", "REMARKS")),
+            "food_restrictions": clean_text(_first_present(row, "Food Restrictions", "FOOD RESTRICTIONS", "DIETARY RESTRICTIONS", "RESTRICTIONS")),
             "date_of_birth": normalize_date(_first_present(row, "Date of Birth", "DATE OF BIRTH")),
         }
 
@@ -182,6 +186,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
                 nights=effective_nights,
                 remarks=row_data["remarks"],
                 meals=row_data["meals"],
+                food_restrictions=row_data["food_restrictions"],
                 passenger_key=passenger_key,
             )
         )
@@ -206,6 +211,7 @@ def group_rows_by_voucher(rows: List[NormalizedRow]) -> List[List[NormalizedRow]
                 row.voucher_block_start,
             ]
         )
+
         if is_effectively_empty:
             continue
 
@@ -243,6 +249,7 @@ def _build_passengers(rows: List[NormalizedRow]) -> List[Dict[str, Any]]:
                 "passport_expiration": row.passport_expiration,
                 "meals": row.meals,
                 "remarks": row.remarks,
+                "food_restrictions": row.food_restrictions,
             }
         )
 
@@ -265,6 +272,7 @@ def _build_passengers(rows: List[NormalizedRow]) -> List[Dict[str, Any]]:
                 "passport_expiration": None,
                 "meals": None,
                 "remarks": None,
+                "food_restrictions": None,
             }
         )
 
@@ -278,6 +286,12 @@ def build_voucher_payloads(grouped: List[List[NormalizedRow]]) -> List[Dict[str,
         first = rows[0]
         passengers = _build_passengers(rows)
         passenger_count = len(passengers)
+
+        meals_value = first_present(*(row.meals for row in rows))
+        additional_info_value = first_present(
+            *(row.food_restrictions for row in rows),
+            *(row.remarks for row in rows),
+        )
 
         payload = {
             "voucher_id": f"{seq:02d}",
@@ -295,18 +309,20 @@ def build_voucher_payloads(grouped: List[List[NormalizedRow]]) -> List[Dict[str,
                 "check_in": first.check_in,
                 "check_out": first.check_out,
                 "nights": first.nights,
+                "meals": meals_value,
             },
             "rooms": [
                 {
                     "room_sequence": 1,
                     "room_count": 1,
                     "room_category": first.room,
-                    "additional_info": "",
+                    "additional_info": additional_info_value,
                     "pax_count": passenger_count,
                 }
             ],
             "passengers": passengers,
         }
+
         payloads.append(payload)
 
     return payloads

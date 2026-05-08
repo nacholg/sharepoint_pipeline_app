@@ -218,13 +218,63 @@ def room_rows(rooms: List[Dict[str, Any]], t: dict[str, str]) -> str:
     return "\n".join(rows) or f'<tr><td colspan="4">{e(t["no_rooming_details"])}</td></tr>'
 
 
-def summary_tiles(stay: Dict[str, Any], t: dict[str, str], language: str) -> str:
+def summary_tiles(
+    stay: Dict[str, Any],
+    t: dict[str, str],
+    language: str,
+    passengers: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    passengers = passengers or []
+
+    def first_present(*values: Any) -> Any:
+        for value in values:
+            if value not in (None, "", "-", "--"):
+                return value
+        return None
+
+    meals_value = first_present(
+        stay.get("meal_plan"),
+        stay.get("meals"),
+        *(pax.get("meals") for pax in passengers if isinstance(pax, dict)),
+        *(pax.get("remarks") for pax in passengers if isinstance(pax, dict)),
+    )
+
+    food_restrictions_value = first_present(
+        stay.get("food_restrictions"),
+        *(pax.get("food_restrictions") for pax in passengers if isinstance(pax, dict)),
+    )
+
     items = [
-        (t["check_in"], no_break_iso_date(stay.get("check_in"), language=language) if stay.get("check_in") else e(t["empty"])),
-        (t["check_out"], no_break_iso_date(stay.get("check_out"), language=language) if stay.get("check_out") else e(t["empty"])),
-        (t["nights"], display_or_pending(stay.get("nights"), t["empty"])),
-        (t["meals"], display_or_pending(stay.get("meal_plan") or stay.get("meals"), t["empty"])),
+        (
+            t["check_in"],
+            no_break_iso_date(stay.get("check_in"), language=language)
+            if stay.get("check_in")
+            else e(t["empty"]),
+        ),
+        (
+            t["check_out"],
+            no_break_iso_date(stay.get("check_out"), language=language)
+            if stay.get("check_out")
+            else e(t["empty"]),
+        ),
+        (
+            t["nights"],
+            display_or_pending(stay.get("nights"), t["empty"]),
+        ),
+        (
+            t["meals"],
+            display_or_pending(meals_value, t["empty"]),
+        ),
     ]
+
+    if "food_restrictions" in t:
+        items.append(
+            (
+                t["food_restrictions"],
+                display_or_pending(food_restrictions_value, t["empty"]),
+            )
+        )
+
     return "\n".join(
         f'<div class="summary-tile"><div class="tile-label">{e(label)}</div><div class="tile-value">{value}</div></div>'
         for label, value in items
@@ -950,7 +1000,7 @@ def build_html(
         <section class="panel">
           <div class="section-title">{e(t["stay_summary"])}</div>
           <div class="summary-grid">
-            {summary_tiles(stay, t, language)}
+            {summary_tiles(stay, t, language, passengers)}
           </div>
         </section>
       </section>

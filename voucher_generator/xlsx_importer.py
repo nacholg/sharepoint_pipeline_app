@@ -148,11 +148,7 @@ def normalize_header(value: Any) -> Optional[str]:
     return text or None
 
 
-def build_header_index(
-    ws,
-    merged_lookup,
-    header_row: int,
-) -> Dict[str, int]:
+def build_header_index(ws, merged_lookup, header_row: int) -> Dict[str, int]:
     header_index: Dict[str, int] = {}
 
     for col in range(1, ws.max_column + 1):
@@ -318,6 +314,9 @@ def read_effective_rows(
                 ),
                 "meals": clean_text(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "meals")
+                ),
+                "food_restrictions": clean_text(
+                    get_field_value(ws, merged_lookup, excel_row, resolved_columns, "food_restrictions")
                 ),
                 "confirmation_number": confirmation_number,
                 "qty": qty,
