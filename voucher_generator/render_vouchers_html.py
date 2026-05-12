@@ -12,7 +12,9 @@ from typing import Any, Dict, List, Optional
 
 from voucher_generator.themes.theme_registry import get_theme_config
 from voucher_generator.i18n import get_translations, normalize_language
+from voucher_generator.flight_catalogs import airline_display_name, airport_city_name
 from voucher_generator.profiles.profile_loader import load_profile
+from voucher_generator.flight_catalogs import airline_display_name, airport_city_name
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -236,47 +238,72 @@ def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
         flight_number = display_or_pending(segment.get("flight_number"), "Pendiente")
         origin = display_or_pending(segment.get("origin"), "—")
         destination = display_or_pending(segment.get("destination_airport"), "—")
-        departure = format_flight_datetime(
-            segment.get("departure_date"),
-            segment.get("departure_time"),
-            language=language,
-        ) or e("Pendiente")
-        arrival = format_flight_datetime(
-            segment.get("arrival_date"),
-            segment.get("arrival_time"),
-            language=language,
-        ) or e("Pendiente")
+
+        departure_date = no_break_iso_date(segment.get("departure_date"), language=language) if segment.get("departure_date") else e("Pendiente")
+        arrival_date = no_break_iso_date(segment.get("arrival_date"), language=language) if segment.get("arrival_date") else e("Pendiente")
+
+        departure_time = e(segment.get("departure_time")) if segment.get("departure_time") not in (None, "") else e("—")
+        arrival_time = e(segment.get("arrival_time")) if segment.get("arrival_time") not in (None, "") else e("—")
+
+        airline_name = airline_display_name(segment.get("flight_number"))
+        origin_city = airport_city_name(segment.get("origin"))
+        destination_city = airport_city_name(segment.get("destination_airport"))
+
+        ticket_number = segment.get("ticket_number")
+        airline_reservation_code = segment.get("airline_reservation_code")
+
+        identity_html = ""
+        if ticket_number or airline_reservation_code:
+            identity_html = f"""
+              <div class="flight-identity">
+                <div>
+                  <div class="flight-label">Ticket Number</div>
+                  <div class="flight-value">{display_or_pending(ticket_number, "—")}</div>
+                </div>
+                <div>
+                  <div class="flight-label">Airline Reservation Code</div>
+                  <div class="flight-value">{display_or_pending(airline_reservation_code, "—")}</div>
+                </div>
+              </div>
+            """
 
         cards.append(
             f"""
-            <article class="flight-card">
-              <div class="flight-card-head">
+            <article class="flight-card flight-card-premium">
+              <div class="flight-card-top">
                 <div>
                   <div class="flight-kicker">Flight {e(segment_order)}</div>
-                  <div class="flight-number">{flight_number}</div>
-                </div>
-                <div class="flight-route">
-                  <span>{origin}</span>
-                  <span class="flight-arrow">→</span>
-                  <span>{destination}</span>
+                  <div class="flight-number">{e(airline_name) if airline_name else flight_number}</div>
                 </div>
               </div>
-              <div class="flight-times">
-                <div>
-                  <div class="flight-label">Departure</div>
-                  <div class="flight-value">{departure}</div>
+
+              <div class="flight-route-premium">
+                <div class="flight-airport">
+                  <div class="flight-airport-code">{origin}</div>
+                  <div class="flight-airport-city">{e(origin_city)}</div>
+                  <div class="flight-time-main">{departure_time}</div>
+                  <div class="flight-date-main">{departure_date}</div>
                 </div>
-                <div>
-                  <div class="flight-label">Arrival</div>
-                  <div class="flight-value">{arrival}</div>
+
+                <div class="flight-path">
+                  <div class="flight-path-line"></div>
+                  <div class="flight-path-plane">✈</div>
+                </div>
+
+                <div class="flight-airport flight-airport-right">
+                  <div class="flight-airport-code">{destination}</div>
+                  <div class="flight-airport-city">{e(destination_city)}</div>
+                  <div class="flight-time-main">{arrival_time}</div>
+                  <div class="flight-date-main">{arrival_date}</div>
                 </div>
               </div>
+
+              {identity_html}
             </article>
             """
         )
 
     return "\n".join(cards) or '<div class="empty-state">No flight segments loaded.</div>'
-
 
 def flights_section(flights: Dict[str, Any], language: str) -> str:
     flights = flights or {}
@@ -510,10 +537,23 @@ def build_html(
     .body {{ padding: 28px; display: grid; gap: 18px; }}
     .panel {{ background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; min-width: 0; }}
     .section-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--section-title); margin-bottom: 10px; font-weight: 700; }}
-    .flights-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+    .flights-grid {{ display: grid; grid-template-columns: 1fr; gap: 22px;}}
+
     .flight-direction-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-weight: 800; }}
-    .flight-direction {{ display: grid; gap: 10px; align-content: start; }}
+    .flight-direction {{ display: grid; gap: 16px; align-content: start; min-width: 0;}}
     .flight-card {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; break-inside: avoid; }}
+    .flight-card-premium {{ padding: 24px 26px; border-radius: 20px;}}
+    .flight-card-top {{display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px;}}
+    .flight-route-premium {{grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.35fr) minmax(150px, 1fr); gap: 24px;}}
+    .flight-airport {{min-width: 0;}}
+    .flight-airport-right {{text-align: right;}}
+    .flight-airport-code {{font-size: 44px;}}
+    .flight-time-main {{font-size: 24px; line-height: 1.05; font-weight: 900; margin-top: 18px; color: var(--text);}}
+    .flight-date-main {{font-size: 12px; line-height: 1.25; font-weight: 700; color: var(--muted); margin-top: 6px;}}
+    .flight-path {{height: 58px;}}
+    .flight-path-line {{position: absolute; left: 0; right: 0; height: 2px; background: var(--line);}}
+    .flight-path-plane {{position: relative; z-index: 1; width: 34px; height: 34px; border-radius: 999px; background: var(--white); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted);}}
+    .flight-identity {{margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;}}
     .flight-card-head {{ display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }}
     .flight-kicker {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }}
     .flight-number {{ font-size: 18px; line-height: 1.1; font-weight: 900; }}
@@ -522,6 +562,7 @@ def build_html(
     .flight-times {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
     .flight-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }}
     .flight-value {{ font-size: 13px; line-height: 1.25; font-weight: 700; }}
+    .flight-airport-city {{font-size: 15px; line-height: 1.25; font-weight: 700; color: var(--muted); margin-top: 10px;}}
     .passengers-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
     .pax-card {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; min-width: 0; overflow: hidden; }}
     .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; overflow-wrap: anywhere; }}
@@ -990,51 +1031,72 @@ def build_html(
 
 
 
-    .flights-panel {{
+  .flights-panel {{
       break-inside: avoid;
       page-break-inside: avoid;
     }}
 
     .flights-grid {{
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
+      grid-template-columns: 1fr;
+      gap: 22px;
     }}
 
     .flight-direction {{
       display: grid;
-      gap: 10px;
+      gap: 16px;
       align-content: start;
       min-width: 0;
     }}
 
     .flight-direction-title {{
-      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      width: fit-content;
+
+      font-size: 10px;
+      line-height: 1.2;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 2px;
-      font-weight: 800;
+
+      color: var(--navy);
+      background: var(--white);
+
+      border: 1px solid var(--line);
+      border-radius: 999px;
+
+      padding: 7px 11px;
+      margin-bottom: 0;
+
+      font-weight: 900;
+
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      box-sizing: border-box;
     }}
 
     .flight-card {{
       background: var(--white);
       border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      padding: 14px;
+      border-radius: 20px;
       min-width: 0;
       overflow: hidden;
       break-inside: avoid;
       page-break-inside: avoid;
+      padding: 20px 22px;
     }}
 
-    .flight-card-head {{
+    .flight-card-top {{
       display: flex;
       justify-content: space-between;
       gap: 12px;
       align-items: flex-start;
-      margin-bottom: 12px;
-      min-width: 0;
+      margin-bottom: 14px;
+
     }}
 
     .flight-kicker {{
@@ -1042,50 +1104,119 @@ def build_html(
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }}
 
     .flight-number {{
-      font-size: 18px;
-      line-height: 1.1;
+      font-size: 17px;
+      line-height: 1.15;
       font-weight: 900;
       overflow-wrap: anywhere;
     }}
 
-    .flight-route {{
-      font-size: 18px;
-      line-height: 1.1;
-      font-weight: 900;
-      white-space: nowrap;
+    .flight-route-premium {{
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.35fr) minmax(150px, 1fr);
+      gap: 24px;
+      align-items: center;
+    }}
+
+    .flight-airport {{
+      min-width: 0;
+    }}
+
+    .flight-airport-right {{
       text-align: right;
     }}
 
-    .flight-arrow {{
-      color: var(--muted);
-      padding: 0 5px;
+    .flight-airport-code {{
+      font-size: 40px;
+      line-height: 0.95;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+      color: var(--text);
     }}
 
-    .flight-times {{
+    .flight-airport-city {{
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: 8px;
+    }}
+
+    .flight-time-main {{
+      font-size: 22px;
+      line-height: 1.05;
+      font-weight: 900;
+      margin-top: 14px;
+      color: var(--text);
+    }}
+
+    .flight-date-main {{
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: 6px;
+    }}
+
+    .flight-path {{
+      position: relative;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }}
+
+    .flight-path-line {{
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--line);
+    }}
+
+    .flight-path-plane {{
+      position: relative;
+      z-index: 1;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--muted);
+    }}
+
+    .flight-identity {{
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: var(--table-head);
+      border: 1px solid var(--table-row);
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: 12px;
     }}
 
     .flight-label {{
-      font-size: 10px;
-      letter-spacing: 0.12em;
+      font-size: 9px;
+      letter-spacing: 0.13em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }}
 
     .flight-value {{
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.25;
       font-weight: 700;
       overflow-wrap: anywhere;
     }}
-
     .passengers-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));

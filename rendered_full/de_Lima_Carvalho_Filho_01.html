@@ -427,51 +427,73 @@
 
 
 
-    .flights-panel {
+  .flights-panel {
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
     .flights-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
+      grid-template-columns: 1fr;
+      gap: 22px;
     }
 
     .flight-direction {
       display: grid;
-      gap: 10px;
+      gap: 16px;
       align-content: start;
       min-width: 0;
     }
 
     .flight-direction-title {
-      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      width: fit-content;
+
+      font-size: 10px;
+      line-height: 1.2;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 2px;
-      font-weight: 800;
+
+      color: var(--navy);
+      background: var(--white);
+
+      border: 1px solid var(--line);
+      border-radius: 999px;
+
+      padding: 7px 11px;
+      margin-bottom: 0;
+
+      font-weight: 900;
+
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      box-sizing: border-box;
     }
 
     .flight-card {
       background: var(--white);
       border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      padding: 14px;
+      border-radius: 20px;
+      padding: 24px 26px;
       min-width: 0;
       overflow: hidden;
       break-inside: avoid;
       page-break-inside: avoid;
+      padding: 20px 22px;
     }
 
-    .flight-card-head {
+    .flight-card-top {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       align-items: flex-start;
-      margin-bottom: 12px;
-      min-width: 0;
+      margin-bottom: 14px;
+
     }
 
     .flight-kicker {
@@ -479,50 +501,119 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
 
     .flight-number {
-      font-size: 18px;
-      line-height: 1.1;
+      font-size: 17px;
+      line-height: 1.15;
       font-weight: 900;
       overflow-wrap: anywhere;
     }
 
-    .flight-route {
-      font-size: 18px;
-      line-height: 1.1;
-      font-weight: 900;
-      white-space: nowrap;
+    .flight-route-premium {
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.35fr) minmax(150px, 1fr);
+      gap: 24px;
+      align-items: center;
+    }
+
+    .flight-airport {
+      min-width: 0;
+    }
+
+    .flight-airport-right {
       text-align: right;
     }
 
-    .flight-arrow {
-      color: var(--muted);
-      padding: 0 5px;
+    .flight-airport-code {
+      font-size: 40px;
+      line-height: 0.95;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+      color: var(--text);
     }
 
-    .flight-times {
+    .flight-airport-city {
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .flight-time-main {
+      font-size: 22px;
+      line-height: 1.05;
+      font-weight: 900;
+      margin-top: 14px;
+      color: var(--text);
+    }
+
+    .flight-date-main {
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .flight-path {
+      position: relative;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .flight-path-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .flight-path-plane {
+      position: relative;
+      z-index: 1;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    .flight-identity {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: var(--table-head);
+      border: 1px solid var(--table-row);
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: 12px;
     }
 
     .flight-label {
-      font-size: 10px;
-      letter-spacing: 0.12em;
+      font-size: 9px;
+      letter-spacing: 0.13em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
 
     .flight-value {
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.25;
       font-weight: 700;
       overflow-wrap: anywhere;
     }
-
     .passengers-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -766,106 +857,182 @@
           <div class="flight-direction">
             <div class="flight-direction-title">Outbound</div>
             
-            <article class="flight-card">
-              <div class="flight-card-head">
+            <article class="flight-card flight-card-premium">
+              <div class="flight-card-top">
                 <div>
                   <div class="flight-kicker">Flight 1</div>
-                  <div class="flight-number">LX 93</div>
-                </div>
-                <div class="flight-route">
-                  <span>GRU</span>
-                  <span class="flight-arrow">→</span>
-                  <span>ZRH</span>
+                  <div class="flight-number">SWISS · LX 93</div>
                 </div>
               </div>
-              <div class="flight-times">
-                <div>
-                  <div class="flight-label">Departure</div>
-                  <div class="flight-value">27 May 2026 · 18:25</div>
+
+              <div class="flight-route-premium">
+                <div class="flight-airport">
+                  <div class="flight-airport-code">GRU</div>
+                  <div class="flight-airport-city">São Paulo</div>
+                  <div class="flight-time-main">18:25</div>
+                  <div class="flight-date-main">27 May 2026</div>
                 </div>
-                <div>
-                  <div class="flight-label">Arrival</div>
-                  <div class="flight-value">28 May 2026 · 10:40</div>
+
+                <div class="flight-path">
+                  <div class="flight-path-line"></div>
+                  <div class="flight-path-plane">✈</div>
+                </div>
+
+                <div class="flight-airport flight-airport-right">
+                  <div class="flight-airport-code">ZRH</div>
+                  <div class="flight-airport-city">Zurich</div>
+                  <div class="flight-time-main">10:40</div>
+                  <div class="flight-date-main">28 May 2026</div>
                 </div>
               </div>
+
+              
+              <div class="flight-identity">
+                <div>
+                  <div class="flight-label">Ticket Number</div>
+                  <div class="flight-value">7247431756997</div>
+                </div>
+                <div>
+                  <div class="flight-label">Airline Reservation Code</div>
+                  <div class="flight-value">CGOFH5</div>
+                </div>
+              </div>
+            
             </article>
             
 
-            <article class="flight-card">
-              <div class="flight-card-head">
+            <article class="flight-card flight-card-premium">
+              <div class="flight-card-top">
                 <div>
                   <div class="flight-kicker">Flight 2</div>
-                  <div class="flight-number">LX2254</div>
-                </div>
-                <div class="flight-route">
-                  <span>ZRH</span>
-                  <span class="flight-arrow">→</span>
-                  <span>BUD</span>
+                  <div class="flight-number">SWISS · LX2254</div>
                 </div>
               </div>
-              <div class="flight-times">
-                <div>
-                  <div class="flight-label">Departure</div>
-                  <div class="flight-value">28 May 2026 · 12:15</div>
+
+              <div class="flight-route-premium">
+                <div class="flight-airport">
+                  <div class="flight-airport-code">ZRH</div>
+                  <div class="flight-airport-city">Zurich</div>
+                  <div class="flight-time-main">12:15</div>
+                  <div class="flight-date-main">28 May 2026</div>
                 </div>
-                <div>
-                  <div class="flight-label">Arrival</div>
-                  <div class="flight-value">28 May 2026 · 13:55</div>
+
+                <div class="flight-path">
+                  <div class="flight-path-line"></div>
+                  <div class="flight-path-plane">✈</div>
+                </div>
+
+                <div class="flight-airport flight-airport-right">
+                  <div class="flight-airport-code">BUD</div>
+                  <div class="flight-airport-city">Budapest</div>
+                  <div class="flight-time-main">13:55</div>
+                  <div class="flight-date-main">28 May 2026</div>
                 </div>
               </div>
+
+              
+              <div class="flight-identity">
+                <div>
+                  <div class="flight-label">Ticket Number</div>
+                  <div class="flight-value">7247431756997</div>
+                </div>
+                <div>
+                  <div class="flight-label">Airline Reservation Code</div>
+                  <div class="flight-value">CGOFH5</div>
+                </div>
+              </div>
+            
             </article>
             
           </div>
           <div class="flight-direction">
             <div class="flight-direction-title">Return</div>
             
-            <article class="flight-card">
-              <div class="flight-card-head">
+            <article class="flight-card flight-card-premium">
+              <div class="flight-card-top">
                 <div>
                   <div class="flight-kicker">Flight 1</div>
-                  <div class="flight-number">LH1685</div>
-                </div>
-                <div class="flight-route">
-                  <span>BUD</span>
-                  <span class="flight-arrow">→</span>
-                  <span>FRA</span>
+                  <div class="flight-number">Lufthansa · LH1685</div>
                 </div>
               </div>
-              <div class="flight-times">
-                <div>
-                  <div class="flight-label">Departure</div>
-                  <div class="flight-value">01 Jun 2026 · 09:10</div>
+
+              <div class="flight-route-premium">
+                <div class="flight-airport">
+                  <div class="flight-airport-code">BUD</div>
+                  <div class="flight-airport-city">Budapest</div>
+                  <div class="flight-time-main">09:10</div>
+                  <div class="flight-date-main">01 Jun 2026</div>
                 </div>
-                <div>
-                  <div class="flight-label">Arrival</div>
-                  <div class="flight-value">01 Jun 2026 · 10:30</div>
+
+                <div class="flight-path">
+                  <div class="flight-path-line"></div>
+                  <div class="flight-path-plane">✈</div>
+                </div>
+
+                <div class="flight-airport flight-airport-right">
+                  <div class="flight-airport-code">FRA</div>
+                  <div class="flight-airport-city">Frankfurt</div>
+                  <div class="flight-time-main">10:30</div>
+                  <div class="flight-date-main">01 Jun 2026</div>
                 </div>
               </div>
+
+              
+              <div class="flight-identity">
+                <div>
+                  <div class="flight-label">Ticket Number</div>
+                  <div class="flight-value">7247431756997</div>
+                </div>
+                <div>
+                  <div class="flight-label">Airline Reservation Code</div>
+                  <div class="flight-value">CGOFH5</div>
+                </div>
+              </div>
+            
             </article>
             
 
-            <article class="flight-card">
-              <div class="flight-card-head">
+            <article class="flight-card flight-card-premium">
+              <div class="flight-card-top">
                 <div>
                   <div class="flight-kicker">Flight 2</div>
-                  <div class="flight-number">LH 504</div>
-                </div>
-                <div class="flight-route">
-                  <span>FRA</span>
-                  <span class="flight-arrow">→</span>
-                  <span>GRU</span>
+                  <div class="flight-number">Lufthansa · LH 504</div>
                 </div>
               </div>
-              <div class="flight-times">
-                <div>
-                  <div class="flight-label">Departure</div>
-                  <div class="flight-value">01 Jun 2026 · 12:00</div>
+
+              <div class="flight-route-premium">
+                <div class="flight-airport">
+                  <div class="flight-airport-code">FRA</div>
+                  <div class="flight-airport-city">Frankfurt</div>
+                  <div class="flight-time-main">12:00</div>
+                  <div class="flight-date-main">01 Jun 2026</div>
                 </div>
-                <div>
-                  <div class="flight-label">Arrival</div>
-                  <div class="flight-value">01 Jun 2026 · 18:55</div>
+
+                <div class="flight-path">
+                  <div class="flight-path-line"></div>
+                  <div class="flight-path-plane">✈</div>
+                </div>
+
+                <div class="flight-airport flight-airport-right">
+                  <div class="flight-airport-code">GRU</div>
+                  <div class="flight-airport-city">São Paulo</div>
+                  <div class="flight-time-main">18:55</div>
+                  <div class="flight-date-main">01 Jun 2026</div>
                 </div>
               </div>
+
+              
+              <div class="flight-identity">
+                <div>
+                  <div class="flight-label">Ticket Number</div>
+                  <div class="flight-value">7247431756997</div>
+                </div>
+                <div>
+                  <div class="flight-label">Airline Reservation Code</div>
+                  <div class="flight-value">CGOFH5</div>
+                </div>
+              </div>
+            
             </article>
             
           </div>
