@@ -1,0 +1,22 @@
+{
+  "MYSTERY HOTEL|BUDAPEST": {
+    "name": "MYSTERY HOTEL",
+    "display_name": "Mystery Hotel",
+    "address": "Budapest, Podmaniczky u. 45, 1064 Hungary",
+    "city": "Budapest",
+    "country": "Hungary",
+    "phone": "+36 1 616 6000",
+    "website": "http://www.mysteryhotelbudapest.com/",
+    "domain": "mysteryhotelbudapest.com",
+    "logo_url": "https://img.logo.dev/www.mysteryhotelbudapest.com?token=pk_W0O3rw_ZRJeUV2xPg4OR2w&size=256&format=png",
+    "local_logo_path": "assets/logos/mysteryhotelbudapest-com.png",
+    "manual_logo_path": null,
+    "downloaded_logo_path": "assets/logos/mysteryhotelbudapest-com.png",
+    "logo_source": "google",
+    "logo_status": "ok",
+    "google_place_id": "ChIJJb7uFnPcQUcRKEQLnDMGqBQ",
+    "google_maps_uri": "https://maps.google.com/?cid=1488446495577031720&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYBCAA",
+    "enrichment_status": "ok",
+    "validation_warnings": []
+  }
+}

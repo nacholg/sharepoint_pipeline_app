@@ -1,0 +1,386 @@
+[
+  {
+    "row_index": 6,
+    "warnings": [
+      "missing passport"
+    ],
+    "row": {
+      "excel_row_number": 10,
+      "source_row_number": 7,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "event_name": "FINAL UCL 2026",
+      "first_name": "Lucas José",
+      "last_name": "da Silveira",
+      "full_name": "Lucas José da Silveira",
+      "mail": "lucas.silveira88@gmail.com",
+      "phone": "48 99673-8239",
+      "nationality": "Brasil",
+      "date_of_birth": "1988-04-10",
+      "passport_number": null,
+      "passport_expiration": null,
+      "remarks": "cafe da manha",
+      "meals": null,
+      "food_restrictions": "Não",
+      "confirmation_number": null,
+      "qty": 1,
+      "qty_merge_anchor": "R10C46:R11C46",
+      "destination": "BUDAPEST",
+      "hotel_name": "MYSTERY HOTEL",
+      "room": "STANDARD ROOM",
+      "check_in": "2026-05-28",
+      "check_out": "2026-06-01",
+      "nights": 4,
+      "ticket_number": null,
+      "airline_reservation_code": null,
+      "flights": {
+        "outbound": [
+          {
+            "source_segment_number": 2,
+            "flight_number": "LX 93",
+            "origin": "GRU",
+            "departure_date": "2026-05-27",
+            "departure_time": "18:25",
+            "arrival_time": "10:40",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "ZRH",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 3,
+            "flight_number": "LX2254",
+            "origin": "ZRH",
+            "departure_date": "2026-05-28",
+            "departure_time": "12:15",
+            "arrival_time": "13:55",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "BUD",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ],
+        "return": [
+          {
+            "source_segment_number": 1,
+            "flight_number": "LH1685",
+            "origin": "BUD",
+            "departure_date": "2026-06-01",
+            "departure_time": "09:10",
+            "arrival_time": "10:30",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "FRA",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 2,
+            "flight_number": "LH 504",
+            "origin": "FRA",
+            "departure_date": "2026-06-01",
+            "departure_time": "12:00",
+            "arrival_time": "18:55",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "GRU",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ]
+      },
+      "passenger_key": "DA SILVEIRA|LUCAS JOSÉ|1988-04-10|ROW-10",
+      "profile_key": "default"
+    }
+  },
+  {
+    "row_index": 7,
+    "warnings": [
+      "missing passport"
+    ],
+    "row": {
+      "excel_row_number": 11,
+      "source_row_number": 8,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "event_name": "FINAL UCL 2026",
+      "first_name": "Vanessa",
+      "last_name": "Nascimento Holffmann",
+      "full_name": "Vanessa Nascimento Holffmann",
+      "mail": "vn5997927@gmail.com",
+      "phone": "48 99965-1726",
+      "nationality": "Brasil",
+      "date_of_birth": "1995-04-01",
+      "passport_number": null,
+      "passport_expiration": null,
+      "remarks": "cafe da manha",
+      "meals": null,
+      "food_restrictions": "Não",
+      "confirmation_number": null,
+      "qty": 1,
+      "qty_merge_anchor": "R10C46:R11C46",
+      "destination": "BUDAPEST",
+      "hotel_name": "MYSTERY HOTEL",
+      "room": "STANDARD ROOM",
+      "check_in": "2026-05-28",
+      "check_out": "2026-06-01",
+      "nights": 4,
+      "ticket_number": null,
+      "airline_reservation_code": null,
+      "flights": {
+        "outbound": [
+          {
+            "source_segment_number": 2,
+            "flight_number": "LX 93",
+            "origin": "GRU",
+            "departure_date": "2026-05-27",
+            "departure_time": "18:25",
+            "arrival_time": "10:40",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "ZRH",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 3,
+            "flight_number": "LX2254",
+            "origin": "ZRH",
+            "departure_date": "2026-05-28",
+            "departure_time": "12:15",
+            "arrival_time": "13:55",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "BUD",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ],
+        "return": [
+          {
+            "source_segment_number": 1,
+            "flight_number": "LH1685",
+            "origin": "BUD",
+            "departure_date": "2026-06-01",
+            "departure_time": "09:10",
+            "arrival_time": "10:30",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "FRA",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 2,
+            "flight_number": "LH 504",
+            "origin": "FRA",
+            "departure_date": "2026-06-01",
+            "departure_time": "12:00",
+            "arrival_time": "18:55",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "GRU",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ]
+      },
+      "passenger_key": "NASCIMENTO HOLFFMANN|VANESSA|1995-04-01|ROW-11",
+      "profile_key": "default"
+    }
+  },
+  {
+    "row_index": 27,
+    "warnings": [
+      "passport expired: 2026-02-24"
+    ],
+    "row": {
+      "excel_row_number": 31,
+      "source_row_number": 20,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "event_name": "FINAL UCL 2026",
+      "first_name": "Juliana",
+      "last_name": "Gonçalves Mattos Ferreira",
+      "full_name": "Juliana Gonçalves Mattos Ferreira",
+      "mail": "julianagmf@icloud.com",
+      "phone": "21 98113-2233",
+      "nationality": "Brasil",
+      "date_of_birth": "1982-05-27",
+      "passport_number": "FP 319276",
+      "passport_expiration": "2026-02-24",
+      "remarks": "cafe da manha",
+      "meals": null,
+      "food_restrictions": null,
+      "confirmation_number": null,
+      "qty": 1,
+      "qty_merge_anchor": "R31C46:R32C46",
+      "destination": "BUDAPEST",
+      "hotel_name": "MYSTERY HOTEL",
+      "room": "STANDARD ROOM",
+      "check_in": "2026-05-28",
+      "check_out": "2026-06-01",
+      "nights": 4,
+      "ticket_number": null,
+      "airline_reservation_code": null,
+      "flights": {
+        "outbound": [
+          {
+            "source_segment_number": 2,
+            "flight_number": "LX 93",
+            "origin": "GRU",
+            "departure_date": "2026-05-27",
+            "departure_time": "18:25",
+            "arrival_time": "10:40",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "ZRH",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 3,
+            "flight_number": "LX2254",
+            "origin": "ZRH",
+            "departure_date": "2026-05-28",
+            "departure_time": "12:15",
+            "arrival_time": "13:55",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "BUD",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ],
+        "return": [
+          {
+            "source_segment_number": 1,
+            "flight_number": "LH1685",
+            "origin": "BUD",
+            "departure_date": "2026-06-01",
+            "departure_time": "09:10",
+            "arrival_time": "10:30",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "FRA",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 2,
+            "flight_number": "LH 504",
+            "origin": "FRA",
+            "departure_date": "2026-06-01",
+            "departure_time": "12:00",
+            "arrival_time": "18:55",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "GRU",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ]
+      },
+      "passenger_key": "FP 319276",
+      "profile_key": "default"
+    }
+  },
+  {
+    "row_index": 40,
+    "warnings": [
+      "missing passport"
+    ],
+    "row": {
+      "excel_row_number": 44,
+      "source_row_number": 33,
+      "row_number_merge_anchor": null,
+      "group_label": null,
+      "event_name": "FINAL UCL 2026",
+      "first_name": "Dalana Carolina",
+      "last_name": "Migueletti de Oliveira",
+      "full_name": "Dalana Carolina Migueletti de Oliveira",
+      "mail": "daiana.migueletti@itau-unibanco.com.br",
+      "phone": null,
+      "nationality": "Brasil",
+      "date_of_birth": null,
+      "passport_number": null,
+      "passport_expiration": null,
+      "remarks": "cafe da manha",
+      "meals": null,
+      "food_restrictions": null,
+      "confirmation_number": null,
+      "qty": 1,
+      "qty_merge_anchor": null,
+      "destination": "BUDAPEST",
+      "hotel_name": "MYSTERY HOTEL",
+      "room": "STANDARD ROOM",
+      "check_in": "2026-05-28",
+      "check_out": "2026-06-01",
+      "nights": 4,
+      "ticket_number": null,
+      "airline_reservation_code": null,
+      "flights": {
+        "outbound": [
+          {
+            "source_segment_number": 2,
+            "flight_number": "LX 93",
+            "origin": "GRU",
+            "departure_date": "2026-05-27",
+            "departure_time": "18:25",
+            "arrival_time": "10:40",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "ZRH",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 3,
+            "flight_number": "LX2254",
+            "origin": "ZRH",
+            "departure_date": "2026-05-28",
+            "departure_time": "12:15",
+            "arrival_time": "13:55",
+            "arrival_date": "2026-05-28",
+            "destination_airport": "BUD",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ],
+        "return": [
+          {
+            "source_segment_number": 1,
+            "flight_number": "LH1685",
+            "origin": "BUD",
+            "departure_date": "2026-06-01",
+            "departure_time": "09:10",
+            "arrival_time": "10:30",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "FRA",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 1
+          },
+          {
+            "source_segment_number": 2,
+            "flight_number": "LH 504",
+            "origin": "FRA",
+            "departure_date": "2026-06-01",
+            "departure_time": "12:00",
+            "arrival_time": "18:55",
+            "arrival_date": "2026-06-01",
+            "destination_airport": "GRU",
+            "ticket_number": null,
+            "airline_reservation_code": null,
+            "segment_order": 2
+          }
+        ]
+      },
+      "passenger_key": "MIGUELETTI DE OLIVEIRA|DALANA CAROLINA|NO-DOB|ROW-44",
+      "profile_key": "default"
+    }
+  }
+]
