@@ -83,6 +83,22 @@ def pad_passengers(passengers: List[Dict[str, Any]], qty: int, block_rows: List[
 def choose_block_header(block_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     return sorted(block_rows, key=lambda r: r["excel_row_number"])[0]
 
+def normalize_voucher_flights(block_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    for row in block_rows:
+        flights = row.get("flights") or {}
+        outbound = flights.get("outbound") or []
+        return_flights = flights.get("return") or []
+
+        if outbound or return_flights:
+            return {
+                "outbound": outbound,
+                "return": return_flights,
+            }
+
+    return {
+        "outbound": [],
+        "return": [],
+    }
 
 def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int) -> Dict[str, Any]:
     block_rows = sorted(block_rows, key=lambda r: r["excel_row_number"])
@@ -142,6 +158,8 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
                 "pax_count": pax_count,
             }
         ],
+
+        "flights": normalize_voucher_flights(block_rows),
         "passengers": passengers,
         "voucher_info": {
             "voucher_code": None,
@@ -177,5 +195,6 @@ def canonical_to_payload(voucher: Dict[str, Any]) -> Dict[str, Any]:
         "hotel": voucher["hotel"],
         "stay": voucher["stay"],
         "rooms": voucher["rooms"],
+        "flights": voucher.get("flights") or {"outbound": [], "return": []},
         "passengers": voucher["passengers"],
     }

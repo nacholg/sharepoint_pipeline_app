@@ -80,6 +80,47 @@ def normalize_date(value: Any) -> Optional[str]:
     return text
 
 
+def normalize_time(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime("%H:%M")
+
+    if isinstance(value, (int, float)):
+        try:
+            numeric_value = float(value)
+
+            if 0 <= numeric_value < 1:
+                total_minutes = round(numeric_value * 24 * 60)
+                hours = total_minutes // 60
+                minutes = total_minutes % 60
+                return f"{hours:02d}:{minutes:02d}"
+
+            if numeric_value.is_integer():
+                return str(int(numeric_value))
+        except Exception:
+            pass
+
+    text = clean_text(value)
+    if not text:
+        return None
+
+    for fmt in ("%H:%M", "%H.%M", "%I:%M %p"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%H:%M")
+        except ValueError:
+            continue
+
+    try:
+        parsed = datetime.strptime(text, "%H:%M:%S")
+        return parsed.strftime("%H:%M")
+    except ValueError:
+        pass
+
+    return text
+
+
 def normalize_key_text(value: Any) -> Optional[str]:
     text = clean_text(value)
     if not text:
@@ -118,11 +159,15 @@ def build_merged_lookup(ws) -> Dict[Tuple[int, int], Tuple[int, int, int, int]]:
     return lookup
 
 
-def get_effective_cell_value(ws, merged_lookup, row: int, col: int) -> Any:
+def get_effective_cell_value(ws, merged_lookup, row: int, col: Optional[int]) -> Any:
+    if not col:
+        return None
+
     merge_bounds = merged_lookup.get((row, col))
     if merge_bounds:
         min_row, min_col, _, _ = merge_bounds
         return ws.cell(min_row, min_col).value
+
     return ws.cell(row, col).value
 
 
@@ -205,6 +250,195 @@ def get_field_value(
     return get_effective_cell_value(ws, merged_lookup, row, col)
 
 
+def get_flight_direction_from_group(value: Any) -> Optional[str]:
+    normalized = normalize_header(value)
+    if not normalized:
+        return None
+
+    if "FLIGHT" not in normalized:
+        return None
+
+    if "IDA" in normalized or "OUTBOUND" in normalized:
+        return "outbound"
+
+    if "VUELTA" in normalized or "REGRESO" in normalized or "RETURN" in normalized:
+        return "return"
+
+    return None
+
+
+def get_flight_segment_number(value: Any) -> Optional[int]:
+    normalized = normalize_header(value)
+    if not normalized:
+        return None
+
+    match = re.search(r"FLIGHT\s*(\d+)", normalized)
+    if not match:
+        return None
+
+    return normalize_int(match.group(1))
+
+
+def get_flight_field_from_header(value: Any) -> Optional[str]:
+    normalized = normalize_header(value)
+    if not normalized:
+        return None
+
+    if "FLIGHT" in normalized and "NUMBER" in normalized:
+        return "flight_number"
+
+    if normalized in {"FROM TO", "FROMTO"} or normalized.startswith("FROM"):
+        return "origin"
+
+    if "DATE OF DEPARTURE" in normalized:
+        return "departure_date"
+
+    if "TIME OF DEPARTURE" in normalized:
+        return "departure_time"
+
+    if "TIME OF ARRIVAL" in normalized:
+        return "arrival_time"
+
+    if "DATE OF ARRIVAL" in normalized:
+        return "arrival_date"
+
+    if normalized == "AIRPORT":
+        return "destination_airport"
+
+    return None
+
+
+def build_flight_column_map(
+    ws,
+    merged_lookup,
+    group_row: int,
+    header_row: int,
+) -> Dict[str, Dict[int, Dict[str, int]]]:
+    flight_columns: Dict[str, Dict[int, Dict[str, int]]] = {
+        "outbound": {},
+        "return": {},
+    }
+
+    for col in range(1, ws.max_column + 1):
+        group_value = get_effective_cell_value(ws, merged_lookup, group_row, col)
+        header_value = get_effective_cell_value(ws, merged_lookup, header_row, col)
+
+        direction = get_flight_direction_from_group(group_value)
+        segment_number = get_flight_segment_number(group_value)
+        field_name = get_flight_field_from_header(header_value)
+
+        if not direction or not segment_number or not field_name:
+            continue
+
+        flight_columns.setdefault(direction, {})
+        flight_columns[direction].setdefault(segment_number, {})
+        flight_columns[direction][segment_number][field_name] = col
+
+    return flight_columns
+
+
+def flight_segment_has_data(segment: Dict[str, Any]) -> bool:
+    return any(
+        segment.get(key)
+        for key in (
+            "flight_number",
+            "origin",
+            "destination_airport",
+            "departure_date",
+            "departure_time",
+            "arrival_date",
+            "arrival_time",
+        )
+    )
+
+
+def extract_flight_segments_for_row(
+    ws,
+    merged_lookup,
+    excel_row: int,
+    flight_column_map: Dict[str, Dict[int, Dict[str, int]]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    flights: Dict[str, List[Dict[str, Any]]] = {
+        "outbound": [],
+        "return": [],
+    }
+
+    for direction in ("outbound", "return"):
+        raw_segments: List[Dict[str, Any]] = []
+
+        for segment_number in sorted(flight_column_map.get(direction, {}).keys()):
+            columns = flight_column_map[direction][segment_number]
+
+            segment = {
+                "source_segment_number": segment_number,
+                "flight_number": clean_text(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("flight_number"),
+                    )
+                ),
+                "origin": clean_text(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("origin"),
+                    )
+                ),
+                "departure_date": normalize_date(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("departure_date"),
+                    )
+                ),
+                "departure_time": normalize_time(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("departure_time"),
+                    )
+                ),
+                "arrival_time": normalize_time(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("arrival_time"),
+                    )
+                ),
+                "arrival_date": normalize_date(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("arrival_date"),
+                    )
+                ),
+                "destination_airport": clean_text(
+                    get_effective_cell_value(
+                        ws,
+                        merged_lookup,
+                        excel_row,
+                        columns.get("destination_airport"),
+                    )
+                ),
+            }
+
+            if flight_segment_has_data(segment):
+                raw_segments.append(segment)
+
+        for index, segment in enumerate(raw_segments, start=1):
+            segment["segment_order"] = index
+            flights[direction].append(segment)
+
+    return flights
+
+
 def read_effective_rows(
     xlsx_path: Path,
     sheet_name: Optional[str] = None,
@@ -228,6 +462,13 @@ def read_effective_rows(
         header_index=header_index,
         aliases=field_aliases,
         required_fields=required_fields,
+        header_row=header_row,
+    )
+
+    flight_column_map = build_flight_column_map(
+        ws=ws,
+        merged_lookup=merged_lookup,
+        group_row=header_row - 1,
         header_row=header_row,
     )
 
@@ -328,6 +569,12 @@ def read_effective_rows(
                 "check_out": check_out,
                 "nights": normalize_int(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "nights")
+                ),
+                "flights": extract_flight_segments_for_row(
+                    ws=ws,
+                    merged_lookup=merged_lookup,
+                    excel_row=excel_row,
+                    flight_column_map=flight_column_map,
                 ),
                 "passenger_key": build_passenger_key(
                     passport_number=passport_number,
