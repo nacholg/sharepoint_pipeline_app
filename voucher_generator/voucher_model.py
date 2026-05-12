@@ -12,6 +12,13 @@ def to_title_case(value: Any) -> Optional[str]:
     return text.title()
 
 
+def first_present(*values: Any) -> Any:
+    for value in values:
+        if value not in (None, "", "-", "--"):
+            return value
+    return None
+
+
 def dedupe_real_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen: set[str] = set()
     passengers: List[Dict[str, Any]] = []
@@ -37,8 +44,9 @@ def dedupe_real_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any
                 "date_of_birth": row["date_of_birth"],
                 "passport_number": row["passport_number"],
                 "passport_expiration": row["passport_expiration"],
-                "meals": row["meals"],
-                "remarks": row["remarks"],
+                "meals": row.get("meals"),
+                "remarks": row.get("remarks"),
+                "food_restrictions": row.get("food_restrictions"),
             }
         )
 
@@ -62,8 +70,9 @@ def pad_passengers(passengers: List[Dict[str, Any]], qty: int, block_rows: List[
                 "date_of_birth": None,
                 "passport_number": None,
                 "passport_expiration": None,
-                "food_restrictions": None,
+                "meals": None,
                 "remarks": None,
+                "food_restrictions": None,
             }
         )
         next_index += 1
@@ -92,6 +101,15 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
 
     voucher_id = header.get("source_row_number") or voucher_index
 
+    meals_value = first_present(
+        *(row.get("meals") for row in block_rows),
+        *(row.get("remarks") for row in block_rows),
+    )
+
+    additional_info_value = first_present(
+        *(row.get("food_restrictions") for row in block_rows),
+    )
+
     return {
         "id": voucher_id,
         "group_key": f"VOUCHER-{voucher_id}",
@@ -112,13 +130,15 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
             "check_in": header.get("check_in"),
             "check_out": header.get("check_out"),
             "nights": header.get("nights"),
+            "meals": meals_value,
+            "food_restrictions": additional_info_value,
         },
         "rooms": [
             {
                 "room_sequence": 1,
                 "room_count": 1,
                 "room_category": header.get("room"),
-                "additional_info": None,
+                "additional_info": additional_info_value,
                 "pax_count": pax_count,
             }
         ],
@@ -128,7 +148,7 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
             "confirmation_number": None,
             "issue_date": None,
             "remarks": None,
-            "meals": None,
+            "meals": meals_value,
             "other_services": None,
         },
         "meta": {

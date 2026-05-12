@@ -156,9 +156,38 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
             "nationality": clean_text(_first_present(row, "Nationality", "NATIONALITY")),
             "passport_number": clean_text(_first_present(row, "Passport Number", "PASSPORT NUMBER")),
             "passport_expiration": normalize_date(_first_present(row, "Passport Expiration", "EXPIRATION DATE ")),
-            "remarks": clean_text(_first_present(row, "COMMENTS", "NOTES", "ADDITIONAL INFO", "OBSERVACIONES", "COMENTARIOS")),
-            "meals": clean_text(_first_present(row, "Meals", "MEALS", "Comidas", "COMIDAS", "Meal Plan", "MEAL PLAN", "Food", "FOOD", "REMARKS")),
-            "food_restrictions": clean_text(_first_present(row, "Food Restrictions", "FOOD RESTRICTIONS", "DIETARY RESTRICTIONS", "RESTRICTIONS")),
+            "remarks": clean_text(_first_present(
+                row,
+                "remarks",
+                "COMMENTS",
+                "NOTES",
+                "ADDITIONAL INFO",
+                "OBSERVACIONES",
+                "COMENTARIOS",
+            )),
+
+            "meals": clean_text(_first_present(
+                row,
+                "meals",
+                "Meals",
+                "MEALS",
+                "Comidas",
+                "COMIDAS",
+                "Meal Plan",
+                "MEAL PLAN",
+                "Food",
+                "FOOD",
+                "REMARKS",
+            )),
+
+            "food_restrictions": clean_text(_first_present(
+                row,
+                "food_restrictions",
+                "Food Restrictions",
+                "FOOD RESTRICTIONS",
+                "DIETARY RESTRICTIONS",
+                "RESTRICTIONS",
+            )),
             "date_of_birth": normalize_date(_first_present(row, "Date of Birth", "DATE OF BIRTH")),
         }
 
@@ -288,6 +317,17 @@ def build_voucher_payloads(grouped: List[List[NormalizedRow]]) -> List[Dict[str,
         passenger_count = len(passengers)
 
         meals_value = first_present(*(row.meals for row in rows))
+        
+        print("[DEBUG FOOD]", [
+            {
+                "name": row.full_name,
+                "meals": row.meals,
+                "remarks": row.remarks,
+                "food_restrictions": row.food_restrictions,
+            }
+            for row in rows
+        ])
+
         additional_info_value = first_present(
             *(row.food_restrictions for row in rows),
             *(row.remarks for row in rows),
