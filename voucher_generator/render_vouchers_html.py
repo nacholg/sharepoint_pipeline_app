@@ -218,6 +218,91 @@ def room_rows(rooms: List[Dict[str, Any]], t: dict[str, str]) -> str:
     return "\n".join(rows) or f'<tr><td colspan="4">{e(t["no_rooming_details"])}</td></tr>'
 
 
+
+def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> str:
+    date_html = no_break_iso_date(date_value, language=language) if date_value else ""
+    time_html = e(time_value) if time_value not in (None, "") else ""
+
+    if date_html and time_html:
+        return f"{date_html} · {time_html}"
+    return date_html or time_html or ""
+
+
+def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
+    cards: List[str] = []
+
+    for segment in segments or []:
+        segment_order = segment.get("segment_order") or segment.get("source_segment_number") or ""
+        flight_number = display_or_pending(segment.get("flight_number"), "Pendiente")
+        origin = display_or_pending(segment.get("origin"), "—")
+        destination = display_or_pending(segment.get("destination_airport"), "—")
+        departure = format_flight_datetime(
+            segment.get("departure_date"),
+            segment.get("departure_time"),
+            language=language,
+        ) or e("Pendiente")
+        arrival = format_flight_datetime(
+            segment.get("arrival_date"),
+            segment.get("arrival_time"),
+            language=language,
+        ) or e("Pendiente")
+
+        cards.append(
+            f"""
+            <article class="flight-card">
+              <div class="flight-card-head">
+                <div>
+                  <div class="flight-kicker">Flight {e(segment_order)}</div>
+                  <div class="flight-number">{flight_number}</div>
+                </div>
+                <div class="flight-route">
+                  <span>{origin}</span>
+                  <span class="flight-arrow">→</span>
+                  <span>{destination}</span>
+                </div>
+              </div>
+              <div class="flight-times">
+                <div>
+                  <div class="flight-label">Departure</div>
+                  <div class="flight-value">{departure}</div>
+                </div>
+                <div>
+                  <div class="flight-label">Arrival</div>
+                  <div class="flight-value">{arrival}</div>
+                </div>
+              </div>
+            </article>
+            """
+        )
+
+    return "\n".join(cards) or '<div class="empty-state">No flight segments loaded.</div>'
+
+
+def flights_section(flights: Dict[str, Any], language: str) -> str:
+    flights = flights or {}
+    outbound = flights.get("outbound") or []
+    return_flights = flights.get("return") or []
+
+    if not outbound and not return_flights:
+        return ""
+
+    return f"""
+      <section class="panel flights-panel">
+        <div class="section-title">Flights</div>
+        <div class="flights-grid">
+          <div class="flight-direction">
+            <div class="flight-direction-title">Outbound</div>
+            {flight_segment_cards(outbound, language)}
+          </div>
+          <div class="flight-direction">
+            <div class="flight-direction-title">Return</div>
+            {flight_segment_cards(return_flights, language)}
+          </div>
+        </div>
+      </section>
+    """
+
+
 def summary_tiles(
     stay: Dict[str, Any],
     t: dict[str, str],
@@ -310,12 +395,18 @@ def build_html(
     brand_logo: Optional[str],
     debug: bool = False,
     language_override: Optional[str] = None,
+    render_mode: str = "hotel",
 ) -> str:
     voucher = voucher_payload.get("voucher", {})
     hotel = voucher_payload.get("hotel", {})
     stay = voucher_payload.get("stay", {})
     rooms = voucher_payload.get("rooms", [])
+    flights = voucher_payload.get("flights", {}) or {}
     passengers = voucher_payload.get("passengers", [])
+
+    render_mode = (render_mode or "hotel").strip().lower()
+    if render_mode not in {"hotel", "flights", "full"}:
+        render_mode = "hotel"
 
     branding = profile_config.get("branding", {}) or {}
     theme_key = branding.get("theme_key") or DEFAULT_PROFILE_KEY
@@ -331,6 +422,8 @@ def build_html(
     t = get_translations(language)
 
     voucher_kicker = copy_config.get("voucher_kicker") or t["voucher_kicker"]
+    if render_mode == "full":
+        voucher_kicker = "Voucher de Hotel + Vuelos"
     footer_note = copy_config.get("footer_note") or t["footer_note"]
 
     brand_logo_src = resolve_logo_src(
@@ -370,6 +463,103 @@ def build_html(
     city_html = format_fact_value("city", hotel.get("city"), t, language)
     country_html = format_fact_value("country", hotel.get("country"), t, language)
     phone_html = format_fact_value("phone", hotel.get("phone"), t, language)
+    flights_html = flights_section(flights, language)
+
+    if render_mode == "flights":
+        return f"""<!DOCTYPE html>
+<html lang="{e(language)}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{header_title} - Flight Voucher</title>
+  <style>
+    :root {{
+      --section-title: {colors['section_title']};
+      --footer-bg: {colors['footer_bg']};
+      --navy: {colors['navy']};
+      --paper: {colors['paper']};
+      --panel: {colors['panel']};
+      --line: {colors['line']};
+      --text: {colors['text']};
+      --muted: {colors['muted']};
+      --white: {colors['white']};
+      --page-bg: {colors['page_bg']};
+      --page-border: {colors['border']};
+      --header-gradient-end: {colors['header_gradient_end']};
+      --shadow-color: {colors['shadow']};
+      --radius-page: {radius['page']};
+      --radius-lg: {radius['lg']};
+      --radius-md: {radius['md']};
+      --radius-sm: {radius['sm']};
+      --page-width: {layout['page_width_px']}px;
+      --page-min-height: {layout['page_min_height_px']}px;
+      --font-family: {fonts['family']};
+      --shadow: 0 12px 32px var(--shadow-color);
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ margin: 0; padding: 0; }}
+    body {{ font-family: var(--font-family); color: var(--text); background: var(--page-bg); padding: 18px; }}
+    .page {{ width: var(--page-width); min-height: var(--page-min-height); margin: 0 auto; background: var(--paper); border: 1px solid var(--page-border); border-radius: var(--radius-page); overflow: hidden; box-shadow: var(--shadow); }}
+    .header {{ background: linear-gradient(90deg, var(--navy) 0%, var(--header-gradient-end) 100%); color: var(--white); padding: 28px 32px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }}
+    .voucher-kicker {{ font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.78; margin-bottom: 10px; }}
+    .header-title {{ font-size: 34px; line-height: 1.06; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 8px; }}
+    .header-subtitle {{ font-size: 14px; opacity: 0.90; }}
+    .logo-box {{ width: 160px; background: var(--white); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 86px; }}
+    .brand-box-logo {{ max-width: 100%; max-height: 54px; object-fit: contain; display: block; }}
+    .brand-box-placeholder {{ color: var(--navy); font-size: 12px; font-weight: 700; }}
+    .body {{ padding: 28px; display: grid; gap: 18px; }}
+    .panel {{ background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; min-width: 0; }}
+    .section-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--section-title); margin-bottom: 10px; font-weight: 700; }}
+    .flights-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+    .flight-direction-title {{ font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-weight: 800; }}
+    .flight-direction {{ display: grid; gap: 10px; align-content: start; }}
+    .flight-card {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; break-inside: avoid; }}
+    .flight-card-head {{ display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }}
+    .flight-kicker {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }}
+    .flight-number {{ font-size: 18px; line-height: 1.1; font-weight: 900; }}
+    .flight-route {{ font-size: 18px; line-height: 1.1; font-weight: 900; white-space: nowrap; }}
+    .flight-arrow {{ color: var(--muted); padding: 0 5px; }}
+    .flight-times {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+    .flight-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }}
+    .flight-value {{ font-size: 13px; line-height: 1.25; font-weight: 700; }}
+    .passengers-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+    .pax-card {{ background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; min-width: 0; overflow: hidden; }}
+    .pax-name {{ font-size: 15px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; min-height: 34px; overflow-wrap: anywhere; }}
+    .pax-meta-row {{ display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: 8px; align-items: start; margin-bottom: 6px; }}
+    .pax-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }}
+    .pax-value {{ font-size: 12px; line-height: 1.35; font-weight: 600; overflow-wrap: break-word; }}
+    .footer-note {{ color: var(--muted); background: var(--footer-bg); border: 1px solid var(--line); border-radius: var(--radius-md); font-size: 11px; line-height: 1.55; padding: 14px 16px; }}
+    .empty-state {{ color: var(--muted); font-size: 12px; }}
+    @page {{ size: A4; margin: 0; }}
+    @media print {{ body {{ background: #fff; padding: 0; }} .page {{ box-shadow: none; border-radius: 0; border: none; width: auto; min-height: auto; }} .panel, .flight-card, .pax-card, .logo-box {{ break-inside: avoid; page-break-inside: avoid; }} }}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div>
+        <div class="voucher-kicker">Flight Voucher</div>
+        <div class="header-title">{header_title}</div>
+        <div class="header-subtitle">{header_subtitle}</div>
+      </div>
+      <div class="logo-box">
+        {header_brand_logo_html}
+      </div>
+    </header>
+    <main class="body">
+      {flights_html or '<section class="panel"><div class="section-title">Flights</div><div class="empty-state">No flight segments loaded.</div></section>'}
+
+      <section class="panel">
+        <div class="section-title">{e(t["passengers"])}</div>
+        <div class="passengers-grid">
+          {passenger_cards(passengers, t, language)}
+        </div>
+      </section>
+      <div class="footer-note">{e(footer_note)}</div>
+    </main>
+  </div>
+</body>
+</html>"""
 
     return f"""<!DOCTYPE html>
 <html lang="{e(language)}">
@@ -798,6 +988,104 @@ def build_html(
     th:nth-child(3), td:nth-child(3) {{ width: 40%; }}
     th:nth-child(4), td:nth-child(4) {{ width: 18%; }}
 
+
+
+    .flights-panel {{
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }}
+
+    .flights-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }}
+
+    .flight-direction {{
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-width: 0;
+    }}
+
+    .flight-direction-title {{
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+      font-weight: 800;
+    }}
+
+    .flight-card {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      min-width: 0;
+      overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }}
+
+    .flight-card-head {{
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      min-width: 0;
+    }}
+
+    .flight-kicker {{
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }}
+
+    .flight-number {{
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }}
+
+    .flight-route {{
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 900;
+      white-space: nowrap;
+      text-align: right;
+    }}
+
+    .flight-arrow {{
+      color: var(--muted);
+      padding: 0 5px;
+    }}
+
+    .flight-times {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+
+    .flight-label {{
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }}
+
+    .flight-value {{
+      font-size: 13px;
+      line-height: 1.25;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }}
+
     .passengers-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -940,7 +1228,7 @@ def build_html(
         line-height: 1.2;
       }}
 
-      .panel, .meta-box, .summary-tile, .pax-card, .table-wrap, .logo-box {{
+      .panel, .meta-box, .summary-tile, .flight-card, .pax-card, .table-wrap, .logo-box {{
         break-inside: avoid;
         page-break-inside: avoid;
       }}
@@ -1024,6 +1312,8 @@ def build_html(
         </div>
       </section>
 
+      {flights_html if render_mode == "full" else ""}
+
       <section class="panel">
         <div class="section-title">{e(t["passengers"])}</div>
         <div class="passengers-grid">
@@ -1046,6 +1336,12 @@ def main() -> None:
     parser.add_argument("--brand-logo", default=None, help="Optional path, URL or data URI for official brand logo")
     parser.add_argument("--debug-logo", action="store_true", help="Print debug info for logo resolution")
     parser.add_argument("--lang", dest="lang", choices=["es", "en", "pt"], help="Override language from UI")
+    parser.add_argument(
+        "--render-mode",
+        choices=["hotel", "flights", "full"],
+        default="hotel",
+        help="Define qué secciones renderizar: hotel, flights o full",
+    )
 
     args = parser.parse_args()
 
@@ -1092,6 +1388,7 @@ def main() -> None:
             brand_logo=brand_logo,
             debug=args.debug_logo,
             language_override=language,
+            render_mode=args.render_mode,
         )
         (output_dir / filename).write_text(html_text, encoding="utf-8")
         print(f"[DEBUG] wrote_html='{output_dir / filename}'")

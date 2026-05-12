@@ -205,6 +205,17 @@ def build_header_index(ws, merged_lookup, header_row: int) -> Dict[str, int]:
     return header_index
 
 
+def find_header_column(
+    header_index: Dict[str, int],
+    candidates: List[str],
+) -> Optional[int]:
+    for candidate in candidates:
+        normalized_candidate = normalize_header(candidate)
+        if normalized_candidate and normalized_candidate in header_index:
+            return header_index[normalized_candidate]
+    return None
+
+
 def resolve_columns(
     header_index: Dict[str, int],
     aliases: Dict[str, List[str]],
@@ -215,11 +226,9 @@ def resolve_columns(
     missing_required: List[str] = []
 
     for field_name, candidates in aliases.items():
-        for candidate in candidates:
-            normalized_candidate = normalize_header(candidate)
-            if normalized_candidate and normalized_candidate in header_index:
-                resolved[field_name] = header_index[normalized_candidate]
-                break
+        resolved_col = find_header_column(header_index, candidates)
+        if resolved_col:
+            resolved[field_name] = resolved_col
 
         if field_name in required_fields and field_name not in resolved:
             missing_required.append(field_name)
@@ -248,6 +257,72 @@ def get_field_value(
     if not col:
         return None
     return get_effective_cell_value(ws, merged_lookup, row, col)
+
+
+def get_global_flight_identity_columns(header_index: Dict[str, int]) -> Dict[str, Optional[int]]:
+    """
+    Ticket Number and Airline Reservation Code can live outside the repeated
+    FLIGHT 1 / FLIGHT 2 / FLIGHT 3 groups. In that layout they are passenger-row
+    level columns, so we detect them from the main header row and later copy
+    their values into each rendered flight segment.
+    """
+    return {
+        "ticket_number": find_header_column(
+            header_index,
+            [
+                "TICKET NUMBER",
+                "TICKET NBR",
+                "TICKET NO",
+                "TICKET",
+                "E TICKET",
+                "ETICKET",
+                "E-TICKET",
+                "E-TICKET NUMBER",
+                "ELECTRONIC TICKET",
+                "ELECTRONIC TICKET NUMBER",
+            ],
+        ),
+        "airline_reservation_code": find_header_column(
+            header_index,
+            [
+                "AIRLINE RESERVATION CODE",
+                "AIRLINE CODE",
+                "AIRLINE PNR",
+                "PNR",
+                "RECORD LOCATOR",
+                "LOCATOR",
+                "RESERVATION CODE",
+                "BOOKING CODE",
+                "CONFIRMATION CODE",
+            ],
+        ),
+    }
+
+
+def get_global_flight_identity_for_row(
+    ws,
+    merged_lookup,
+    excel_row: int,
+    global_flight_identity_columns: Dict[str, Optional[int]],
+) -> Dict[str, Optional[str]]:
+    return {
+        "ticket_number": clean_text(
+            get_effective_cell_value(
+                ws,
+                merged_lookup,
+                excel_row,
+                global_flight_identity_columns.get("ticket_number"),
+            )
+        ),
+        "airline_reservation_code": clean_text(
+            get_effective_cell_value(
+                ws,
+                merged_lookup,
+                excel_row,
+                global_flight_identity_columns.get("airline_reservation_code"),
+            )
+        ),
+    }
 
 
 def get_flight_direction_from_group(value: Any) -> Optional[str]:
@@ -305,6 +380,24 @@ def get_flight_field_from_header(value: Any) -> Optional[str]:
     if normalized == "AIRPORT":
         return "destination_airport"
 
+    # These are supported if at some point they are placed inside each
+    # Flight group, but the current sample has them as global row columns.
+    if "TICKET" in normalized:
+        return "ticket_number"
+
+    if normalized in {
+        "AIRLINE RESERVATION CODE",
+        "AIRLINE CODE",
+        "AIRLINE PNR",
+        "PNR",
+        "RECORD LOCATOR",
+        "LOCATOR",
+        "RESERVATION CODE",
+        "BOOKING CODE",
+        "CONFIRMATION CODE",
+    }:
+        return "airline_reservation_code"
+
     return None
 
 
@@ -357,17 +450,39 @@ def extract_flight_segments_for_row(
     merged_lookup,
     excel_row: int,
     flight_column_map: Dict[str, Dict[int, Dict[str, int]]],
+    global_flight_identity: Optional[Dict[str, Optional[str]]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     flights: Dict[str, List[Dict[str, Any]]] = {
         "outbound": [],
         "return": [],
     }
 
+    global_flight_identity = global_flight_identity or {}
+    global_ticket_number = global_flight_identity.get("ticket_number")
+    global_airline_reservation_code = global_flight_identity.get("airline_reservation_code")
+
     for direction in ("outbound", "return"):
         raw_segments: List[Dict[str, Any]] = []
 
         for segment_number in sorted(flight_column_map.get(direction, {}).keys()):
             columns = flight_column_map[direction][segment_number]
+
+            segment_ticket_number = clean_text(
+                get_effective_cell_value(
+                    ws,
+                    merged_lookup,
+                    excel_row,
+                    columns.get("ticket_number"),
+                )
+            )
+            segment_airline_reservation_code = clean_text(
+                get_effective_cell_value(
+                    ws,
+                    merged_lookup,
+                    excel_row,
+                    columns.get("airline_reservation_code"),
+                )
+            )
 
             segment = {
                 "source_segment_number": segment_number,
@@ -427,6 +542,10 @@ def extract_flight_segments_for_row(
                         columns.get("destination_airport"),
                     )
                 ),
+                "ticket_number": segment_ticket_number or global_ticket_number,
+                "airline_reservation_code": (
+                    segment_airline_reservation_code or global_airline_reservation_code
+                ),
             }
 
             if flight_segment_has_data(segment):
@@ -471,6 +590,7 @@ def read_effective_rows(
         group_row=header_row - 1,
         header_row=header_row,
     )
+    global_flight_identity_columns = get_global_flight_identity_columns(header_index)
 
     rows: List[Dict[str, Any]] = []
 
@@ -525,6 +645,12 @@ def read_effective_rows(
         confirmation_number = clean_text(
             get_field_value(ws, merged_lookup, excel_row, resolved_columns, "confirmation_number")
         )
+        global_flight_identity = get_global_flight_identity_for_row(
+            ws=ws,
+            merged_lookup=merged_lookup,
+            excel_row=excel_row,
+            global_flight_identity_columns=global_flight_identity_columns,
+        )
 
         rows.append(
             {
@@ -570,11 +696,14 @@ def read_effective_rows(
                 "nights": normalize_int(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "nights")
                 ),
+                "ticket_number": global_flight_identity.get("ticket_number"),
+                "airline_reservation_code": global_flight_identity.get("airline_reservation_code"),
                 "flights": extract_flight_segments_for_row(
                     ws=ws,
                     merged_lookup=merged_lookup,
                     excel_row=excel_row,
                     flight_column_map=flight_column_map,
+                    global_flight_identity=global_flight_identity,
                 ),
                 "passenger_key": build_passenger_key(
                     passport_number=passport_number,
