@@ -57,6 +57,12 @@
     return resultVisible || terminalStatus;
   }
 
+  function getRenderModeLabel(value) {
+    if (value === "hotel") return "Solo hotel";
+    if (value === "flights") return "Solo aéreos";
+    return "Hotel + Aéreos";
+  }
+
   function buildStep1Summary() {
     const client =
       window.selectedClient?.label ||
@@ -64,9 +70,15 @@
 
     const language = getSelectedText(window.languageSelect);
 
+    const renderMode =
+      window.voucherRenderModeSelect?.value ||
+      document.getElementById("voucherRenderModeSelect")?.value ||
+      "full";
+
     return `
       <strong>Cliente:</strong> ${client}<br>
-      <strong>Idioma:</strong> ${language}
+      <strong>Idioma:</strong> ${language}<br>
+      <strong>Tipo de voucher:</strong> ${getRenderModeLabel(renderMode)}
     `;
   }
   function buildStep2Summary() {
@@ -370,6 +382,11 @@ function switchMode(mode) {
       prefs.language = window.languageSelect.value;
       window.savePrefs(prefs);
 
+      window.step1Confirmed = false;
+      refreshWizardState();
+    });
+
+    window.voucherRenderModeSelect?.addEventListener("change", () => {
       window.step1Confirmed = false;
       refreshWizardState();
     });

@@ -13,6 +13,7 @@ async function runLocalPipeline(event) {
   const selectedProfile = localProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
   const renderMode = document.getElementById("voucherRenderModeSelect")?.value || "full";
+  window.updateStep1RenderModeSummary?.();
 
   if (!file) {
     unlockPipelineExecution();

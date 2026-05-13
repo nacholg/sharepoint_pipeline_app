@@ -75,11 +75,7 @@
     reader.readAsDataURL(file);
   }
 
-  function getRenderModeLabel(value) {
-    if (value === "hotel") return "Solo hotel";
-    if (value === "flights") return "Solo aéreos";
-    return "Hotel + Aéreos";
-  }
+    
 
   function resetHotelLogoFormState() {
     if (window.hotelLogoForm) {
@@ -91,27 +87,7 @@
     clearLogoPreview();
   }
 
-  function updateStep1RenderModeSummary() {
-      const summary = document.getElementById("step1Summary");
-      const select = document.getElementById("voucherRenderModeSelect");
-
-      if (!summary || !select) return;
-
-      const renderModeLabel = getRenderModeLabel(select.value || "full");
-
-      const existing = summary.querySelector("#summaryRenderModeLine");
-
-      if (existing) {
-        existing.innerHTML = `<strong>Tipo de voucher:</strong> ${renderModeLabel}`;
-        return;
-      }
-
-      const line = document.createElement("div");
-      line.id = "summaryRenderModeLine";
-      line.innerHTML = `<strong>Tipo de voucher:</strong> ${renderModeLabel}`;
-
-      summary.appendChild(line);
-    }
+  
 
   async function start() {
 
@@ -126,26 +102,11 @@
 
     const continueStep1Btn = document.getElementById("continueStep1Btn");
 
-    if (continueStep1Btn) {
-      continueStep1Btn.addEventListener("click", () => {
-        setTimeout(updateStep1RenderModeSummary, 0);
-      });
-    }
-
-    ["btnLocal", "btnSP", "continueStep2Btn", "backStep2Btn"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener("click", () => {
-          setTimeout(updateStep1RenderModeSummary, 0);
-        });
-      }
-    });
+    
 
     const voucherRenderModeSelect = document.getElementById("voucherRenderModeSelect");
 
-    if (voucherRenderModeSelect) {
-      voucherRenderModeSelect.addEventListener("change", updateStep1RenderModeSummary);
-    }
+    
     
 
     if (window.hotelLogoBtn && window.hotelLogoModal) {
