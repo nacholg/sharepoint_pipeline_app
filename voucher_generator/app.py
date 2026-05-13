@@ -138,7 +138,16 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
         effective_check_in = normalize_date(_first_present(row, "Check In Raw", "CHECK IN HOTEL", "Check In")) or last_values["check_in"]
         effective_check_out = normalize_date(_first_present(row, "Check Out Raw", "CHECK OUT HOTEL", "Check Out")) or last_values["check_out"]
         effective_nights = normalize_int(_first_present(row, "Nights Raw", "ROOM NIGHTS", "Nights")) or last_values["nights"]
-        effective_hotel_voucher = normalize_int(_first_present(row, "Hotel Voucher", "Voucher Hotel", "Conf Nbr", "Confirmation Number", "Nro de Conf", "Nro. Conf.")   )
+        effective_hotel_voucher = clean_text(_first_present(
+            row,
+            "confirmation_number",
+            "Hotel Voucher",
+            "Voucher Hotel",
+            "Conf Nbr",
+            "Confirmation Number",
+            "Nro de Conf",
+            "Nro. Conf.",
+        ))
 
         last_values.update({
             "group_label": effective_group_label,
@@ -220,6 +229,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
                 meals=row_data["meals"],
                 food_restrictions=row_data["food_restrictions"],
                 passenger_key=passenger_key,
+                confirmation_number=effective_hotel_voucher,
             )
         )
 

@@ -151,6 +151,7 @@ class SharePointRunRequest(BaseModel):
     client_key: str | None = None
     language: str | None = None
     selected_voucher_ids: list[str] | None = None
+    render_mode: str | None = None
 
 
 def get_session_user(request: Request):
@@ -669,6 +670,7 @@ def _run_local_job_async(
     language: str,
     client_cfg: dict,
     selected_voucher_ids: list[str] | None = None,
+    render_mode: str = "full",
 ) -> None:
     job_dir = (jobs_root / job_id).resolve()
 
@@ -708,6 +710,7 @@ def _run_local_job_async(
             profile_name=profile_name,
             language=language,
             selected_voucher_ids=selected_voucher_ids,
+            render_mode=render_mode,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -781,6 +784,7 @@ def _run_sharepoint_job_async(
     resolved_profile: str,
     resolved_language: str,
     selected_voucher_ids: list[str] | None = None,
+    render_mode: str = "full",
 ) -> None:
     jobs_root = Path("work/jobs").resolve()
     job_dir = (jobs_root / job_id).resolve()
@@ -900,6 +904,7 @@ def _run_sharepoint_job_async(
             profile_name=resolved_profile,
             language=resolved_language,
             selected_voucher_ids=selected_voucher_ids,
+            render_mode=render_mode,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -1374,6 +1379,7 @@ async def api_local_run(
     client_key: str = Form(""),
     language: str = Form(""),
     selected_voucher_ids: str = Form(""),
+    render_mode: str = Form("full")
 ):
     try:
         client_cfg = get_client_config(client_key or None)
@@ -1423,6 +1429,7 @@ async def api_local_run(
                 "language": resolved_language,
                 "client_cfg": client_cfg,
                 "selected_voucher_ids": parsed_selected_voucher_ids,
+                "render_mode": render_mode,
             },
             daemon=True,
         )
@@ -1771,6 +1778,8 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
         language=resolved_language,
     )
 
+    render_mode = payload.render_mode or "full"
+
     worker = threading.Thread(
         target=_run_sharepoint_job_async,
         kwargs={
@@ -1783,6 +1792,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             "resolved_profile": resolved_profile,
             "resolved_language": resolved_language,
             "selected_voucher_ids": parsed_selected_voucher_ids,
+            "render_mode": render_mode,
         },
         daemon=True,
     )

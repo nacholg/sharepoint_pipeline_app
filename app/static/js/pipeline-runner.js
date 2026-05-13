@@ -12,6 +12,7 @@ async function runLocalPipeline(event) {
   const file = fileInput?.files?.[0];
   const selectedProfile = localProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
+  const renderMode = document.getElementById("voucherRenderModeSelect")?.value || "full";
 
   if (!file) {
     unlockPipelineExecution();
@@ -34,15 +35,12 @@ async function runLocalPipeline(event) {
     formData.append("profile", selectedProfile);
     formData.append("client_key", selectedClient?.key || "");
     formData.append("language", language);
+    formData.append("render_mode", renderMode);
 
-    const selectedVoucherIds =
-      window.APP_STATE?.data?.selectedVoucherIds || [];
+    const selectedVoucherIds = window.APP_STATE?.data?.selectedVoucherIds || [];
 
     if (window.APP_STATE?.data?.voucherPreview) {
-      formData.append(
-        "selected_voucher_ids",
-        JSON.stringify(selectedVoucherIds)
-      );
+      formData.append("selected_voucher_ids", JSON.stringify(selectedVoucherIds));
     }
 
     const response = await fetch(API.localRun, {
@@ -55,9 +53,6 @@ async function runLocalPipeline(event) {
     if (!response.ok || !data?.ok || !data?.job_id) {
       throw new Error(data?.detail || "Error iniciando pipeline local.");
     }
-    window.fileInput?.addEventListener("change", () => {
-    window.setActiveStep?.(2);
-  });
 
     window.currentRunningJobId = data.job_id;
     await pollJob(data.job_id);
@@ -76,6 +71,7 @@ async function runSharePointPipeline(event) {
 
   const selectedProfile = sharepointProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
+  const renderMode = document.getElementById("voucherRenderModeSelect")?.value || "full";
 
   if (!selectedSourceFileId) {
     unlockPipelineExecution();
@@ -107,8 +103,8 @@ async function runSharePointPipeline(event) {
       profile: selectedProfile,
       client_key: selectedClient?.key || null,
       language,
-      selected_voucher_ids:
-      window.APP_STATE?.data?.voucherPreview
+      render_mode: renderMode,
+      selected_voucher_ids: window.APP_STATE?.data?.voucherPreview
         ? window.APP_STATE?.data?.selectedVoucherIds || []
         : [],
     };
@@ -126,8 +122,6 @@ async function runSharePointPipeline(event) {
     if (!response.ok || !data?.ok || !data?.job_id) {
       throw new Error(data?.detail || "Error iniciando pipeline SharePoint.");
     }
-
-
 
     window.currentRunningJobId = data.job_id;
     await pollJob(data.job_id);

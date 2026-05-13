@@ -587,6 +587,7 @@ def run_full_voucher_pipeline(
     pretty_json: bool = True,
     language: Optional[str] = None,
     selected_voucher_ids: Optional[list[str]] = None,
+    render_mode: str = "full",
 ) -> PipelineRunResult:
     if profile_name is None and profile is not None:
         profile_name = profile
@@ -737,6 +738,9 @@ def run_full_voucher_pipeline(
     if resolved_language:
         cmd_3.extend(["--lang", resolved_language])
 
+    cmd_3.extend(["--render-mode", render_mode])    
+
+
     logo_to_use = brand_logo
     if logo_to_use:
         logo_path = Path(logo_to_use)
@@ -764,6 +768,7 @@ def run_full_voucher_pipeline(
             profile_name=profile_name,
             resolved_language=resolved_language,
             enriched_json=enriched_json,
+            
         )
 
     cmd_4 = [
@@ -807,7 +812,7 @@ def run_full_voucher_pipeline(
         logo_metrics=logo_summary,
     )
 
-    logo_details = _build_logo_details(enriched_json),
+    logo_details = _build_logo_details(enriched_json)
 
 
     return PipelineRunResult(

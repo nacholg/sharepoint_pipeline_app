@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mystery Hotel - Voucher</title>
   <style>
+  
     :root {
       --section-title: #6c7894;
       --footer-bg: #eef2f8;
@@ -60,6 +61,7 @@
       --shadow: 0 12px 32px var(--shadow-color);
       --font-family: Inter, Arial, Helvetica, sans-serif;
     }
+    
   /* ========================================================================== */
 /* BASE                                                                       */
 /* ========================================================================== */
@@ -381,12 +383,15 @@
       border-radius: var(--radius-xs);
       border: 1px solid var(--line);
       background: var(--white);
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
+      break-inside: auto;
     }
 
     th, td {
@@ -405,6 +410,11 @@
       letter-spacing: 0.12em;
       color: var(--muted);
       background: var(--table-head);
+    }
+
+    tr {
+       break-inside: avoid;
+       page-break-inside: avoid;
     }
 
     tbody tr:last-child td { border-bottom: none; }
@@ -472,6 +482,8 @@
       border-radius: var(--radius-lg);
       padding: 18px;
       min-width: 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .section-title {
@@ -481,6 +493,8 @@
       color: var(--section-title);
       margin-bottom: 10px;
       font-weight: 700;
+      break-after: avoid;
+      page-break-after: avoid;
     }
 
 
@@ -504,6 +518,8 @@
       gap: 16px;
       align-content: start;
       min-width: 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .flight-direction-title {
@@ -536,6 +552,12 @@
       box-sizing: border-box;
     }
 
+    .flight-direction-title,
+    .flight-direction-toggle {
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
     .flight-card {
       background: var(--white);
       border: 1px solid var(--line);
@@ -545,6 +567,7 @@
       break-inside: avoid;
       page-break-inside: avoid;
       padding: 20px 22px;
+      
     }
 
     .flight-card-top {
@@ -761,6 +784,32 @@
   .flight-direction.is-collapsed .flight-direction-content {
     display: grid;
   }
+
+  .flight-card {
+  padding: 16px 18px;
+}
+
+.flight-route-premium {
+  gap: 16px;
+}
+
+.flight-airport-code {
+  font-size: 34px;
+}
+
+.flight-time-main {
+  font-size: 19px;
+  margin-top: 10px;
+}
+
+.flight-card-top {
+  margin-bottom: 10px;
+}
+
+.flight-identity {
+  margin-top: 10px;
+  padding: 8px 10px;
+}
 }
 
 .flight-direction-content {
@@ -770,6 +819,8 @@
   transition: max-height 0.25s ease, opacity 0.25s ease;
   max-height: 2000px;
   opacity: 1;
+  break-before: avoid;
+  page-break-before: avoid;
 }
 
 .flight-direction.is-collapsed .flight-direction-content {
@@ -1014,6 +1065,8 @@
     </header>
 
     <main class="body">
+      
+      
       <section class="top-grid">
         <section class="panel">
           <div class="section-title">Hotel / Dirección</div>
@@ -1045,7 +1098,6 @@
         <section class="panel">
           <div class="section-title">Resumen de estadía</div>
           <div class="hotel-summary-grid">
-
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Check-in</div>
               <div class="hotel-summary-value">28 May 2026</div>
@@ -1056,7 +1108,6 @@
               <div class="hotel-summary-value">01 Jun 2026</div>
             </div>
 
-
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Meals</div>
               <div class="hotel-summary-value">cafe da manha</div>
@@ -1065,31 +1116,30 @@
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Nights</div>
               <div class="hotel-summary-value">4</div>
-              
             </div>
-
           </div>
         </section>
       </section>
 
+      
       <section class="panel rooms-panel">
-    <button class="section-title section-toggle" type="button" onclick="this.closest('.rooms-panel').classList.toggle('is-collapsed')">
-        Detalle de habitaciones
-    </button>
+        <button class="section-title section-toggle" type="button" onclick="this.closest('.rooms-panel').classList.toggle('is-collapsed')">
+          Detalle de habitaciones
+        </button>
 
-    <div class="section-collapsible-body">
-        <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th>Hab.</th>
-                <th>Categoría</th>
-                <th>Información adicional</th>
-                <th>Pasajeros</th>
-            </tr>
-            </thead>
-            <tbody>
-            
+        <div class="section-collapsible-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hab.</th>
+                  <th>Categoría</th>
+                  <th>Información adicional</th>
+                  <th>Pasajeros</th>
+                </tr>
+              </thead>
+              <tbody>
+                
             <tr>
               <td>1</td>
               <td class="text-wrap">STANDARD ROOM</td>
@@ -1097,13 +1147,13 @@
               <td>2</td>
             </tr>
             
-            </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
         </div>
-    </div>
-    </section>
-
-
+      </section>
+    
+        
       
       <section class="panel flights-panel">
         <button class="flights-toggle" type="button" onclick="this.closest('.flights-panel').classList.toggle('is-collapsed')">
@@ -1277,14 +1327,14 @@
         </div>
       </section>
     
-
-    <section class="panel passengers-panel">
-       <button class="section-title section-toggle" type="button" onclick="this.closest('.passengers-panel').classList.toggle('is-collapsed')">
-            Pasajeros
+      
+      <section class="panel passengers-panel">
+        <button class="section-title section-toggle" type="button" onclick="this.closest('.passengers-panel').classList.toggle('is-collapsed')">
+          Pasajeros
         </button>
 
         <div class="section-collapsible-body">
-            <div class="passengers-grid">
+          <div class="passengers-grid">
             
             <article class="pax-card">
               <div class="pax-name">Fabio Amaral Contenete</div>
@@ -1301,10 +1351,11 @@
               <div class="pax-meta-row"><span class="pax-label">Venc.</span><span class="pax-value">28 Oct 2028</span></div>
             </article>
             
-            </div>
+          </div>
         </div>
-    </section>
-
+      </section>
+    
+        
       <div class="footer-note">Emitido para operación de viajes. Verificar documentación, rooming y datos del hotel antes del envío final.</div>
     </main>
   </div>

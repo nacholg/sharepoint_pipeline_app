@@ -14,6 +14,19 @@ from voucher_generator.themes.theme_registry import get_theme_config
 from voucher_generator.i18n import get_translations, normalize_language
 from voucher_generator.flight_catalogs import airline_display_name, airport_city_name
 from voucher_generator.profiles.profile_loader import load_profile
+from voucher_generator.renderers.flights_renderer import flights_section
+from voucher_generator.renderers.common import (
+    e,
+    display_or_pending,
+    no_break_iso_date,
+)
+
+from voucher_generator.renderers.hotel_renderer import (
+    rooms_section,
+    passengers_section,
+)
+
+
 
 
 
@@ -33,15 +46,6 @@ def load_json(path: Path) -> Any:
 def load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
-def e(value: Any) -> str:
-    if value is None:
-        return ""
-    return html.escape(str(value))
-
-
-def display_or_pending(value: Any, pending: str = "Pendiente") -> str:
-    return e(value) if value not in (None, "") else e(pending)
-
 
 def no_break_phone(value: Any) -> str:
     if value in (None, ""):
@@ -51,40 +55,6 @@ def no_break_phone(value: Any) -> str:
     text = text.replace("-", "&#8209;")
     return text
 
-
-def no_break_iso_date(value: Any, language: str = "es") -> str:
-    if value in (None, ""):
-        return ""
-
-    text = str(value).strip()
-
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
-        year, month, day = text.split("-")
-
-        month_maps = {
-            "es": {
-                "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
-                "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
-                "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dic",
-            },
-            "en": {
-                "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
-                "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
-                "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
-            },
-            "pt": {
-                "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
-                "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
-                "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
-            },
-        }
-
-        month_map = month_maps.get(language, month_maps["es"])
-        month_label = month_map.get(month, month)
-        formatted = f"{day} {month_label} {year}"
-        return html.escape(formatted)
-
-    return html.escape(text)
 
 
 def format_fact_value(label: str, value: Any, t: dict[str, str], language: str) -> str:
@@ -184,178 +154,9 @@ def hotel_logo_src(hotel: Dict[str, Any], output_dir: Path, debug: bool = False)
     )
 
 
-def passenger_cards(passengers: List[Dict[str, Any]], t: dict[str, str], language: str) -> str:
-    cards: List[str] = []
-    for pax in passengers:
-        nationality_html = display_or_pending(pax.get("nationality"), t["empty"])
-        passport_html = display_or_pending(pax.get("passport_number"), t["empty"])
-        expiration_html = display_or_pending(pax.get("passport_expiration"), t["empty"])
-        if pax.get("passport_expiration") not in (None, ""):
-            expiration_html = no_break_iso_date(pax.get("passport_expiration"), language=language)
-
-        cards.append(
-            f"""
-            <article class="pax-card">
-              <div class="pax-name">{e(pax.get('full_name') or t['passenger_fallback'])}</div>
-              <div class="pax-meta-row"><span class="pax-label">{e(t["nationality"])}</span><span class="pax-value">{nationality_html}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">{e(t["passport"])}</span><span class="pax-value">{passport_html}</span></div>
-              <div class="pax-meta-row"><span class="pax-label">{e(t["passport_expiry"])}</span><span class="pax-value">{expiration_html}</span></div>
-            </article>
-            """
-        )
-    return "\n".join(cards) or f'<div class="empty-state">{e(t["no_passengers_loaded"])}</div>'
-
-
-def room_rows(rooms: List[Dict[str, Any]], t: dict[str, str]) -> str:
-    rows: List[str] = []
-    for room in rooms:
-        rows.append(
-            f"""
-            <tr>
-              <td>{display_or_pending(room.get('room_count'), t['empty'])}</td>
-              <td class="text-wrap">{display_or_pending(room.get('room_category'), t['empty'])}</td>
-              <td class="text-wrap">{display_or_pending(room.get('additional_info'), t['empty'])}</td>
-              <td>{display_or_pending(room.get('pax_count'), t['empty'])}</td>
-            </tr>
-            """
-        )
-    return "\n".join(rows) or f'<tr><td colspan="4">{e(t["no_rooming_details"])}</td></tr>'
 
 
 
-def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> str:
-    date_html = no_break_iso_date(date_value, language=language) if date_value else ""
-    time_html = e(time_value) if time_value not in (None, "") else ""
-
-    if date_html and time_html:
-        return f"{date_html} · {time_html}"
-    return date_html or time_html or ""
-
-
-def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
-    cards: List[str] = []
-
-    for idx, segment in enumerate(segments or []):
-        segment_order = segment.get("segment_order") or segment.get("source_segment_number") or ""
-        flight_number = display_or_pending(segment.get("flight_number"), "Pendiente")
-        origin = display_or_pending(segment.get("origin"), "—")
-        destination = display_or_pending(segment.get("destination_airport"), "—")
-
-        departure_date = no_break_iso_date(segment.get("departure_date"), language=language) if segment.get("departure_date") else e("Pendiente")
-        arrival_date = no_break_iso_date(segment.get("arrival_date"), language=language) if segment.get("arrival_date") else e("Pendiente")
-
-        departure_time = e(segment.get("departure_time")) if segment.get("departure_time") not in (None, "") else e("—")
-        arrival_time = e(segment.get("arrival_time")) if segment.get("arrival_time") not in (None, "") else e("—")
-
-        airline_name = airline_display_name(segment.get("flight_number"))
-        origin_city = airport_city_name(segment.get("origin"))
-        destination_city = airport_city_name(segment.get("destination_airport"))
-
-        ticket_number = segment.get("ticket_number")
-        airline_reservation_code = segment.get("airline_reservation_code")
-
-        identity_html = ""
-        if ticket_number or airline_reservation_code:
-            identity_html = f"""
-              <div class="flight-identity">
-                <div>
-                  <div class="flight-label">Ticket Number</div>
-                  <div class="flight-value">{display_or_pending(ticket_number, "—")}</div>
-                </div>
-                <div>
-                  <div class="flight-label">Airline Reservation Code</div>
-                  <div class="flight-value">{display_or_pending(airline_reservation_code, "—")}</div>
-                </div>
-              </div>
-            """
-
-        cards.append(
-            f"""
-            <article class="flight-card flight-card-premium">
-              <div class="flight-card-top">
-                <div>
-                  <div class="flight-kicker">Flight {e(segment_order)}</div>
-                  <div class="flight-number">{e(airline_name) if airline_name else flight_number}</div>
-                </div>
-              </div>
-
-              <div class="flight-route-premium">
-                <div class="flight-airport">
-                  <div class="flight-airport-code">{origin}</div>
-                  <div class="flight-airport-city">{e(origin_city)}</div>
-                  <div class="flight-time-main">{departure_time}</div>
-                  <div class="flight-date-main">{departure_date}</div>
-                </div>
-
-                <div class="flight-path">
-                  <div class="flight-path-line"></div>
-                  <div class="flight-path-plane">✈</div>
-                </div>
-
-                <div class="flight-airport flight-airport-right">
-                  <div class="flight-airport-code">{destination}</div>
-                  <div class="flight-airport-city">{e(destination_city)}</div>
-                  <div class="flight-time-main">{arrival_time}</div>
-                  <div class="flight-date-main">{arrival_date}</div>
-                </div>
-              </div>
-
-              {identity_html}
-            </article>
-            """
-        )
-
-        if idx < len(segments or []) - 1:
-            cards.append(
-                """
-                <div class="flight-connection">
-                  <div class="flight-connection-line"></div>
-                  <div class="flight-connection-pill">Connecting flight</div>
-                </div>
-                """
-            )
-
-    return "\n".join(cards) or '<div class="empty-state">No flight segments loaded.</div>'
-
-def flights_section(flights: Dict[str, Any], language: str) -> str:
-    flights = flights or {}
-    outbound = flights.get("outbound") or []
-    return_flights = flights.get("return") or []
-
-    if not outbound and not return_flights:
-        return ""
-
-    return f"""
-      <section class="panel flights-panel">
-        <button class="flights-toggle" type="button" onclick="this.closest('.flights-panel').classList.toggle('is-collapsed')">
-          Flights
-        </button>
-
-        <div class="flights-collapsible-body">
-          <div class="flights-grid">
-
-            <section class="flight-direction">
-                <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Outbound
-                </button>
-                <div class="flight-direction-content">
-                    {flight_segment_cards(outbound, language)}
-                </div>
-            </section>
-
-            <section class="flight-direction">
-                <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Return
-                </button>
-                <div class="flight-direction-content">
-                    {flight_segment_cards(return_flights, language)}
-                </div>
-            </section>
-
-          </div>
-        </div>
-      </section>
-    """
 
 def summary_tiles(
     stay: Dict[str, Any],
@@ -466,6 +267,7 @@ def build_html(
     theme_key = branding.get("theme_key") or DEFAULT_PROFILE_KEY
     theme = get_theme_config(theme_key)
     voucher_css = load_text(BASE_DIR / "assets" / "css" / "voucher.css")
+
     colors = theme["colors"]
     fonts = theme["fonts"]
     radius = theme["radius"]
@@ -479,6 +281,9 @@ def build_html(
     voucher_kicker = copy_config.get("voucher_kicker") or t["voucher_kicker"]
     if render_mode == "full":
         voucher_kicker = "Voucher de Hotel + Vuelos"
+    elif render_mode == "flights":
+        voucher_kicker = "Flight Voucher"
+
     footer_note = copy_config.get("footer_note") or t["footer_note"]
 
     brand_logo_src = resolve_logo_src(
@@ -501,6 +306,7 @@ def build_html(
     )
 
     hotel_name = hotel.get("display_name") or hotel.get("name") or "Hotel"
+
     header_title = e(
         voucher_payload.get("event_name")
         or hotel.get("display_name")
@@ -522,7 +328,10 @@ def build_html(
     city_html = format_fact_value("city", hotel.get("city"), t, language)
     country_html = format_fact_value("country", hotel.get("country"), t, language)
     phone_html = format_fact_value("phone", hotel.get("phone"), t, language)
+
     flights_html = flights_section(flights, language)
+    rooms_html = rooms_section(rooms, t)
+    passengers_html = passengers_section(passengers, t, language)
 
     check_in_display = display_or_pending(
         no_break_iso_date(stay.get("check_in"), language=language)
@@ -538,107 +347,22 @@ def build_html(
         t["empty"],
     )
 
-    check_in_time_display = display_or_pending(
-        stay.get("check_in_time"),
-        "Standard check-in",
-    )
-
-    check_out_time_display = display_or_pending(
-        stay.get("check_out_time"),
-        "Standard check-out",
-    )
-
-    room_display = display_or_pending(
-        rooms[0].get("room_category") if rooms else None,
-        t["empty"],
-    )
-
     meals_display = display_or_pending(
         stay.get("meals") or voucher.get("meals"),
         t["empty"],
     )
 
-    
     nights_display = display_or_pending(
         stay.get("nights"),
         t["empty"],
     )
 
-    if render_mode == "flights":
-        return f"""<!DOCTYPE html>
-<html lang="{e(language)}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{header_title} - Flight Voucher</title>
-  <style>
-  :root {{
-      --section-title: {colors['section_title']};
-      --footer-bg: {colors['footer_bg']};
-      --navy: {colors['navy']};
-      --paper: {colors['paper']};
-      --panel: {colors['panel']};
-      --line: {colors['line']};
-      --text: {colors['text']};
-      --muted: {colors['muted']};
-      --white: {colors['white']};
-      --page-bg: {colors['page_bg']};
-      --page-border: {colors['border']};
-      --header-gradient-end: {colors['header_gradient_end']};
-      --shadow-color: {colors['shadow']};
-      --radius-page: {radius['page']};
-      --radius-lg: {radius['lg']};
-      --radius-md: {radius['md']};
-      --radius-sm: {radius['sm']};
-      --page-width: {layout['page_width_px']}px;
-      --page-min-height: {layout['page_min_height_px']}px;
-      --font-family: {fonts['family']};
-      --shadow: 0 12px 32px var(--shadow-color);
-    }}
-  {voucher_css}
-  
-  </style>
-    
-</head>
-<body>
-  <div class="page">
-    <header class="header">
-      <div>
-        <div class="voucher-kicker">Flight Voucher</div>
-        <div class="header-title">{header_title}</div>
-        <div class="header-subtitle">{header_subtitle}</div>
-      </div>
-      <div class="logo-box">
-        {header_brand_logo_html}
-      </div>
-    </header>
-    <main class="body">
-      {flights_html or '<section class="panel"><div class="section-title">Flights</div><div class="empty-state">No flight segments loaded.</div></section>'}
-
-      <section class="panel">
-        <div class="section-title">{e(t["passengers"])}</div>
-        <div class="passengers-grid">
-          {passenger_cards(passengers, t, language)}
-        </div>
-      </section>
-      <div class="footer-note">{e(footer_note)}</div>
-    </main>
-  </div>
-</body>
-</html>"""
-
-    return f"""<!DOCTYPE html>
-<html lang="{e(language)}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{e(hotel_name)} - Voucher</title>
-  <style>
+    root_css = f"""
     :root {{
       --section-title: {colors['section_title']};
       --footer-bg: {colors['footer_bg']};
       --navy: {colors['navy']};
-      --navy-2: {colors['navy_2']};
+      --navy-2: {colors.get('navy_2', colors['navy'])};
       --paper: {colors['paper']};
       --panel: {colors['panel']};
       --line: {colors['line']};
@@ -648,12 +372,12 @@ def build_html(
       --page-bg: {colors['page_bg']};
       --page-border: {colors['border']};
       --header-gradient-end: {colors['header_gradient_end']};
-      --hotel-address: {colors['hotel_address']};
-      --table-head: {colors['table_head']};
-      --table-row: {colors['table_row']};
-      --placeholder: {colors['placeholder']};
-      --overlay: {colors['overlay']};
-      --overlay-border: {colors['overlay_border']};
+      --hotel-address: {colors.get('hotel_address', colors['muted'])};
+      --table-head: {colors.get('table_head', colors['panel'])};
+      --table-row: {colors.get('table_row', colors['line'])};
+      --placeholder: {colors.get('placeholder', colors['line'])};
+      --overlay: {colors.get('overlay', 'rgba(255,255,255,0.10)')};
+      --overlay-border: {colors.get('overlay_border', 'rgba(255,255,255,0.18)')};
       --shadow-color: {colors['shadow']};
       --radius-page: {radius['page']};
       --radius-xl: {radius['xl']};
@@ -689,31 +413,11 @@ def build_html(
       --shadow: 0 12px 32px var(--shadow-color);
       --font-family: {fonts['family']};
     }}
-  {voucher_css}
-  </style>
-</head>
-<body>
-  <div class="page">
-    <header class="header">
-      <div class="header-left">
-        <div class="voucher-kicker">{e(voucher_kicker)}</div>
-        <div class="header-title">{header_title}</div>
-        <div class="header-subtitle">{header_subtitle}</div>
-      </div>
+    """
 
-      <div class="header-meta">
-        <div class="meta-box">
-          <div class="meta-label">{e(t["conf_number"])}</div>
-          <div class="meta-value">{conf_html}</div>
-        </div>
-      </div>
-
-      <div class="logo-box">
-        {header_brand_logo_html}
-      </div>
-    </header>
-
-    <main class="body">
+    hotel_top_html = ""
+    if render_mode in {"hotel", "full"}:
+        hotel_top_html = f"""
       <section class="top-grid">
         <section class="panel">
           <div class="section-title">{e(t["hotel_address"])}</div>
@@ -745,7 +449,6 @@ def build_html(
         <section class="panel">
           <div class="section-title">{e(t["stay_summary"])}</div>
           <div class="hotel-summary-grid">
-
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Check-in</div>
               <div class="hotel-summary-value">{check_in_display}</div>
@@ -756,7 +459,6 @@ def build_html(
               <div class="hotel-summary-value">{check_out_display}</div>
             </div>
 
-
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Meals</div>
               <div class="hotel-summary-value">{meals_display}</div>
@@ -765,52 +467,65 @@ def build_html(
             <div class="hotel-summary-card">
               <div class="hotel-summary-label">Nights</div>
               <div class="hotel-summary-value">{nights_display}</div>
-              
             </div>
-
           </div>
         </section>
       </section>
 
-      <section class="panel rooms-panel">
-    <button class="section-title section-toggle" type="button" onclick="this.closest('.rooms-panel').classList.toggle('is-collapsed')">
-        {e(t["room_details"])}
-    </button>
+      {rooms_html}
+        """
 
-    <div class="section-collapsible-body">
-        <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th>{e(t["rooms"])}</th>
-                <th>{e(t["category"])}</th>
-                <th>{e(t["additional_info"])}</th>
-                <th>{e(t["passengers"])}</th>
-            </tr>
-            </thead>
-            <tbody>
-            {room_rows(rooms, t)}
-            </tbody>
-        </table>
+    if render_mode == "hotel":
+        content_html = f"""
+      {hotel_top_html}
+      {passengers_html}
+        """
+    elif render_mode == "flights":
+        content_html = f"""
+      {flights_html or '<section class="panel"><div class="section-title">Flights</div><div class="empty-state">No flight segments loaded.</div></section>'}
+      {passengers_html}
+        """
+    else:
+        content_html = f"""
+      {hotel_top_html}
+      {flights_html}
+      {passengers_html}
+        """
+
+    return f"""<!DOCTYPE html>
+<html lang="{e(language)}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{e(hotel_name)} - Voucher</title>
+  <style>
+  {root_css}
+  {voucher_css}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div class="header-left">
+        <div class="voucher-kicker">{e(voucher_kicker)}</div>
+        <div class="header-title">{header_title}</div>
+        <div class="header-subtitle">{header_subtitle}</div>
+      </div>
+
+      <div class="header-meta">
+        <div class="meta-box">
+          <div class="meta-label">{e(t["conf_number"])}</div>
+          <div class="meta-value">{conf_html}</div>
         </div>
-    </div>
-    </section>
+      </div>
 
+      <div class="logo-box">
+        {header_brand_logo_html}
+      </div>
+    </header>
 
-      {flights_html if render_mode == "full" else ""}
-
-    <section class="panel passengers-panel">
-       <button class="section-title section-toggle" type="button" onclick="this.closest('.passengers-panel').classList.toggle('is-collapsed')">
-            {e(t["passengers"])}
-        </button>
-
-        <div class="section-collapsible-body">
-            <div class="passengers-grid">
-            {passenger_cards(passengers, t, language)}
-            </div>
-        </div>
-    </section>
-
+    <main class="body">
+      {content_html}
       <div class="footer-note">{e(footer_note)}</div>
     </main>
   </div>

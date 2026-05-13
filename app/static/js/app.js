@@ -75,6 +75,12 @@
     reader.readAsDataURL(file);
   }
 
+  function getRenderModeLabel(value) {
+    if (value === "hotel") return "Solo hotel";
+    if (value === "flights") return "Solo aéreos";
+    return "Hotel + Aéreos";
+  }
+
   function resetHotelLogoFormState() {
     if (window.hotelLogoForm) {
       window.hotelLogoForm.reset();
@@ -86,6 +92,45 @@
   }
 
   async function start() {
+
+    const continueBtn = document.getElementById("continueStep1Btn");
+
+    if (continueBtn) {
+      continueBtn.addEventListener("click", () => {
+        const clientText =
+          document.getElementById("clientSelect")?.selectedOptions?.[0]?.textContent || "-";
+
+        const languageValue =
+          document.getElementById("languageSelect")?.value || "auto";
+
+        const renderMode =
+          document.getElementById("voucherRenderModeSelect")?.value || "full";
+
+        // labels
+        const languageLabel =
+          languageValue === "auto"
+            ? "Automático"
+            : languageValue === "es"
+            ? "Español"
+            : languageValue === "en"
+            ? "English"
+            : "Português";
+
+        const renderModeLabel = getRenderModeLabel(renderMode);
+
+        // pintar summary
+        document.getElementById("summaryClient").textContent = clientText;
+        document.getElementById("summaryLanguage").textContent = languageLabel;
+        document.getElementById("summaryRenderMode").textContent = renderModeLabel;
+
+        // toggle UI
+        document.getElementById("step1Summary").classList.remove("hidden");
+        document.getElementById("step1Body").classList.add("hidden");
+
+        // lock selector
+        document.getElementById("voucherRenderModeSelect").disabled = true;
+      });
+    }
     if (typeof window.bootstrapApp === "function") {
       await window.bootstrapApp();
     } else {
@@ -93,6 +138,41 @@
     }
 
     await loadHotelLogoRegistry();
+
+    function updateStep1RenderModeSummary() {
+      const summary = document.getElementById("step1Summary");
+      const select = document.getElementById("voucherRenderModeSelect");
+
+      if (!summary || !select) return;
+
+      const renderModeLabel = getRenderModeLabel(select.value || "full");
+
+      const existing = document.getElementById("summaryRenderModeLine");
+      if (existing) {
+        existing.innerHTML = `<strong>Tipo de voucher:</strong> ${renderModeLabel}`;
+        return;
+      }
+
+      const line = document.createElement("div");
+      line.id = "summaryRenderModeLine";
+      line.innerHTML = `<strong>Tipo de voucher:</strong> ${renderModeLabel}`;
+
+      summary.appendChild(line);
+    }
+
+    const continueStep1Btn = document.getElementById("continueStep1Btn");
+
+    if (continueStep1Btn) {
+      continueStep1Btn.addEventListener("click", () => {
+        setTimeout(updateStep1RenderModeSummary, 0);
+      });
+    }
+
+    const voucherRenderModeSelect = document.getElementById("voucherRenderModeSelect");
+
+    if (voucherRenderModeSelect) {
+      voucherRenderModeSelect.addEventListener("change", updateStep1RenderModeSummary);
+    }
 
     if (window.hotelLogoBtn && window.hotelLogoModal) {
       window.hotelLogoBtn.addEventListener("click", async () => {

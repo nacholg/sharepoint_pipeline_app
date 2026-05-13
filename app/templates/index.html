@@ -70,13 +70,26 @@
                 <p>Definí cliente, idioma y branding base para la corrida.</p>
               </div>
 
-              <div class="setup-step-summary hidden" id="step1Summary"></div>
+              <div class="setup-step-summary hidden" id="step1Summary">
+                <div><strong>Cliente:</strong> <span id="summaryClient">-</span></div>
+                <div><strong>Idioma:</strong> <span id="summaryLanguage">-</span></div>
+                <div><strong>Tipo de voucher:</strong> <span id="summaryRenderMode">-</span></div>
+              </div>
 
               <div class="setup-step-body" id="step1Body">
                 <div class="form-grid client-config-grid">
                   <label class="field">
                     <span>Cliente</span>
                     <select id="clientSelect"></select>
+                  </label>
+
+                  <label class="field">
+                    <span>Tipo de voucher</span>
+                    <select id="voucherRenderModeSelect">
+                      <option value="full">Hotel + Aéreos</option>
+                      <option value="hotel">Solo hotel</option>
+                      <option value="flights">Solo aéreos</option>
+                    </select>
                   </label>
 
                   <label class="field">
