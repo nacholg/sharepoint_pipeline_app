@@ -163,7 +163,7 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
         "passengers": passengers,
         "voucher_info": {
             "voucher_code": None,
-            "confirmation_number": None,
+            "confirmation_number": header.get("confirmation_number"),
             "issue_date": None,
             "remarks": None,
             "meals": meals_value,
@@ -197,4 +197,5 @@ def canonical_to_payload(voucher: Dict[str, Any]) -> Dict[str, Any]:
         "rooms": voucher["rooms"],
         "flights": voucher.get("flights") or {"outbound": [], "return": []},
         "passengers": voucher["passengers"],
+        "confirmation_number": voucher["voucher_info"].get("confirmation_number"),
     }

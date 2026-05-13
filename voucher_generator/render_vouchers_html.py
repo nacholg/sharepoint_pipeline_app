@@ -327,20 +327,35 @@ def flights_section(flights: Dict[str, Any], language: str) -> str:
 
     return f"""
       <section class="panel flights-panel">
-        <div class="section-title">Flights</div>
-        <div class="flights-grid">
-          <div class="flight-direction">
-            <div class="flight-direction-title">Outbound</div>
-            {flight_segment_cards(outbound, language)}
-          </div>
-          <div class="flight-direction">
-            <div class="flight-direction-title">Return</div>
-            {flight_segment_cards(return_flights, language)}
+        <button class="flights-toggle" type="button" onclick="this.closest('.flights-panel').classList.toggle('is-collapsed')">
+          Flights
+        </button>
+
+        <div class="flights-collapsible-body">
+          <div class="flights-grid">
+
+            <section class="flight-direction">
+                <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
+                    Outbound
+                </button>
+                <div class="flight-direction-content">
+                    {flight_segment_cards(outbound, language)}
+                </div>
+            </section>
+
+            <section class="flight-direction">
+                <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
+                    Return
+                </button>
+                <div class="flight-direction-content">
+                    {flight_segment_cards(return_flights, language)}
+                </div>
+            </section>
+
           </div>
         </div>
       </section>
     """
-
 
 def summary_tiles(
     stay: Dict[str, Any],
@@ -498,12 +513,56 @@ def build_html(
     subtitle_parts = [p for p in [city, country] if p]
     header_subtitle = e(" · ".join(subtitle_parts))
 
-    conf_html = display_or_pending(voucher_payload.get("confirmation_number"), t["pending"])
+    conf_html = display_or_pending(
+        voucher_payload.get("confirmation_number")
+        or voucher.get("confirmation_number"),
+        t["pending"],
+    )
 
     city_html = format_fact_value("city", hotel.get("city"), t, language)
     country_html = format_fact_value("country", hotel.get("country"), t, language)
     phone_html = format_fact_value("phone", hotel.get("phone"), t, language)
     flights_html = flights_section(flights, language)
+
+    check_in_display = display_or_pending(
+        no_break_iso_date(stay.get("check_in"), language=language)
+        if stay.get("check_in")
+        else None,
+        t["empty"],
+    )
+
+    check_out_display = display_or_pending(
+        no_break_iso_date(stay.get("check_out"), language=language)
+        if stay.get("check_out")
+        else None,
+        t["empty"],
+    )
+
+    check_in_time_display = display_or_pending(
+        stay.get("check_in_time"),
+        "Standard check-in",
+    )
+
+    check_out_time_display = display_or_pending(
+        stay.get("check_out_time"),
+        "Standard check-out",
+    )
+
+    room_display = display_or_pending(
+        rooms[0].get("room_category") if rooms else None,
+        t["empty"],
+    )
+
+    meals_display = display_or_pending(
+        stay.get("meals") or voucher.get("meals"),
+        t["empty"],
+    )
+
+    
+    nights_display = display_or_pending(
+        stay.get("nights"),
+        t["empty"],
+    )
 
     if render_mode == "flights":
         return f"""<!DOCTYPE html>
@@ -685,39 +744,72 @@ def build_html(
 
         <section class="panel">
           <div class="section-title">{e(t["stay_summary"])}</div>
-          <div class="summary-grid">
-            {summary_tiles(stay, t, language, passengers)}
+          <div class="hotel-summary-grid">
+
+            <div class="hotel-summary-card">
+              <div class="hotel-summary-label">Check-in</div>
+              <div class="hotel-summary-value">{check_in_display}</div>
+            </div>
+
+            <div class="hotel-summary-card">
+              <div class="hotel-summary-label">Check-out</div>
+              <div class="hotel-summary-value">{check_out_display}</div>
+            </div>
+
+
+            <div class="hotel-summary-card">
+              <div class="hotel-summary-label">Meals</div>
+              <div class="hotel-summary-value">{meals_display}</div>
+            </div>
+
+            <div class="hotel-summary-card">
+              <div class="hotel-summary-label">Nights</div>
+              <div class="hotel-summary-value">{nights_display}</div>
+              
+            </div>
+
           </div>
         </section>
       </section>
 
-      <section class="panel">
-        <div class="section-title">{e(t["room_details"])}</div>
+      <section class="panel rooms-panel">
+    <button class="section-title section-toggle" type="button" onclick="this.closest('.rooms-panel').classList.toggle('is-collapsed')">
+        {e(t["room_details"])}
+    </button>
+
+    <div class="section-collapsible-body">
         <div class="table-wrap">
-          <table>
+        <table>
             <thead>
-              <tr>
+            <tr>
                 <th>{e(t["rooms"])}</th>
                 <th>{e(t["category"])}</th>
                 <th>{e(t["additional_info"])}</th>
                 <th>{e(t["passengers"])}</th>
-              </tr>
+            </tr>
             </thead>
             <tbody>
-              {room_rows(rooms, t)}
+            {room_rows(rooms, t)}
             </tbody>
-          </table>
+        </table>
         </div>
-      </section>
+    </div>
+    </section>
+
 
       {flights_html if render_mode == "full" else ""}
 
-      <section class="panel">
-        <div class="section-title">{e(t["passengers"])}</div>
-        <div class="passengers-grid">
-          {passenger_cards(passengers, t, language)}
+    <section class="panel passengers-panel">
+       <button class="section-title section-toggle" type="button" onclick="this.closest('.passengers-panel').classList.toggle('is-collapsed')">
+            {e(t["passengers"])}
+        </button>
+
+        <div class="section-collapsible-body">
+            <div class="passengers-grid">
+            {passenger_cards(passengers, t, language)}
+            </div>
         </div>
-      </section>
+    </section>
 
       <div class="footer-note">{e(footer_note)}</div>
     </main>
@@ -758,7 +850,7 @@ def main() -> None:
     print(f"[DEBUG] theme_key='{branding.get('theme_key', DEFAULT_PROFILE_KEY)}'")
     print(f"[DEBUG] profile_language='{profile_lang}'")
     print(f"[DEBUG] cli_language='{cli_lang}'")
-    print(f"[DEBUG] resolved_language='{language}'")
+    print(f"[DEB<UG] resolved_language='{language}'")
     print(f"[DEBUG] brand_logo_arg='{brand_logo}'")
     print("[DEBUG] profile branding:", profile_config["branding"])
 

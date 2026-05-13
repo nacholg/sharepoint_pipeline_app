@@ -52,7 +52,22 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         first_row = block_rows[0] if block_rows else {}
         payload["event_name"] = first_row.get("event_name")
-        payload["confirmation_number"] = first_row.get("confirmation_number")
+        first_row = block_rows[0] if block_rows else {}
+
+        confirmation_number = next(
+            (
+                row.get("confirmation_number")
+                for row in block_rows
+                if row.get("confirmation_number") not in (None, "", "-", "--")
+            ),
+            None,
+        )
+
+        payload["event_name"] = first_row.get("event_name")
+        payload["confirmation_number"] = confirmation_number
+
+        if isinstance(payload.get("voucher"), dict):
+            payload["voucher"]["confirmation_number"] = confirmation_number
 
         payloads.append(payload)
 

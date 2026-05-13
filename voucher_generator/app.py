@@ -91,6 +91,7 @@ class NormalizedRow:
     meals: Optional[str]
     food_restrictions: Optional[str]
     passenger_key: str
+    confirmation_number: Optional[str]
 
     @property
     def full_name(self) -> str:
@@ -137,6 +138,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
         effective_check_in = normalize_date(_first_present(row, "Check In Raw", "CHECK IN HOTEL", "Check In")) or last_values["check_in"]
         effective_check_out = normalize_date(_first_present(row, "Check Out Raw", "CHECK OUT HOTEL", "Check Out")) or last_values["check_out"]
         effective_nights = normalize_int(_first_present(row, "Nights Raw", "ROOM NIGHTS", "Nights")) or last_values["nights"]
+        effective_hotel_voucher = normalize_int(_first_present(row, "Hotel Voucher", "Voucher Hotel", "Conf Nbr", "Confirmation Number", "Nro de Conf", "Nro. Conf.")   )
 
         last_values.update({
             "group_label": effective_group_label,
@@ -146,6 +148,7 @@ def normalize_rows(import_rows: List[Dict[str, Any]]) -> List[NormalizedRow]:
             "check_in": effective_check_in,
             "check_out": effective_check_out,
             "nights": effective_nights,
+            "hotel_voucher": effective_hotel_voucher,
         })
 
         row_data = {
@@ -341,6 +344,9 @@ def build_voucher_payloads(grouped: List[List[NormalizedRow]]) -> List[Dict[str,
                 "name": first.destination,
                 "display_name": first.destination,
             },
+             "voucher_code": None,
+             "confirmation_number": first.confirmation_number,
+
             "hotel": {
                 "name": first.hotel_name,
                 "display_name": first.hotel_name,
@@ -362,6 +368,7 @@ def build_voucher_payloads(grouped: List[List[NormalizedRow]]) -> List[Dict[str,
             ],
             "passengers": passengers,
         }
+        
 
         payloads.append(payload)
 

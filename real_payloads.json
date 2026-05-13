@@ -4,7 +4,7 @@
     "voucher_group_key": "VOUCHER-1",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -141,15 +141,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 10,
     "voucher_group_key": "VOUCHER-10",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -267,15 +267,15 @@
         "food_restrictions": "Él no come carne roja ni blanca. Solo \"carne\" que proviene del mar."
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 11,
     "voucher_group_key": "VOUCHER-11",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -412,15 +412,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 11,
     "voucher_group_key": "VOUCHER-11",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -554,15 +554,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 12,
     "voucher_group_key": "VOUCHER-12",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -696,15 +696,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 13,
     "voucher_group_key": "VOUCHER-13",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -841,15 +841,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 13,
     "voucher_group_key": "VOUCHER-13",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -985,15 +985,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 15,
     "voucher_group_key": "VOUCHER-15",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1130,15 +1130,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 18,
     "voucher_group_key": "VOUCHER-18",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1275,15 +1275,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 20,
     "voucher_group_key": "VOUCHER-20",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1420,15 +1420,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 22,
     "voucher_group_key": "VOUCHER-22",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1565,15 +1565,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 24,
     "voucher_group_key": "VOUCHER-24",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1710,15 +1710,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 26,
     "voucher_group_key": "VOUCHER-26",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -1855,15 +1855,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 28,
     "voucher_group_key": "VOUCHER-28",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2000,15 +2000,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 3,
     "voucher_group_key": "VOUCHER-3",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2145,15 +2145,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 30,
     "voucher_group_key": "VOUCHER-30",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2290,15 +2290,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 32,
     "voucher_group_key": "VOUCHER-32",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2418,15 +2418,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 33,
     "voucher_group_key": "VOUCHER-33",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2546,15 +2546,15 @@
         "food_restrictions": null
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 5,
     "voucher_group_key": "VOUCHER-5",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2691,15 +2691,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 7,
     "voucher_group_key": "VOUCHER-7",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2836,15 +2836,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 9,
     "voucher_group_key": "VOUCHER-9",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -2981,15 +2981,15 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   },
   {
     "voucher_id": 9,
     "voucher_group_key": "VOUCHER-9",
     "voucher": {
       "voucher_code": null,
-      "confirmation_number": null,
+      "confirmation_number": "MC GROUP",
       "issue_date": null,
       "remarks": null,
       "meals": "cafe da manha",
@@ -3123,7 +3123,7 @@
         "food_restrictions": "Não"
       }
     ],
-    "event_name": "FINAL UCL 2026",
-    "confirmation_number": null
+    "confirmation_number": "MC GROUP",
+    "event_name": "FINAL UCL 2026"
   }
 ]

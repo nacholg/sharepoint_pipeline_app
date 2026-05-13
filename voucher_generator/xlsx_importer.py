@@ -685,6 +685,7 @@ def read_effective_rows(
                 "food_restrictions": clean_text(
                     get_field_value(ws, merged_lookup, excel_row, resolved_columns, "food_restrictions")
                 ),
+            
                 "confirmation_number": confirmation_number,
                 "qty": qty,
                 "qty_merge_anchor": qty_merge_anchor,

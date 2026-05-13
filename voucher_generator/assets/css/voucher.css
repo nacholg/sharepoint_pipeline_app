@@ -352,7 +352,43 @@
     th:nth-child(4), td:nth-child(4) { width: 18%; }
 
 
+   .hotel-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
 
+.hotel-summary-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.hotel-summary-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.hotel-summary-value {
+  font-size: 16px;
+  line-height: 1.1;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.hotel-summary-subvalue {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
 /* ========================================================================== */
 /* LAYOUT + PANELS                                                            */
 /* ========================================================================== */
@@ -606,6 +642,84 @@
       overflow-wrap: anywhere;
     }
 
+
+
+   
+
+    .flights-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--section-title);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0;
+  margin: 0 0 10px;
+  cursor: pointer;
+}
+
+.flights-toggle::after {
+  content: " ▾";
+}
+
+.flights-panel.is-collapsed .flights-toggle::after {
+  content: " ▸";
+}
+
+.flights-panel.is-collapsed .flights-collapsible-body {
+  display: none;
+}
+
+@media print {
+  .flights-panel.is-collapsed .flights-collapsible-body {
+    display: block;
+     max-height: none;
+    opacity: 1;
+    
+  }
+}
+
+.flight-direction-toggle {
+  cursor: pointer;
+  appearance: none;
+}
+
+.flight-direction-toggle::after {
+  content: " ▾";
+}
+
+.flight-direction.is-collapsed .flight-direction-toggle::after {
+  content: " ▸";
+}
+
+
+@media print {
+  .flight-direction.is-collapsed .flight-direction-content {
+    display: grid;
+  }
+}
+
+.flight-direction-content {
+  display: grid;
+  gap: 16px;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.flight-direction.is-collapsed .flight-direction-content {
+  max-height: 0;
+  opacity: 0;
+}
+
+.flight-direction:not(.is-collapsed) .flight-direction-content {
+  max-height: 1000px;
+  opacity: 1;
+}
+
 /* ========================================================================== */
 /* PASSENGERS                                                                 */
 /* ========================================================================== */        
@@ -762,3 +876,55 @@
         page-break-inside: avoid;
       }
     }
+
+        @media print {
+        .flight-collapsible {
+            display: block;
+        }
+
+        .flight-collapsible:not([open]) {
+            display: block;
+        }
+        }
+
+
+/* === GENERIC SECTION COLLAPSE === */
+
+.section-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-toggle::after {
+  content: " ▾";
+}
+
+.rooms-panel.is-collapsed .section-toggle::after,
+.passengers-panel.is-collapsed .section-toggle::after {
+  content: " ▸";
+}
+
+.section-collapsible-body {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+  max-height: 3000px;
+  opacity: 1;
+}
+
+.rooms-panel.is-collapsed .section-collapsible-body,
+.passengers-panel.is-collapsed .section-collapsible-body {
+  max-height: 0;
+  opacity: 0;
+}
+
+@media print {
+  .rooms-panel.is-collapsed .section-collapsible-body,
+  .passengers-panel.is-collapsed .section-collapsible-body {
+    max-height: none;
+    opacity: 1;
+  }
+}        
