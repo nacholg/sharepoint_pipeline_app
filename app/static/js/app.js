@@ -91,55 +91,7 @@
     clearLogoPreview();
   }
 
-  async function start() {
-
-    const continueBtn = document.getElementById("continueStep1Btn");
-
-    if (continueBtn) {
-      continueBtn.addEventListener("click", () => {
-        const clientText =
-          document.getElementById("clientSelect")?.selectedOptions?.[0]?.textContent || "-";
-
-        const languageValue =
-          document.getElementById("languageSelect")?.value || "auto";
-
-        const renderMode =
-          document.getElementById("voucherRenderModeSelect")?.value || "full";
-
-        // labels
-        const languageLabel =
-          languageValue === "auto"
-            ? "Automático"
-            : languageValue === "es"
-            ? "Español"
-            : languageValue === "en"
-            ? "English"
-            : "Português";
-
-        const renderModeLabel = getRenderModeLabel(renderMode);
-
-        // pintar summary
-        document.getElementById("summaryClient").textContent = clientText;
-        document.getElementById("summaryLanguage").textContent = languageLabel;
-        document.getElementById("summaryRenderMode").textContent = renderModeLabel;
-
-        // toggle UI
-        document.getElementById("step1Summary").classList.remove("hidden");
-        document.getElementById("step1Body").classList.add("hidden");
-
-        // lock selector
-        document.getElementById("voucherRenderModeSelect").disabled = true;
-      });
-    }
-    if (typeof window.bootstrapApp === "function") {
-      await window.bootstrapApp();
-    } else {
-      console.error("bootstrapApp no está disponible");
-    }
-
-    await loadHotelLogoRegistry();
-
-    function updateStep1RenderModeSummary() {
+  function updateStep1RenderModeSummary() {
       const summary = document.getElementById("step1Summary");
       const select = document.getElementById("voucherRenderModeSelect");
 
@@ -147,7 +99,8 @@
 
       const renderModeLabel = getRenderModeLabel(select.value || "full");
 
-      const existing = document.getElementById("summaryRenderModeLine");
+      const existing = summary.querySelector("#summaryRenderModeLine");
+
       if (existing) {
         existing.innerHTML = `<strong>Tipo de voucher:</strong> ${renderModeLabel}`;
         return;
@@ -160,6 +113,17 @@
       summary.appendChild(line);
     }
 
+  async function start() {
+
+
+    if (typeof window.bootstrapApp === "function") {
+      await window.bootstrapApp();
+    } else {
+      console.error("bootstrapApp no está disponible");
+    }
+
+    await loadHotelLogoRegistry();
+
     const continueStep1Btn = document.getElementById("continueStep1Btn");
 
     if (continueStep1Btn) {
@@ -168,11 +132,21 @@
       });
     }
 
+    ["btnLocal", "btnSP", "continueStep2Btn", "backStep2Btn"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("click", () => {
+          setTimeout(updateStep1RenderModeSummary, 0);
+        });
+      }
+    });
+
     const voucherRenderModeSelect = document.getElementById("voucherRenderModeSelect");
 
     if (voucherRenderModeSelect) {
       voucherRenderModeSelect.addEventListener("change", updateStep1RenderModeSummary);
     }
+    
 
     if (window.hotelLogoBtn && window.hotelLogoModal) {
       window.hotelLogoBtn.addEventListener("click", async () => {
