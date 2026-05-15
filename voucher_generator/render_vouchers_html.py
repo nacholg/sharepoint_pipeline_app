@@ -329,7 +329,11 @@ def build_html(
     country_html = format_fact_value("country", hotel.get("country"), t, language)
     phone_html = format_fact_value("phone", hotel.get("phone"), t, language)
 
-    flights_html = flights_section(flights, language)
+    flights_html = flights_section(
+        flights,
+        language,
+        passengers,
+    )
     rooms_html = rooms_section(rooms, t)
     passengers_html = passengers_section(passengers, t, language)
 

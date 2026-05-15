@@ -47,6 +47,8 @@ def dedupe_real_passengers(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any
                 "meals": row.get("meals"),
                 "remarks": row.get("remarks"),
                 "food_restrictions": row.get("food_restrictions"),
+                "ticket_number": row.get("ticket_number"),
+                "airline_reservation_code": row.get("airline_reservation_code"),
             }
         )
 
@@ -73,6 +75,7 @@ def pad_passengers(passengers: List[Dict[str, Any]], qty: int, block_rows: List[
                 "meals": None,
                 "remarks": None,
                 "food_restrictions": None,
+                "airline_reservation_code": None,
             }
         )
         next_index += 1

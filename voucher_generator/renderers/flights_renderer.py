@@ -21,8 +21,13 @@ def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> s
     return date_html or time_html or ""
 
 
-def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
+def flight_segment_cards(
+    segments: List[Dict[str, Any]],
+    language: str,
+    passengers: List[Dict[str, Any]] | None = None,
+) -> str:
     cards: List[str] = []
+    passengers = passengers or []
 
     for idx, segment in enumerate(segments or []):
         segment_order = segment.get("segment_order") or segment.get("source_segment_number") or ""
@@ -30,8 +35,16 @@ def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
         origin = display_or_pending(segment.get("origin"), "—")
         destination = display_or_pending(segment.get("destination_airport"), "—")
 
-        departure_date = no_break_iso_date(segment.get("departure_date"), language=language) if segment.get("departure_date") else e("Pendiente")
-        arrival_date = no_break_iso_date(segment.get("arrival_date"), language=language) if segment.get("arrival_date") else e("Pendiente")
+        departure_date = (
+            no_break_iso_date(segment.get("departure_date"), language=language)
+            if segment.get("departure_date")
+            else e("Pendiente")
+        )
+        arrival_date = (
+            no_break_iso_date(segment.get("arrival_date"), language=language)
+            if segment.get("arrival_date")
+            else e("Pendiente")
+        )
 
         departure_time = e(segment.get("departure_time")) if segment.get("departure_time") not in (None, "") else e("—")
         arrival_time = e(segment.get("arrival_time")) if segment.get("arrival_time") not in (None, "") else e("—")
@@ -40,21 +53,37 @@ def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
         origin_city = airport_city_name(segment.get("origin"))
         destination_city = airport_city_name(segment.get("destination_airport"))
 
-        ticket_number = segment.get("ticket_number")
-        airline_reservation_code = segment.get("airline_reservation_code")
+        identity_rows = ""
+        for passenger in passengers:
+            identity_rows += f"""
+              <div class="flight-identity-passenger">
+                <div class="flight-passenger-name">
+                  {e(passenger.get("full_name") or "Passenger")}
+                </div>
+
+                <div class="flight-identity-fields">
+                  <div>
+                    <div class="flight-label">Ticket Number</div>
+                    <div class="flight-value">
+                      {display_or_pending(passenger.get("ticket_number"), "—")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="flight-label">Airline Reservation Code</div>
+                    <div class="flight-value">
+                      {display_or_pending(passenger.get("airline_reservation_code"), "—")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            """
 
         identity_html = ""
-        if ticket_number or airline_reservation_code:
+        if identity_rows:
             identity_html = f"""
               <div class="flight-identity">
-                <div>
-                  <div class="flight-label">Ticket Number</div>
-                  <div class="flight-value">{display_or_pending(ticket_number, "—")}</div>
-                </div>
-                <div>
-                  <div class="flight-label">Airline Reservation Code</div>
-                  <div class="flight-value">{display_or_pending(airline_reservation_code, "—")}</div>
-                </div>
+                {identity_rows}
               </div>
             """
 
@@ -106,8 +135,15 @@ def flight_segment_cards(segments: List[Dict[str, Any]], language: str) -> str:
 
     return "\n".join(cards) or '<div class="empty-state">No flight segments loaded.</div>'
 
-def flights_section(flights: Dict[str, Any], language: str) -> str:
+
+def flights_section(
+    flights: Dict[str, Any],
+    language: str,
+    passengers: List[Dict[str, Any]] | None = None,
+) -> str:
     flights = flights or {}
+    passengers = passengers or []
+
     outbound = flights.get("outbound") or []
     return_flights = flights.get("return") or []
 
@@ -128,7 +164,7 @@ def flights_section(flights: Dict[str, Any], language: str) -> str:
                     Outbound
                 </button>
                 <div class="flight-direction-content">
-                    {flight_segment_cards(outbound, language)}
+                    {flight_segment_cards(outbound, language, passengers)}
                 </div>
             </section>
 
@@ -137,7 +173,7 @@ def flights_section(flights: Dict[str, Any], language: str) -> str:
                     Return
                 </button>
                 <div class="flight-direction-content">
-                    {flight_segment_cards(return_flights, language)}
+                    {flight_segment_cards(return_flights, language, passengers)}
                 </div>
             </section>
 
