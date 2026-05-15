@@ -21,13 +21,50 @@ def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> s
     return date_html or time_html or ""
 
 
+def passenger_identity_block(passengers: List[Dict[str, Any]] | None = None) -> str:
+    passengers = passengers or []
+
+    identity_rows = ""
+    for passenger in passengers:
+        identity_rows += f"""
+          <div class="flight-identity-passenger">
+            <div class="flight-passenger-name">
+              {e(passenger.get("full_name") or "Passenger")}
+            </div>
+
+            <div class="flight-identity-fields">
+              <div>
+                <div class="flight-label">Ticket Number</div>
+                <div class="flight-value">
+                  {display_or_pending(passenger.get("ticket_number"), "—")}
+                </div>
+              </div>
+
+              <div>
+                <div class="flight-label">Airline Reservation Code</div>
+                <div class="flight-value">
+                  {display_or_pending(passenger.get("airline_reservation_code"), "—")}
+                </div>
+              </div>
+            </div>
+          </div>
+        """
+
+    if not identity_rows:
+        return ""
+
+    return f"""
+      <div class="flight-identity flight-identity-global">
+        {identity_rows}
+      </div>
+    """
+
+
 def flight_segment_cards(
     segments: List[Dict[str, Any]],
     language: str,
-    passengers: List[Dict[str, Any]] | None = None,
 ) -> str:
     cards: List[str] = []
-    passengers = passengers or []
 
     for idx, segment in enumerate(segments or []):
         segment_order = segment.get("segment_order") or segment.get("source_segment_number") or ""
@@ -52,40 +89,6 @@ def flight_segment_cards(
         airline_name = airline_display_name(segment.get("flight_number"))
         origin_city = airport_city_name(segment.get("origin"))
         destination_city = airport_city_name(segment.get("destination_airport"))
-
-        identity_rows = ""
-        for passenger in passengers:
-            identity_rows += f"""
-              <div class="flight-identity-passenger">
-                <div class="flight-passenger-name">
-                  {e(passenger.get("full_name") or "Passenger")}
-                </div>
-
-                <div class="flight-identity-fields">
-                  <div>
-                    <div class="flight-label">Ticket Number</div>
-                    <div class="flight-value">
-                      {display_or_pending(passenger.get("ticket_number"), "—")}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div class="flight-label">Airline Reservation Code</div>
-                    <div class="flight-value">
-                      {display_or_pending(passenger.get("airline_reservation_code"), "—")}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            """
-
-        identity_html = ""
-        if identity_rows:
-            identity_html = f"""
-              <div class="flight-identity">
-                {identity_rows}
-              </div>
-            """
 
         cards.append(
             f"""
@@ -117,8 +120,6 @@ def flight_segment_cards(
                   <div class="flight-date-main">{arrival_date}</div>
                 </div>
               </div>
-
-              {identity_html}
             </article>
             """
         )
@@ -150,6 +151,8 @@ def flights_section(
     if not outbound and not return_flights:
         return ""
 
+    identity_html = passenger_identity_block(passengers)
+
     return f"""
       <section class="panel flights-panel">
         <button class="flights-toggle" type="button" onclick="this.closest('.flights-panel').classList.toggle('is-collapsed')">
@@ -164,7 +167,7 @@ def flights_section(
                     Outbound
                 </button>
                 <div class="flight-direction-content">
-                    {flight_segment_cards(outbound, language, passengers)}
+                    {flight_segment_cards(outbound, language)}
                 </div>
             </section>
 
@@ -173,9 +176,11 @@ def flights_section(
                     Return
                 </button>
                 <div class="flight-direction-content">
-                    {flight_segment_cards(return_flights, language, passengers)}
+                    {flight_segment_cards(return_flights, language)}
                 </div>
             </section>
+
+            {identity_html}
 
           </div>
         </div>
