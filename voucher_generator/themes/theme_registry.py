@@ -105,6 +105,8 @@ THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     "banco_guayaquil": deepcopy(BASE_THEME),
 
     "santander": deepcopy(BASE_THEME),
+
+    "redlink": deepcopy(BASE_THEME),
 }
 
 
@@ -193,6 +195,49 @@ THEME_REGISTRY["santander"]["layout"].update({
     "header_title_size_print": "27px",
     "header_subtitle_size": "13px",
     "header_subtitle_size_print": "12px",
+})
+
+# =============================================================================
+# Red Link (Green Corporate Version)
+# =============================================================================
+
+THEME_REGISTRY["redlink"]["colors"].update({
+
+    # Primary (verde institucional)
+    "navy": "#74C484",          # verde principal
+    "navy_2": "#648C6C",        # verde oscuro
+
+    # Backgrounds
+    "paper": "#FFFFFF",
+    "panel": "#FFFFFF",
+    "page_bg": "#F5F7F6",
+
+    # Borders / lines
+    "border": "#E3E8E6",
+    "line": "#D6DEDB",
+
+    # Text
+    "text": "#222B2A",
+    "muted": "#72898E",
+
+    # Titles / accents
+    "section_title": "#648C6C",
+    "hotel_address": "#4C5F65",
+
+    # Tables
+    "table_head": "#EEF3F1",
+    "table_row": "#FFFFFF",
+
+    # Footer
+    "footer_bg": "#F2F5F4",
+
+    # Placeholder
+    "placeholder": "#C9D4D1",
+
+    # Subtle effects
+    "overlay": "rgba(116, 196, 132, 0.06)",
+    "overlay_border": "rgba(116, 196, 132, 0.18)",
+    "shadow": "rgba(34, 43, 42, 0.08)",
 })
 
 

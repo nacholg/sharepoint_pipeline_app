@@ -1,0 +1,18 @@
+{
+  "key": "redlink",
+  "label": "Red Link",
+  "language": "es",
+  "branding": {
+    "theme_key": "redlink",
+    "brand_logo": "assets/logos/redlink-logo.png",
+    "header_mode": "event_destination",
+    "show_hotel_logo": true
+  },
+  "rendering": {
+    "show_hotel_logo": true,
+    "show_flight_section": true
+  },
+  "excel": {
+    "group_by_qty": true
+  }
+}
