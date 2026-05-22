@@ -278,11 +278,13 @@ def build_html(
     language = language_override or profile_lang or "es"
     t = get_translations(language)
 
-    voucher_kicker = copy_config.get("voucher_kicker") or t["voucher_kicker"]
+    voucher_kicker = t["voucher_kicker"]
     if render_mode == "full":
-        voucher_kicker = "Voucher de Hotel + Vuelos"
+        voucher_kicker = t["voucher_kicker_full"]
     elif render_mode == "flights":
-        voucher_kicker = "Flight Voucher"
+        voucher_kicker = t["voucher_kicker_flights"]
+    else:
+        voucher_kicker = t["voucher_kicker"]
 
     footer_note = copy_config.get("footer_note") or t["footer_note"]
 
@@ -454,22 +456,22 @@ def build_html(
           <div class="section-title">{e(t["stay_summary"])}</div>
           <div class="hotel-summary-grid">
             <div class="hotel-summary-card">
-              <div class="hotel-summary-label">Check-in</div>
+              <div class="hotel-summary-label">{e(t["check_in"])}</div>
               <div class="hotel-summary-value">{check_in_display}</div>
             </div>
 
             <div class="hotel-summary-card">
-              <div class="hotel-summary-label">Check-out</div>
+              <div class="hotel-summary-label">{e(t["check_out"])}</div>
               <div class="hotel-summary-value">{check_out_display}</div>
             </div>
 
             <div class="hotel-summary-card">
-              <div class="hotel-summary-label">Meals</div>
+              <div class="hotel-summary-label">{e(t["meals"])}</div>
               <div class="hotel-summary-value">{meals_display}</div>
             </div>
 
             <div class="hotel-summary-card">
-              <div class="hotel-summary-label">Nights</div>
+              <div class="hotel-summary-label">{e(t["nights"])}
               <div class="hotel-summary-value">{nights_display}</div>
             </div>
           </div>
@@ -530,7 +532,7 @@ def build_html(
 
     <main class="body">
       {content_html}
-      <div class="footer-note">{e(footer_note)}</div>
+      
     </main>
   </div>
 </body>
