@@ -27,6 +27,24 @@ class GraphSharePointService:
             raise RuntimeError(f"Graph GET {url} -> {resp.status_code}: {resp.text}")
         return resp.json()
 
+    def _get_all_pages(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+        next_url: Optional[str] = url
+        next_params = params
+
+        while next_url:
+            data = self._get(next_url, params=next_params)
+            items.extend(data.get("value", []))
+
+            next_url = data.get("@odata.nextLink")
+            next_params = None
+
+        return items
+
     @staticmethod
     def _normalize_item(item: Dict[str, Any]) -> Dict[str, Any]:
         is_folder = item.get("folder") is not None
@@ -45,13 +63,13 @@ class GraphSharePointService:
 
     def list_root_children(self) -> List[Dict[str, Any]]:
         url = f"{GRAPH_BASE}/me/drive/root/children"
-        data = self._get(url, params={"$top": 200})
-        return [self._normalize_item(x) for x in data.get("value", [])]
+        items = self._get_all_pages(url, params={"$top": 999})
+        return [self._normalize_item(x) for x in items]
 
     def list_children(self, item_id: str) -> List[Dict[str, Any]]:
         url = f"{GRAPH_BASE}/me/drive/items/{item_id}/children"
-        data = self._get(url, params={"$top": 200})
-        return [self._normalize_item(x) for x in data.get("value", [])]
+        items = self._get_all_pages(url, params={"$top": 999})
+        return [self._normalize_item(x) for x in items]
 
     def get_item(self, item_id: str) -> Dict[str, Any]:
         url = f"{GRAPH_BASE}/me/drive/items/{item_id}"
@@ -94,13 +112,13 @@ class GraphSharePointService:
 
     def list_drive_root_children(self, drive_id: str) -> List[Dict[str, Any]]:
         url = f"{GRAPH_BASE}/drives/{drive_id}/root/children"
-        data = self._get(url, params={"$top": 200})
-        return [self._normalize_item(x) for x in data.get("value", [])]
+        items = self._get_all_pages(url, params={"$top": 999})
+        return [self._normalize_item(x) for x in items]
 
     def list_drive_children(self, drive_id: str, item_id: str) -> List[Dict[str, Any]]:
         url = f"{GRAPH_BASE}/drives/{drive_id}/items/{item_id}/children"
-        data = self._get(url, params={"$top": 200})
-        return [self._normalize_item(x) for x in data.get("value", [])]
+        items = self._get_all_pages(url, params={"$top": 999})
+        return [self._normalize_item(x) for x in items]
 
     def get_drive_item(self, drive_id: str, item_id: str) -> Dict[str, Any]:
         url = f"{GRAPH_BASE}/drives/{drive_id}/items/{item_id}"
@@ -118,6 +136,7 @@ class GraphSharePointService:
             url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{clean_path}"
         else:
             url = f"{GRAPH_BASE}/drives/{drive_id}/root"
+
         data = self._get(url)
         return self._normalize_item(data)
 
