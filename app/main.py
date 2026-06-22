@@ -1740,13 +1740,7 @@ def api_sharepoint_preview_vouchers(
                 if p.get("full_name")
             ]
 
-            print(
-                payload.get("voucher_id"),
-                payload.get("source_rows"),
-                len(passengers),
-                passenger_names,
-            )
-
+           
             voucher_candidates.append(
                 {
                     "selection_id": f"voucher-{index:04d}",
