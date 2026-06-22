@@ -82,6 +82,33 @@ def build_voucher_payloads(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return payloads
 
 
+def keep_complete_valid_blocks(
+    rows: List[Dict[str, Any]],
+    valid_rows: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Keep the validation safeguard, but avoid cutting merged-QTY vouchers.
+
+    validate_rows() can mark one row inside a merged voucher block as invalid
+    when that row relies on context from the merge/header row. If we build
+    payloads directly from valid_rows, the voucher block can lose passengers.
+
+    This function selects complete voucher blocks from the original imported
+    rows whenever at least one row in that block passed validation. Blocks
+    with no valid rows remain excluded.
+    """
+    valid_excel_rows = {row.get("excel_row_number") for row in valid_rows}
+    selected_rows: List[Dict[str, Any]] = []
+
+    for block in build_voucher_blocks(rows):
+        block_excel_rows = {row.get("excel_row_number") for row in block}
+
+        if block_excel_rows & valid_excel_rows:
+            selected_rows.extend(block)
+
+    return selected_rows
+
+
 def build_summary(
     *,
     profile_name: str,
@@ -128,7 +155,8 @@ def run_pipeline(
     if not valid_rows:
         raise ValueError("No valid rows found")
 
-    payloads = build_voucher_payloads(valid_rows)
+    payload_rows = keep_complete_valid_blocks(rows, valid_rows)
+    payloads = build_voucher_payloads(payload_rows)
     summary = build_summary(
         profile_name=profile_name,
         rows=rows,
@@ -212,7 +240,8 @@ def main() -> None:
 
         raise SystemExit("No valid rows to process")
 
-    payloads = build_voucher_payloads(valid_rows)
+    payload_rows = keep_complete_valid_blocks(rows, valid_rows)
+    payloads = build_voucher_payloads(payload_rows)
 
     summary = build_summary(
         profile_name=args.profile,

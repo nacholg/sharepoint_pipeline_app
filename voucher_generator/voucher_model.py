@@ -112,7 +112,12 @@ def build_canonical_voucher(block_rows: List[Dict[str, Any]], voucher_index: int
     is_merged_qty_block = bool(header.get("qty_merge_anchor"))
 
     if is_merged_qty_block:
-        pax_count = max(1, len(block_rows))
+        pax_count = max(
+            declared_qty or 0,
+            len(block_rows),
+            len(passengers),
+            1,
+        )
     else:
         pax_count = declared_qty if declared_qty > 0 else max(1, len(passengers))
 
