@@ -290,6 +290,39 @@ def parse_selected_voucher_ids(value: str | None) -> list[str]:
     except Exception:
         return []
 
+def keep_complete_valid_blocks(rows, valid_rows):
+    valid_excel_rows = {
+        row.get("excel_row_number")
+        for row in valid_rows
+    }
+
+    selected_rows = []
+
+    grouped = {}
+    ungrouped = []
+
+    for row in rows:
+        group_key = row.get("qty_merge_anchor")
+
+        if group_key:
+            grouped.setdefault(group_key, []).append(row)
+        else:
+            ungrouped.append(row)
+
+    for block in grouped.values():
+        block_rows = {
+            row.get("excel_row_number")
+            for row in block
+        }
+
+        if block_rows & valid_excel_rows:
+            selected_rows.extend(block)
+
+    for row in ungrouped:
+        if row.get("excel_row_number") in valid_excel_rows:
+            selected_rows.append(row)
+
+    return selected_rows
 
 def get_sharepoint_context(graph: GraphSharePointService, site_key: str | None = None) -> dict:
     site_cfg = get_site_config(site_key)
@@ -1485,7 +1518,16 @@ async def api_local_preview_vouchers(
         rows_with_errors = validation["rows_with_errors"]
         rows_with_warnings = validation["rows_with_warnings"]
 
-        payloads = build_voucher_payloads(valid_rows) if valid_rows else []
+        preview_rows = keep_complete_valid_blocks(
+            rows,
+            valid_rows,
+        )
+
+        payloads = (
+            build_voucher_payloads(preview_rows)
+            if preview_rows
+            else []
+        )
 
         voucher_candidates = []
 
@@ -1670,7 +1712,16 @@ def api_sharepoint_preview_vouchers(
         rows_with_errors = validation["rows_with_errors"]
         rows_with_warnings = validation["rows_with_warnings"]
 
-        payloads = build_voucher_payloads(valid_rows) if valid_rows else []
+        preview_rows = keep_complete_valid_blocks(
+            rows,
+            valid_rows,
+        )
+
+        payloads = (
+            build_voucher_payloads(preview_rows)
+            if preview_rows
+            else []
+        )
 
         voucher_candidates = []
 
@@ -1688,6 +1739,13 @@ def api_sharepoint_preview_vouchers(
                 for p in passengers
                 if p.get("full_name")
             ]
+
+            print(
+                payload.get("voucher_id"),
+                payload.get("source_rows"),
+                len(passengers),
+                passenger_names,
+            )
 
             voucher_candidates.append(
                 {
