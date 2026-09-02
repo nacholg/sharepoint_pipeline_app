@@ -267,8 +267,12 @@
 
     .facts {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
       gap: 12px;
+    }
+
+    .facts > div {
+      min-width: 0;
     }
 
     .fact-label {
@@ -283,6 +287,8 @@
       font-size: 12.5px;
       line-height: 1.35;
       font-weight: 600;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .summary-grid {
@@ -1007,4 +1013,4 @@
     max-height: none;
     opacity: 1;
   }
-}        
+}
