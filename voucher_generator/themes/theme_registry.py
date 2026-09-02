@@ -107,6 +107,8 @@ THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     "santander": deepcopy(BASE_THEME),
 
     "redlink": deepcopy(BASE_THEME),
+
+    "toyota": deepcopy(BASE_THEME),
 }
 
 
@@ -238,6 +240,64 @@ THEME_REGISTRY["redlink"]["colors"].update({
     "overlay": "rgba(116, 196, 132, 0.06)",
     "overlay_border": "rgba(116, 196, 132, 0.18)",
     "shadow": "rgba(34, 43, 42, 0.08)",
+})
+
+
+# =============================================================================
+# Toyota
+# =============================================================================
+
+THEME_REGISTRY["toyota"]["colors"].update({
+    # A restrained red/black/white system derived from the supplied Toyota
+    # identity assets. The red stays flat in the header to avoid introducing
+    # an unapproved gradient treatment.
+    "navy": "#EB0A1E",
+    "navy_2": "#B80012",
+    "header_gradient_end": "#EB0A1E",
+
+    "paper": "#FFFFFF",
+    "panel": "#FFFFFF",
+    "page_bg": "#F3F3F3",
+    "border": "#DADADA",
+    "line": "#D7D7D7",
+
+    "text": "#111111",
+    "muted": "#5E5E5E",
+    "section_title": "#B80012",
+    "hotel_address": "#383838",
+
+    "table_head": "#F1F1F1",
+    "table_row": "#E5E5E5",
+    "footer_bg": "#F1F1F1",
+    "placeholder": "#BDBDBD",
+
+    "overlay": "rgba(255,255,255,0.14)",
+    "overlay_border": "rgba(255,255,255,0.28)",
+    "shadow": "rgba(0, 0, 0, 0.10)",
+})
+
+THEME_REGISTRY["toyota"]["fonts"].update({
+    "family": "Arial, Helvetica, sans-serif",
+})
+
+THEME_REGISTRY["toyota"]["radius"].update({
+    "page": "12px",
+    "xl": "10px",
+    "lg": "8px",
+    "md": "7px",
+    "sm": "6px",
+    "xs": "5px",
+})
+
+THEME_REGISTRY["toyota"]["layout"].update({
+    "logo_box_width": 210,
+    "logo_box_min_height": 92,
+    "brand_logo_height": 48,
+    "brand_logo_height_print": 42,
+    "print_logo_box_width": 190,
+    "print_logo_box_min_height": 84,
+    "header_title_size": "30px",
+    "header_title_size_print": "27px",
 })
 
 
