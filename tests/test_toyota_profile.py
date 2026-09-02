@@ -26,3 +26,14 @@ def test_toyota_theme_uses_restrained_brand_treatment() -> None:
     assert theme["colors"]["text"] == "#111111"
     assert theme["fonts"]["family"].startswith("Arial")
     assert theme["radius"]["page"] == "12px"
+
+
+def test_hotel_facts_reserve_space_for_long_phone_numbers() -> None:
+    css = (BASE_DIR / "assets" / "css" / "voucher.css").read_text(encoding="utf-8")
+
+    assert (
+        "grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) "
+        "minmax(0, 1.4fr);"
+    ) in css
+    assert ".facts > div {\n      min-width: 0;\n    }" in css
+    assert "overflow-wrap: anywhere;" in css
