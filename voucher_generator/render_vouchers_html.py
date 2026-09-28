@@ -265,6 +265,11 @@ def build_html(
 
     branding = profile_config.get("branding", {}) or {}
     theme_key = branding.get("theme_key") or DEFAULT_PROFILE_KEY
+    theme_class = re.sub(
+        r"[^a-z0-9_-]+",
+        "-",
+        str(theme_key).strip().lower(),
+    ).strip("-") or DEFAULT_PROFILE_KEY
     theme = get_theme_config(theme_key)
     voucher_css = load_text(BASE_DIR / "assets" / "css" / "voucher.css")
 
@@ -509,7 +514,7 @@ def build_html(
   {voucher_css}
   </style>
 </head>
-<body>
+<body class="theme-{e(theme_class)}">
   <div class="page">
     <header class="header">
       <div class="header-left">

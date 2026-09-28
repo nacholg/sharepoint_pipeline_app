@@ -109,6 +109,8 @@ THEME_REGISTRY: Dict[str, Dict[str, Any]] = {
     "redlink": deepcopy(BASE_THEME),
 
     "toyota": deepcopy(BASE_THEME),
+
+    "zurich_santander": deepcopy(BASE_THEME),
 }
 
 
@@ -296,6 +298,62 @@ THEME_REGISTRY["toyota"]["layout"].update({
     "brand_logo_height_print": 42,
     "print_logo_box_width": 190,
     "print_logo_box_min_height": 84,
+    "header_title_size": "30px",
+    "header_title_size_print": "27px",
+})
+
+
+# =============================================================================
+# Zurich Santander Argentina
+# =============================================================================
+
+THEME_REGISTRY["zurich_santander"]["colors"].update({
+    # Official RGB palette supplied by Zurich Santander.
+    "navy": "#3A57F0",
+    "navy_2": "#FF3333",
+    "header_gradient_end": "#3A57F0",
+
+    "paper": "#FFFFFF",
+    "panel": "#FFFFFF",
+    "page_bg": "#F3F5FF",
+    "border": "#DDE1F2",
+    "line": "#DDE1F2",
+
+    "text": "#080808",
+    "muted": "#5C6178",
+    "section_title": "#3A57F0",
+    "hotel_address": "#3D435E",
+
+    "table_head": "#EEF1FF",
+    "table_row": "#E4E7F5",
+    "footer_bg": "#F1F3FF",
+    "placeholder": "#B9C2ED",
+
+    "overlay": "rgba(255,255,255,0.14)",
+    "overlay_border": "rgba(255,255,255,0.30)",
+    "shadow": "rgba(58, 87, 240, 0.10)",
+})
+
+THEME_REGISTRY["zurich_santander"]["fonts"].update({
+    "family": "'Open Sans', Arial, Helvetica, sans-serif",
+})
+
+THEME_REGISTRY["zurich_santander"]["radius"].update({
+    "page": "18px",
+    "xl": "16px",
+    "lg": "14px",
+    "md": "12px",
+    "sm": "11px",
+    "xs": "9px",
+})
+
+THEME_REGISTRY["zurich_santander"]["layout"].update({
+    "logo_box_width": 210,
+    "logo_box_min_height": 96,
+    "brand_logo_height": 58,
+    "brand_logo_height_print": 52,
+    "print_logo_box_width": 190,
+    "print_logo_box_min_height": 88,
     "header_title_size": "30px",
     "header_title_size_print": "27px",
 })

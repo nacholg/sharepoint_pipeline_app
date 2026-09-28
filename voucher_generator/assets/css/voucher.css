@@ -181,6 +181,31 @@
       letter-spacing: 0.12em;
     }
 
+    .theme-zurich_santander .header {
+      box-shadow: inset 0 -4px 0 var(--navy-2);
+    }
+
+    .theme-zurich_santander .brand-box-logo {
+      width: 186px;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .theme-zurich_santander .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-zurich_santander .section-title::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      flex: 0 0 7px;
+      border-radius: 999px;
+      background: var(--navy-2);
+    }
+
 
 /* ========================================================================== */
 /* HOTEL                                                                      */
