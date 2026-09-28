@@ -32,8 +32,8 @@ def test_hotel_facts_reserve_space_for_long_phone_numbers() -> None:
     css = (BASE_DIR / "assets" / "css" / "voucher.css").read_text(encoding="utf-8")
 
     assert (
-        "grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) "
-        "minmax(0, 1.4fr);"
+        "grid-template-columns: minmax(46px, 0.65fr) minmax(46px, 0.65fr) "
+        "minmax(112px, 1.7fr);"
     ) in css
     assert ".facts > div {\n      min-width: 0;\n    }" in css
     assert "overflow-wrap: anywhere;" in css
