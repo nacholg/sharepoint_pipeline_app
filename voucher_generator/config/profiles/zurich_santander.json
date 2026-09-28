@@ -1,0 +1,17 @@
+{
+  "key": "zurich_santander",
+  "label": "Zurich Santander",
+  "language": "es",
+  "branding": {
+    "theme_key": "zurich_santander",
+    "brand_logo": "assets/logos/zurich_santander/zurich-santander-argentina.png"
+  },
+  "rendering": {
+    "header_mode": "event_destination",
+    "show_hotel_logo": true,
+    "show_flight_section": true
+  },
+  "excel": {
+    "group_by_qty": true
+  }
+}
