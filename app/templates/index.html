@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voucher Pipeline</title>
   <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/themes.css" />
+  <script>try { const theme = localStorage.getItem("voucher-ui-theme") || "system"; document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (_) { document.documentElement.dataset.theme = "light"; }</script>
 </head>
 <body>
   <div class="app-shell">
@@ -18,6 +20,7 @@
       </div>
 
       <div class="topbar-actions">
+        <label class="theme-picker" for="themeSelect"><span>Apariencia</span><select id="themeSelect" aria-label="Apariencia"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="system">Sistema</option></select></label>
         <div id="authBox" class="user-pill {% if user %}success{% endif %}">
           <div class="user-avatar user-avatar-status" aria-label="{% if user %}Usuario conectado{% else %}Sin sesión activa{% endif %}">
             <span class="status-dot {% if user %}status-dot-online{% else %}status-dot-idle{% endif %}"></span>
@@ -757,6 +760,7 @@
   </div>
 
 
+  <script src="/static/js/theme-toggle.js"></script>
   <script src="/static/js/dom.js"></script>
   <script src="/static/js/app-state.js"></script>
   <script src="/static/js/prefs.js"></script>
