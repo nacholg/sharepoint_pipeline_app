@@ -1,15 +1,16 @@
 /* Themes for the application chrome; voucher documents and their HTML preview retain branding. */
 :root[data-theme="light"] {
   color-scheme:light;
-  --bg-app:#f3f6fa;--bg-app-2:#f3f6fa;--bg-app-3:#edf2f8;
-  --surface-1:#ffffff;--surface-2:#ffffff;--surface-3:#f8fafc;--surface-4:#eef3f8;
-  --border-subtle:#dce4ec;--border-strong:#c6d1de;
-  --text-primary:#1e293b;--text-secondary:#526176;--text-muted:#63748a;
-  --accent-primary:#3569c8;--accent-secondary:#4675bd;--accent-soft:#e8f0fd;
+  --bg-app:#f8fafd;--bg-app-2:#f6f9fc;--bg-app-3:#edf3fb;
+  --surface-1:#ffffff;--surface-2:#ffffff;--surface-3:#f8fafd;--surface-4:#edf2fa;
+  --border-subtle:#e1e5eb;--border-strong:#c4cbd5;
+  --text-primary:#202124;--text-secondary:#5f6368;--text-muted:#74787d;
+  --accent-primary:#1a73e8;--accent-secondary:#4285f4;--accent-soft:#e8f0fe;
   --shadow-sm:0 3px 12px rgba(23,40,65,.045);
   --shadow-md:0 8px 26px rgba(23,40,65,.055);
   --shadow-lg:0 12px 32px rgba(23,40,65,.07);
-  --success:#15803d;--warning:#a16207;--danger:#b91c1c;
+  --success:#188038;--warning:#b06000;--danger:#d93025;
+  --success-soft:#e6f4ea;--warning-soft:#fef7e0;--danger-soft:#fce8e6;
 }
 :root[data-theme="dark"] {
   color-scheme:dark;
@@ -81,3 +82,34 @@ html[data-theme] .modal-backdrop {background:rgba(10,20,35,.5);}
 .theme-picker select:focus-visible {outline:2px solid var(--accent-primary);outline-offset:2px;}
 /* Previewed vouchers are independently branded; never recolor their inner document/iframe. */
 @media(max-width:600px){.theme-picker span{display:none}.theme-picker select{min-width:100px;padding:7px}}
+
+/* Google-inspired application palette: color communicates action and status.
+   Keep client-branded voucher content and previews untouched. */
+:root[data-theme="light"] .topbar .brand-mark {
+  background:#1a73e8;box-shadow:none;color:#fff;
+}
+:root[data-theme="light"] .ui-wizard-stage.is-complete .ui-wizard-number {
+  background:#e6f4ea;border-color:#b7dfc2;color:#188038;
+}
+:root[data-theme="light"] .setup-step.is-complete .setup-step-kicker {
+  background:#e6f4ea;color:#188038;
+}
+:root[data-theme="light"] .status-badge.success,
+:root[data-theme="light"] .step-status-pill.success {
+  background:#e6f4ea;border-color:#b7dfc2;color:#137333;
+}
+:root[data-theme="light"] .status-badge.running {
+  background:#fef7e0;border-color:#fce8b2;color:#a35c00;
+}
+:root[data-theme="light"] .status-badge.error {
+  background:#fce8e6;border-color:#f6c5c0;color:#c5221f;
+}
+:root[data-theme="light"] .btn.primary:hover,
+:root[data-theme="light"] .mode-btn.active:hover {background:#1765cc;}
+:root[data-theme="light"] .btn:focus-visible,
+:root[data-theme="light"] input:focus-visible,
+:root[data-theme="light"] select:focus-visible {
+  outline:2px solid #1a73e8;outline-offset:2px;
+}
+:root[data-theme="light"] .progress-bar {background:#e8eef7;border-color:#dce4ef;}
+:root[data-theme="light"] #progressFill {background:linear-gradient(90deg,#1a73e8,#4285f4);box-shadow:none;}
