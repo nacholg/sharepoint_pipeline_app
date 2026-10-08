@@ -14,6 +14,7 @@ function setProgress(percent, label) {
 
 function resetUI(label = "Esperando ejecución") {
   stopActivePolling();
+  document.getElementById("statusCard")?.classList.add("ui-idle");
   statusBadge.textContent = "Idle";
   statusBadge.className = "status-badge neutral";
   progressLabel.textContent = label;
@@ -25,6 +26,7 @@ function resetUI(label = "Esperando ejecución") {
 }
 
 function setRunningState(mode = "local") {
+  document.getElementById("statusCard")?.classList.remove("ui-idle");
   statusBadge.textContent = "Running";
   statusBadge.className = "status-badge running";
   cancelJobBtn?.classList.remove("hidden");
@@ -41,6 +43,7 @@ function setRunningState(mode = "local") {
 }
 
 function setFinishedState(ok) {
+  document.getElementById("statusCard")?.classList.remove("ui-idle");
   stopActivePolling();
   statusBadge.textContent = ok ? "Success" : "Error";
   statusBadge.className = `status-badge ${ok ? "success" : "error"}`;
@@ -51,6 +54,7 @@ function setFinishedState(ok) {
 }
 
 function renderFatalError(error) {
+  document.getElementById("statusCard")?.classList.remove("ui-idle");
   stopActivePolling();
 
   statusBadge.textContent = "Error";
