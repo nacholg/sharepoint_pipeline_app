@@ -1,0 +1,48 @@
+/* UI cleanup v1 - visual-only layer; existing pipeline contracts remain intact. */
+:root { --radius-xl:18px; }
+body { background:#0b1220; }
+.app-shell { max-width:1320px; padding-top:20px; }
+.topbar { padding:16px 22px; margin-bottom:18px; }
+.brand-mark { width:42px; height:42px; border-radius:12px; box-shadow:none; }
+.topbar h1 { font-size:1.28rem; }
+.card { border-radius:18px; box-shadow:0 8px 24px rgba(0,0,0,.14); backdrop-filter:none; animation:none; }
+.hero { display:none !important; }
+.main-layout { gap:18px; }
+.layout-grid { display:block; }
+.layout-left { display:block; }
+.layout-left > .card { max-width:100%; padding:26px 30px; background:#121d2c; }
+.layout-right { margin-top:18px; }
+.layout-right > #statusCard { margin-top:0; }
+#statusCard.ui-idle { display:none; }
+#jobHistoryCard { max-width:100%; }
+#jobHistoryCard .section-head { margin-bottom:0; align-items:center; }
+#jobHistoryCard .eyebrow {display:none;}
+#jobHistoryCard .section-head h3 {font-size:1rem;}
+#jobHistoryCard .job-history-body:not(.hidden) {margin-top:20px;}
+.setup-step { transition:none; }
+.setup-step.is-collapsed .setup-step-head p {display:none;}
+.setup-step.is-collapsed { opacity:.88; }
+.setup-step.is-active .setup-step-head h3 {font-size:1.5rem;}
+.setup-step-head p { max-width:64ch; }
+.setup-step-kicker { font-size:.75rem; }
+.setup-step .panel-actions { justify-content:flex-end; }
+.client-config-grid {grid-template-columns:repeat(3,minmax(0,1fr)); align-items:start;}
+.client-config-grid .field-full {grid-column:1/-1;}
+.client-meta-card {min-height:0;}
+#clientMeta {font-size:.84rem;}
+.field-help {line-height:1.4;}
+#voucherPreviewSection {margin:20px 0; box-shadow:none; background:rgba(255,255,255,.018);}
+#voucherPreviewSection.ui-preview-hidden {display:none !important;}
+.btn.primary {box-shadow:none;}
+.btn,.mode-btn {transition:background .15s ease,border-color .15s ease;}
+.btn:hover,.mode-btn:hover {transform:none;}
+.ui-wizard-nav {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 18px;padding:17px 25px;background:#121d2c;border:1px solid rgba(255,255,255,.09);border-radius:18px;}
+.ui-wizard-stage {display:flex;align-items:center;gap:9px;color:#94a3b8;font-size:.92rem;white-space:nowrap;}
+.ui-wizard-stage .ui-wizard-number {width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#1e293b;border:1px solid #39465a;font-weight:700;}
+.ui-wizard-stage.is-active {color:#f8fafc;font-weight:700;}
+.ui-wizard-stage.is-active .ui-wizard-number {background:#356ff4;border-color:#356ff4;color:white;}
+.ui-wizard-stage.is-complete .ui-wizard-number {background:#17483b;border-color:#28644e;color:#a7f3d0;}
+.ui-wizard-divider {height:1px;background:#334155;flex:1;min-width:15px;max-width:140px;}
+.eyebrow {letter-spacing:.07em;}
+@media(max-width:850px){.client-config-grid{grid-template-columns:1fr 1fr}.ui-wizard-nav{padding:14px;}.ui-wizard-stage{font-size:.76rem;}.ui-wizard-stage .ui-wizard-number{width:24px;height:24px;}}
+@media(max-width:600px){.layout-left > .card{padding:18px}.client-config-grid{grid-template-columns:1fr}.ui-wizard-stage{gap:5px;font-size:.7rem}.ui-wizard-divider{min-width:5px}.ui-wizard-stage .ui-wizard-number{width:22px;height:22px}}

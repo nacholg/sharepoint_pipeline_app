@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voucher Pipeline</title>
   <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/themes.css" />
+  <script>try { const theme = localStorage.getItem("voucher-ui-theme") || "system"; document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (_) { document.documentElement.dataset.theme = "light"; }</script>
 </head>
 <body>
   <div class="app-shell">
@@ -18,6 +20,7 @@
       </div>
 
       <div class="topbar-actions">
+        <label class="theme-picker" for="themeSelect"><span>Apariencia</span><select id="themeSelect" aria-label="Apariencia"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="system">Sistema</option></select></label>
         <div id="authBox" class="user-pill {% if user %}success{% endif %}">
           <div class="user-avatar user-avatar-status" aria-label="{% if user %}Usuario conectado{% else %}Sin sesión activa{% endif %}">
             <span class="status-dot {% if user %}status-dot-online{% else %}status-dot-idle{% endif %}"></span>
@@ -60,6 +63,13 @@
         </div>
       </section>
 
+      <nav class="ui-wizard-nav" aria-label="Progreso de generación">
+        <div class="ui-wizard-stage is-active" data-wizard-stage="0"><span class="ui-wizard-number">1</span><span>Configuración</span></div>
+        <div class="ui-wizard-divider"></div>
+        <div class="ui-wizard-stage" data-wizard-stage="1"><span class="ui-wizard-number">2</span><span>Archivo</span></div>
+        <div class="ui-wizard-divider"></div>
+        <div class="ui-wizard-stage" data-wizard-stage="2"><span class="ui-wizard-number">3</span><span>Revisar y generar</span></div>
+      </nav>
       <div class="layout-grid">
         <div class="layout-left">
           <section class="card">
@@ -318,7 +328,7 @@
         </div>
 
         <div class="layout-right">
-          <section id="statusCard" class="card">
+          <section id="statusCard" class="card ui-idle">
             <div class="section-head">
               <div>
                 <span class="eyebrow">Pipeline status</span>
@@ -750,6 +760,7 @@
   </div>
 
 
+  <script src="/static/js/theme-toggle.js"></script>
   <script src="/static/js/dom.js"></script>
   <script src="/static/js/app-state.js"></script>
   <script src="/static/js/prefs.js"></script>

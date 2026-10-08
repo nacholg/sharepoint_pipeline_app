@@ -899,7 +899,16 @@ def _run_sharepoint_job_async(
         destination_drive = None
         destination_site_cfg = None
 
+        # CERT fail-closed: only uploads to one explicitly approved folder.
+        cert_destination = os.getenv("CERT_SHAREPOINT_DESTINATION_PATH", "").strip()
+        if cert_destination and not payload.destination_folder_id:
+            raise RuntimeError("CERT requiere una carpeta de destino explícita.")
+        if os.getenv("APP_ENV", "").strip().lower() == "cert" and not cert_destination:
+            raise RuntimeError("CERT sin destino aprobado: configurar CERT_SHAREPOINT_DESTINATION_PATH.")
+
         if payload.destination_folder_id:
+            if cert_destination and destination_site_key != "globalevents2":
+                raise RuntimeError("CERT solo permite escribir en Global Events.")
             destination_resolved = get_sharepoint_context(graph, site_key=destination_site_key)
             destination_site = destination_resolved["site"]
             destination_drive = destination_resolved["drive"]
@@ -915,6 +924,16 @@ def _run_sharepoint_job_async(
 
             if not destination_folder.get("is_folder"):
                 raise RuntimeError("El destino seleccionado no es una carpeta.")
+
+            if cert_destination:
+                # Compare immutable Graph item IDs, never client-supplied paths.
+                approved_folder = graph.get_drive_item_by_path(
+                    destination_drive["id"], cert_destination
+                )
+                if not approved_folder or not approved_folder.get("is_folder"):
+                    raise RuntimeError("Carpeta CERT aprobada inexistente o inválida.")
+                if destination_folder["id"] != approved_folder["id"]:
+                    raise RuntimeError("CERT bloqueó un destino fuera de CERT_VOUCHERS.")
 
         if _is_job_cancel_requested(job_id):
             _mark_job_cancelled(job_id)
