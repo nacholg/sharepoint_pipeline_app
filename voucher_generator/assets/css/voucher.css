@@ -859,6 +859,11 @@
       overflow-wrap: anywhere;
     }
 
+    .pax-card-name-only .pax-name {
+      min-height: 0;
+      margin-bottom: 0;
+    }
+
     .pax-meta-row {
       display: grid;
       grid-template-columns: minmax(80px, max-content) minmax(0, 1fr);

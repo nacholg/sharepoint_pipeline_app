@@ -152,6 +152,7 @@ class SharePointRunRequest(BaseModel):
     language: str | None = None
     selected_voucher_ids: list[str] | None = None
     render_mode: str | None = None
+    include_passenger_documents: bool = True
 
 
 def get_session_user(request: Request):
@@ -704,6 +705,7 @@ def _run_local_job_async(
     client_cfg: dict,
     selected_voucher_ids: list[str] | None = None,
     render_mode: str = "full",
+    include_passenger_documents: bool = True,
 ) -> None:
     job_dir = (jobs_root / job_id).resolve()
 
@@ -744,6 +746,7 @@ def _run_local_job_async(
             language=language,
             selected_voucher_ids=selected_voucher_ids,
             render_mode=render_mode,
+            include_passenger_documents=include_passenger_documents,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -762,6 +765,7 @@ def _run_local_job_async(
         response["language"] = response.get("language") or language
         response["profile_used"] = response.get("profile_used") or profile_name
         response["selected_voucher_ids"] = selected_voucher_ids or []
+        response["include_passenger_documents"] = include_passenger_documents
 
         result_steps = []
 
@@ -818,6 +822,7 @@ def _run_sharepoint_job_async(
     resolved_language: str,
     selected_voucher_ids: list[str] | None = None,
     render_mode: str = "full",
+    include_passenger_documents: bool = True,
 ) -> None:
     jobs_root = Path("work/jobs").resolve()
     job_dir = (jobs_root / job_id).resolve()
@@ -938,6 +943,7 @@ def _run_sharepoint_job_async(
             language=resolved_language,
             selected_voucher_ids=selected_voucher_ids,
             render_mode=render_mode,
+            include_passenger_documents=include_passenger_documents,
         )
 
         if _is_job_cancel_requested(job_id):
@@ -945,6 +951,7 @@ def _run_sharepoint_job_async(
             return
 
         response = result.to_dict()
+        response["include_passenger_documents"] = include_passenger_documents
 
         uploaded_files = []
         uploaded_zip = None
@@ -1412,7 +1419,8 @@ async def api_local_run(
     client_key: str = Form(""),
     language: str = Form(""),
     selected_voucher_ids: str = Form(""),
-    render_mode: str = Form("full")
+    render_mode: str = Form("full"),
+    include_passenger_documents: bool = Form(True),
 ):
     try:
         client_cfg = get_client_config(client_key or None)
@@ -1463,6 +1471,7 @@ async def api_local_run(
                 "client_cfg": client_cfg,
                 "selected_voucher_ids": parsed_selected_voucher_ids,
                 "render_mode": render_mode,
+                "include_passenger_documents": include_passenger_documents,
             },
             daemon=True,
         )
@@ -1831,6 +1840,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
     )
 
     render_mode = payload.render_mode or "full"
+    include_passenger_documents = payload.include_passenger_documents
 
     worker = threading.Thread(
         target=_run_sharepoint_job_async,
@@ -1845,6 +1855,7 @@ def api_sharepoint_run(payload: SharePointRunRequest, request: Request):
             "resolved_language": resolved_language,
             "selected_voucher_ids": parsed_selected_voucher_ids,
             "render_mode": render_mode,
+            "include_passenger_documents": include_passenger_documents,
         },
         daemon=True,
     )

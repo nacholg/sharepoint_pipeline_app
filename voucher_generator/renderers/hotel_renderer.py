@@ -21,7 +21,12 @@ def room_rows(rooms: List[Dict[str, Any]], t: dict[str, str]) -> str:
         )
     return "\n".join(rows) or f'<tr><td colspan="4">{e(t["no_rooming_details"])}</td></tr>'
 
-def passenger_cards(passengers: List[Dict[str, Any]], t: dict[str, str], language: str) -> str:
+def passenger_cards(
+    passengers: List[Dict[str, Any]],
+    t: dict[str, str],
+    language: str,
+    include_documents: bool = True,
+) -> str:
     cards: List[str] = []
     for pax in passengers:
         nationality_html = display_or_pending(pax.get("nationality"), t["empty"])
@@ -30,13 +35,21 @@ def passenger_cards(passengers: List[Dict[str, Any]], t: dict[str, str], languag
         if pax.get("passport_expiration") not in (None, ""):
             expiration_html = no_break_iso_date(pax.get("passport_expiration"), language=language)
 
-        cards.append(
-            f"""
-            <article class="pax-card">
-              <div class="pax-name">{e(pax.get('full_name') or t['passenger_fallback'])}</div>
+        documents_html = ""
+        card_class = "pax-card pax-card-name-only"
+        if include_documents:
+            card_class = "pax-card"
+            documents_html = f"""
               <div class="pax-meta-row"><span class="pax-label">{e(t["nationality"])}</span><span class="pax-value">{nationality_html}</span></div>
               <div class="pax-meta-row"><span class="pax-label">{e(t["passport"])}</span><span class="pax-value">{passport_html}</span></div>
               <div class="pax-meta-row"><span class="pax-label">{e(t["passport_expiry"])}</span><span class="pax-value">{expiration_html}</span></div>
+            """
+
+        cards.append(
+            f"""
+            <article class="{card_class}">
+              <div class="pax-name">{e(pax.get('full_name') or t['passenger_fallback'])}</div>
+              {documents_html}
             </article>
             """
         )
@@ -74,6 +87,7 @@ def passengers_section(
     passengers: List[Dict[str, Any]],
     t: Dict[str, str],
     language: str,
+    include_documents: bool = True,
 ) -> str:
     return f"""
       <section class="panel passengers-panel">
@@ -83,7 +97,7 @@ def passengers_section(
 
         <div class="section-collapsible-body">
           <div class="passengers-grid">
-            {passenger_cards(passengers, t, language)}
+            {passenger_cards(passengers, t, language, include_documents)}
           </div>
         </div>
       </section>

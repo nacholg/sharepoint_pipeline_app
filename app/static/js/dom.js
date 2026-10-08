@@ -1,6 +1,7 @@
 (function () {
   const dom = {
     languageSelect: document.getElementById("languageSelect"),
+    includePassengerDocumentsCheckbox: document.getElementById("includePassengerDocumentsCheckbox"),
 
     userDataEl: document.getElementById("user-data"),
 
