@@ -251,6 +251,7 @@ def build_html(
     debug: bool = False,
     language_override: Optional[str] = None,
     render_mode: str = "hotel",
+    include_passenger_documents: bool = True,
 ) -> str:
     voucher = voucher_payload.get("voucher", {})
     hotel = voucher_payload.get("hotel", {})
@@ -342,7 +343,12 @@ def build_html(
         passengers,
     )
     rooms_html = rooms_section(rooms, t)
-    passengers_html = passengers_section(passengers, t, language)
+    passengers_html = passengers_section(
+        passengers,
+        t,
+        language,
+        include_documents=include_passenger_documents,
+    )
 
     check_in_display = display_or_pending(
         no_break_iso_date(stay.get("check_in"), language=language)
@@ -558,6 +564,11 @@ def main() -> None:
         default="hotel",
         help="Define qué secciones renderizar: hotel, flights o full",
     )
+    parser.add_argument(
+        "--hide-passenger-documents",
+        action="store_true",
+        help="Oculta nacionalidad, pasaporte y vencimiento; mantiene los nombres.",
+    )
 
     args = parser.parse_args()
 
@@ -605,6 +616,7 @@ def main() -> None:
             debug=args.debug_logo,
             language_override=language,
             render_mode=args.render_mode,
+            include_passenger_documents=not args.hide_passenger_documents,
         )
         (output_dir / filename).write_text(html_text, encoding="utf-8")
         print(f"[DEBUG] wrote_html='{output_dir / filename}'")

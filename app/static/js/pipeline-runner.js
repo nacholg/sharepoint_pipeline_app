@@ -13,6 +13,8 @@ async function runLocalPipeline(event) {
   const selectedProfile = localProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
   const renderMode = document.getElementById("voucherRenderModeSelect")?.value || "full";
+  const includePassengerDocuments =
+    document.getElementById("includePassengerDocumentsCheckbox")?.checked !== false;
   window.updateStep1RenderModeSummary?.();
 
   if (!file) {
@@ -37,6 +39,7 @@ async function runLocalPipeline(event) {
     formData.append("client_key", selectedClient?.key || "");
     formData.append("language", language);
     formData.append("render_mode", renderMode);
+    formData.append("include_passenger_documents", String(includePassengerDocuments));
 
     const selectedVoucherIds = window.APP_STATE?.data?.selectedVoucherIds || [];
 
@@ -73,6 +76,8 @@ async function runSharePointPipeline(event) {
   const selectedProfile = sharepointProfileSelect?.value || "default";
   const language = getSelectedLanguage(languageSelect);
   const renderMode = document.getElementById("voucherRenderModeSelect")?.value || "full";
+  const includePassengerDocuments =
+    document.getElementById("includePassengerDocumentsCheckbox")?.checked !== false;
 
   if (!selectedSourceFileId) {
     unlockPipelineExecution();
@@ -105,6 +110,7 @@ async function runSharePointPipeline(event) {
       client_key: selectedClient?.key || null,
       language,
       render_mode: renderMode,
+      include_passenger_documents: includePassengerDocuments,
       selected_voucher_ids: window.APP_STATE?.data?.voucherPreview
         ? window.APP_STATE?.data?.selectedVoucherIds || []
         : [],

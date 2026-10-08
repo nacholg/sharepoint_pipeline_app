@@ -588,6 +588,7 @@ def run_full_voucher_pipeline(
     language: Optional[str] = None,
     selected_voucher_ids: Optional[list[str]] = None,
     render_mode: str = "full",
+    include_passenger_documents: bool = True,
 ) -> PipelineRunResult:
     if profile_name is None and profile is not None:
         profile_name = profile
@@ -739,6 +740,9 @@ def run_full_voucher_pipeline(
         cmd_3.extend(["--lang", resolved_language])
 
     cmd_3.extend(["--render-mode", render_mode])    
+
+    if not include_passenger_documents:
+        cmd_3.append("--hide-passenger-documents")
 
 
     logo_to_use = brand_logo

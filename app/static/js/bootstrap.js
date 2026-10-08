@@ -75,10 +75,14 @@
       document.getElementById("voucherRenderModeSelect")?.value ||
       "full";
 
+    const includePassengerDocuments =
+      window.includePassengerDocumentsCheckbox?.checked !== false;
+
     return `
       <strong>Cliente:</strong> ${client}<br>
       <strong>Idioma:</strong> ${language}<br>
-      <strong>Tipo de voucher:</strong> ${getRenderModeLabel(renderMode)}
+      <strong>Tipo de voucher:</strong> ${getRenderModeLabel(renderMode)}<br>
+      <strong>Documentación:</strong> ${includePassengerDocuments ? "Incluida" : "Omitida"}
     `;
   }
   function buildStep2Summary() {
@@ -387,6 +391,11 @@ function switchMode(mode) {
     });
 
     window.voucherRenderModeSelect?.addEventListener("change", () => {
+      window.step1Confirmed = false;
+      refreshWizardState();
+    });
+
+    window.includePassengerDocumentsCheckbox?.addEventListener("change", () => {
       window.step1Confirmed = false;
       refreshWizardState();
     });

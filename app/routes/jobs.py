@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api", tags=["jobs"])
 class LocalRunRequest(BaseModel):
     local_excel_path: str
     brand_logo: str | None = None
+    include_passenger_documents: bool = True
 
 
 @router.post("/run-local")
@@ -58,6 +59,7 @@ def run_local_job(payload: LocalRunRequest):
         jobs_root=jobs_root,
         brand_logo=payload.brand_logo,
         pretty_json=True,
+        include_passenger_documents=payload.include_passenger_documents,
     )
 
     
