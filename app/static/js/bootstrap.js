@@ -197,6 +197,17 @@ function refreshWizardState() {
   renderStepSummary(step2Summary, buildStep2Summary(), step2Complete && activeIndex !== 1);
   renderStepSummary(step3Summary, buildStep3Summary(), activeIndex !== 2);
 
+  // Presentation-only state: keep the same underlying wizard, reduce visual noise.
+  document.querySelectorAll("[data-wizard-stage]").forEach((node) => {
+    const stage = Number(node.dataset.wizardStage);
+    node.classList.toggle("is-active", stage === activeIndex);
+    node.classList.toggle("is-complete", stage < activeIndex);
+    if (stage === activeIndex) node.setAttribute("aria-current", "step");
+    else node.removeAttribute("aria-current");
+  });
+  document.getElementById("voucherPreviewSection")?.classList.toggle(
+    "ui-preview-hidden", activeIndex !== 2
+  );
   refreshContinueButtons();
 }
 
