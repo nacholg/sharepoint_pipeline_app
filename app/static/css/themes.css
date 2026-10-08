@@ -1,0 +1,83 @@
+/* Themes for the application chrome; voucher documents and their HTML preview retain branding. */
+:root[data-theme="light"] {
+  color-scheme:light;
+  --bg-app:#f3f6fa;--bg-app-2:#f3f6fa;--bg-app-3:#edf2f8;
+  --surface-1:#ffffff;--surface-2:#ffffff;--surface-3:#f8fafc;--surface-4:#eef3f8;
+  --border-subtle:#dce4ec;--border-strong:#c6d1de;
+  --text-primary:#1e293b;--text-secondary:#526176;--text-muted:#63748a;
+  --accent-primary:#3569c8;--accent-secondary:#4675bd;--accent-soft:#e8f0fd;
+  --shadow-sm:0 3px 12px rgba(23,40,65,.045);
+  --shadow-md:0 8px 26px rgba(23,40,65,.055);
+  --shadow-lg:0 12px 32px rgba(23,40,65,.07);
+  --success:#15803d;--warning:#a16207;--danger:#b91c1c;
+}
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --bg-app:#151d27;--bg-app-2:#192430;--bg-app-3:#202d3a;
+  --surface-1:#212d3a;--surface-2:#283646;--surface-3:#24313f;--surface-4:#344355;
+  --border-subtle:#405063;--border-strong:#52647a;
+  --text-primary:#eef4fa;--text-secondary:#b6c4d3;--text-muted:#9baec2;
+  --accent-primary:#709bd6;--accent-secondary:#829fc7;--accent-soft:#2d4561;
+}
+html[data-theme] body {background:var(--bg-app);color:var(--text-primary);}
+html[data-theme] .topbar,
+html[data-theme] .ui-wizard-nav,
+html[data-theme] .layout-left > .card,
+html[data-theme] .layout-right > .card,
+html[data-theme] #resultCard,
+html[data-theme] .card:not(.voucher-document):not(.voucher-preview-document) {
+  background:var(--surface-1);border-color:var(--border-subtle);
+  color:var(--text-primary);box-shadow:var(--shadow-sm);
+}
+html[data-theme] .setup-step,
+html[data-theme] .picker-card,
+html[data-theme] .stat-box,
+html[data-theme] .step-item,
+html[data-theme] .result-section,
+html[data-theme] .result-hero,
+html[data-theme] .result-metric-card,
+html[data-theme] .deliverable-card,
+html[data-theme] .voucher-item,
+html[data-theme] .job-history-item,
+html[data-theme] .mode-switch,
+html[data-theme] .modal-dialog,
+html[data-theme] .modal-toolbar,
+html[data-theme] .modal-footer,
+html[data-theme] .file-item,
+html[data-theme] .sp-item,
+html[data-theme] .sharepoint-browser,
+html[data-theme] .user-pill,
+html[data-theme] .result-preview-host {
+  background:var(--surface-3);border-color:var(--border-subtle);color:var(--text-primary);
+  box-shadow:none;
+}
+html[data-theme] .setup-step-summary,
+html[data-theme] #clientMeta,
+html[data-theme] .empty-state-inline,
+html[data-theme] .muted-pill,
+html[data-theme] .session-banner {background:var(--surface-4);color:var(--text-secondary);border-color:var(--border-subtle);}
+html[data-theme] .field span,html[data-theme] .field label,
+html[data-theme] .section-head h3,html[data-theme] .section-head h4,
+html[data-theme] .setup-step-head h3,html[data-theme] .step-title,
+html[data-theme] .picker-header h4,html[data-theme] .result-hero h4 {color:var(--text-primary);}
+html[data-theme] .eyebrow,html[data-theme] .setup-step-kicker,
+html[data-theme] .field-help,html[data-theme] .section-subcopy,
+html[data-theme] .setup-step-head p,html[data-theme] .progress-meta,
+html[data-theme] .user-pill small {color:var(--text-secondary);}
+html[data-theme] select,html[data-theme] input[type="text"],
+html[data-theme] input[type="file"],html[data-theme] textarea,
+html[data-theme] .btn.secondary,html[data-theme] .btn.ghost,
+html[data-theme] .mode-btn:not(.active) {
+  color:var(--text-primary);background:var(--surface-3);border:1px solid var(--border-strong);
+}
+html[data-theme] select option {background:var(--surface-1);color:var(--text-primary);}
+html[data-theme] .btn.primary,html[data-theme] .mode-btn.active {background:var(--accent-primary);color:#fff;box-shadow:none;}
+html[data-theme] .ui-wizard-stage .ui-wizard-number {background:var(--surface-4);border-color:var(--border-strong);color:var(--text-secondary);}
+html[data-theme] .ui-wizard-stage.is-active .ui-wizard-number {background:var(--accent-primary);color:#fff;border-color:var(--accent-primary);}
+html[data-theme] .ui-wizard-divider {background:var(--border-strong);}
+html[data-theme] .modal-backdrop {background:rgba(10,20,35,.5);}
+.theme-picker {display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:.85rem;}
+.theme-picker select {width:auto;min-width:116px;padding:8px 10px;border-radius:10px;font:inherit;color:var(--text-primary);background:var(--surface-3);border:1px solid var(--border-strong);}
+.theme-picker select:focus-visible {outline:2px solid var(--accent-primary);outline-offset:2px;}
+/* Previewed vouchers are independently branded; never recolor their inner document/iframe. */
+@media(max-width:600px){.theme-picker span{display:none}.theme-picker select{min-width:100px;padding:7px}}
