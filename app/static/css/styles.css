@@ -1044,3 +1044,4 @@ select option {
     grid-template-columns: 1fr;
   }
 }
+@import url('/static/css/ui-cleanup-v1.css');
