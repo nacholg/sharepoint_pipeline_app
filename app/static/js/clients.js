@@ -108,11 +108,22 @@
     localStorage.setItem("voucherClientKey", window.selectedClient.key);
 
     if (window.clientMeta) {
+      const site = getSiteConfig(window.selectedClient.site_key);
+      const fields = [
+        ["Cliente", window.selectedClient.label],
+        ["Sitio SharePoint", site?.label || window.selectedClient.site_key || "-"],
+        ["Perfil", window.selectedClient.default_profile || "default"],
+        ["Carpeta predeterminada", window.selectedClient.default_folder_path || "/"],
+      ];
       window.clientMeta.innerHTML = `
-        <div><strong>Cliente:</strong> ${clientEscapeHtml(window.selectedClient.label)}</div>
-        <div><strong>Site:</strong> ${clientEscapeHtml(window.selectedClient.site_key || "-")}</div>
-        <div><strong>Profile:</strong> ${clientEscapeHtml(window.selectedClient.default_profile || "default")}</div>
-        <div><strong>Carpeta default:</strong> ${clientEscapeHtml(window.selectedClient.default_folder_path || "/")}</div>
+        <div class="client-meta-grid">
+          ${fields.map(([label, value]) => `
+            <div class="client-meta-item">
+              <span class="client-meta-label">${clientEscapeHtml(label)}</span>
+              <strong class="client-meta-value">${clientEscapeHtml(value)}</strong>
+            </div>
+          `).join("")}
+        </div>
       `;
     }
 

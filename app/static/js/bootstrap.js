@@ -63,69 +63,51 @@
     return "Hotel + Aéreos";
   }
 
-  function buildStep1Summary() {
-    const client =
-      window.selectedClient?.label ||
-      getSelectedText(window.clientSelect);
-
-    const language = getSelectedText(window.languageSelect);
-
-    const renderMode =
-      window.voucherRenderModeSelect?.value ||
-      document.getElementById("voucherRenderModeSelect")?.value ||
-      "full";
-
-    const includePassengerDocuments =
-      window.includePassengerDocumentsCheckbox?.checked !== false;
-
-    return `
-      <strong>Cliente:</strong> ${client}<br>
-      <strong>Idioma:</strong> ${language}<br>
-      <strong>Tipo de voucher:</strong> ${getRenderModeLabel(renderMode)}<br>
-      <strong>Documentación:</strong> ${includePassengerDocuments ? "Incluida" : "Omitida"}
-    `;
+  function summaryGrid(entries) {
+    const escape = (value) => window.escapeHtml
+      ? window.escapeHtml(String(value ?? "-"))
+      : String(value ?? "-").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;").replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+    return `<div class="client-meta-grid step-summary-grid">${entries.map(([label, value]) => `
+      <div class="client-meta-item">
+        <span class="client-meta-label">${escape(label)}</span>
+        <strong class="client-meta-value">${escape(value)}</strong>
+      </div>`).join("")}</div>`;
   }
+
+  function buildStep1Summary() {
+    const client = window.selectedClient?.label || getSelectedText(window.clientSelect);
+    const mode = window.voucherRenderModeSelect?.value || "full";
+    return summaryGrid([
+      ["Cliente", client],
+      ["Idioma", getSelectedText(window.languageSelect)],
+      ["Tipo de voucher", getRenderModeLabel(mode)],
+      ["Documentación", window.includePassengerDocumentsCheckbox?.checked !== false ? "Incluida" : "Omitida"],
+    ]);
+  }
+
   function buildStep2Summary() {
     if (isLocalMode()) {
-      const fileName = window.fileInput?.files?.[0]?.name || "Sin archivo";
-      const profile = getSelectedText(window.localProfileSelect);
-
-      return `
-        <strong>Origen:</strong> Local<br>
-        <strong>Archivo:</strong> ${fileName}<br>
-        <strong>Profile:</strong> ${profile}
-      `;
+      return summaryGrid([
+        ["Origen", "Local"],
+        ["Archivo", window.fileInput?.files?.[0]?.name || "Sin archivo"],
+        ["Perfil", getSelectedText(window.localProfileSelect)],
+      ]);
     }
-
-    const source = window.selectedSourceLabel?.textContent?.trim() || "Sin Excel";
-    const dest = window.selectedDestLabel?.textContent?.trim() || "Sin carpeta";
-    const profile = getSelectedText(window.sharepointProfileSelect);
-
-    return `
-      <strong>Origen:</strong> SharePoint<br>
-      <strong>Excel:</strong> ${source}<br>
-      <strong>Destino:</strong> ${dest}<br>
-      <strong>Profile:</strong> ${profile}
-    `;
+    return summaryGrid([
+      ["Origen", "SharePoint"],
+      ["Excel", window.selectedSourceLabel?.textContent?.trim() || "Sin Excel"],
+      ["Destino", window.selectedDestLabel?.textContent?.trim() || "Sin carpeta"],
+      ["Perfil", getSelectedText(window.sharepointProfileSelect)],
+    ]);
   }
 
   function buildStep3Summary() {
-    if (isStep3Complete()) {
-      return `
-        <strong>Estado:</strong> Resultado disponible.
-        Revisá el panel de resultados debajo.
-      `;
-    }
-
-    if (isStep2Complete()) {
-      return `
-        <strong>Estado:</strong> Listo para ejecutar.
-      `;
-    }
-
-    return `
-      <strong>Estado:</strong> Completá el origen del archivo para habilitar la ejecución.
-    `;
+    const label = isStep3Complete()
+      ? "Resultado disponible"
+      : isStep2Complete() ? "Listo para ejecutar" : "Falta seleccionar un archivo";
+    return summaryGrid([["Estado", label]]);
   }
 
   function renderStepSummary(summaryEl, html, shouldShow) {
