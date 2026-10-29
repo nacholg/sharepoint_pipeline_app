@@ -327,11 +327,14 @@ def build_html(
     subtitle_parts = [p for p in [city, country] if p]
     header_subtitle = e(" · ".join(subtitle_parts))
 
-    conf_html = display_or_pending(
-        voucher_payload.get("confirmation_number")
-        or voucher.get("confirmation_number"),
-        t["pending"],
-    )
+    confirmation = voucher_payload.get("confirmation_number") or voucher.get("confirmation_number")
+    if render_mode == "flights" and not confirmation:
+        pnr_codes = list(dict.fromkeys(
+            str(p["airline_reservation_code"]).strip()
+            for p in passengers if p.get("airline_reservation_code")
+        ))
+        confirmation = ", ".join(pnr_codes) or None
+    conf_html = display_or_pending(confirmation, t["pending"])
 
     city_html = format_fact_value("city", hotel.get("city"), t, language)
     country_html = format_fact_value("country", hotel.get("country"), t, language)
