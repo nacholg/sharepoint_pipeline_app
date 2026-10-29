@@ -928,6 +928,25 @@
     }
 
     @media print {
+      
+      /* Nested grids force an entire flight section onto the next PDF page.
+         Use normal block fragmentation for print, but retain unbroken cards. */
+      .body, .flights-grid, .flight-direction, .flight-direction-content {
+        display: block !important;
+      }
+      .flights-panel, .flights-grid, .flight-direction,
+      .flight-direction-content, .flights-collapsible-body {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        overflow: visible !important;
+        max-height: none !important;
+      }
+      .flight-card {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 12px;
+      }
+      .flight-direction { margin-bottom: 20px; }
       body {
         background: #fff;
         padding: 0;
