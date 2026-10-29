@@ -24,3 +24,10 @@ jobs:
           python -m playwright install chromium --with-deps
       - name: Flight voucher regression
         run: python -m pytest -q tests/test_latin_grammys_flight_voucher.py tests/test_latin_grammys_pdf_smoke.py
+      - name: Upload rendered PDF for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latin-grammys-pdf-smoke
+          path: test-results/latin_grammys_actual_renderer.pdf
+          if-no-files-found: warn
