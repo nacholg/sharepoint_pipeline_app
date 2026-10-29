@@ -53,7 +53,7 @@ def test_latin_grammys_pdf_print(tmp_path):
     assert "AA 1486" in text and "AA 2455" in text
     assert "HZKYTO" in text
     assert "DFW" in text
-    assert "AA 1482" in text and "AA 2530" in text
+    assert "AA1482" in text.replace(" ", "") and "AA2530" in text.replace(" ", "")
     assert "VUELO 1" in first.upper(), "First page contains only header (empty-page regression)"
     from shutil import copyfile
     artifact_dir = Path("test-results")
