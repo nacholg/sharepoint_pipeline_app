@@ -42,6 +42,10 @@ def test_latin_grammys_pdf_print(tmp_path):
                            margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"})
             await browser.close()
     asyncio.run(render())
+    from shutil import copyfile
+    artifact_dir = Path("test-results")
+    artifact_dir.mkdir(exist_ok=True)
+    copyfile(output, artifact_dir / "latin_grammys_actual_renderer.pdf")
     pdf = PdfReader(str(output))
     text = "\n".join(page.extract_text() or "" for page in pdf.pages)
     first = pdf.pages[0].extract_text() or ""
@@ -49,7 +53,7 @@ def test_latin_grammys_pdf_print(tmp_path):
     assert "AA 1486" in text and "AA 2455" in text
     assert "HZKYTO" in text
     assert "DFW" in text
-    assert "I D A" in text.upper() and "V U E L T A" in text.upper()
+    assert "AA 1482" in text and "AA 2530" in text
     assert "VUELO 1" in first.upper(), "First page contains only header (empty-page regression)"
     from shutil import copyfile
     artifact_dir = Path("test-results")
