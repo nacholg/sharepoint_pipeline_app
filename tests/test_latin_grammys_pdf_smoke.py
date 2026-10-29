@@ -49,5 +49,6 @@ def test_latin_grammys_pdf_print(tmp_path):
     assert "AA 1486" in text and "AA 2455" in text
     assert "HZKYTO" in text
     assert "DFW" in text
-    assert "Vuelo" in first, "First page contains only header (empty-page regression)"
+    assert "IDA" in text.upper() and "VUELTA" in text.upper()
+    assert "VUELO 1" in first.upper(), "First page contains only header (empty-page regression)"
     print(f"PDF smoke test passed: {len(pdf.pages)} pages, first page contains flight content")
