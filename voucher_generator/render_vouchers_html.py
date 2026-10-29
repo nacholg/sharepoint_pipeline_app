@@ -534,7 +534,7 @@ def build_html(
 
       <div class="header-meta">
         <div class="meta-box">
-          <div class="meta-label">{e(t["conf_number"])}</div>
+          <div class="meta-label">{e("PNR" if render_mode == "flights" else t["conf_number"])}</div>
           <div class="meta-value">{conf_html}</div>
         </div>
       </div>
