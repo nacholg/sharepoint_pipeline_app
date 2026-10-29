@@ -12,6 +12,15 @@ from voucher_generator.renderers.common import (
 )
 
 
+def flight_labels(language: str) -> Dict[str, str]:
+    labels = {
+        "es": {"flights": "Vuelos", "outbound": "Ida", "return": "Vuelta", "flight": "Vuelo", "connection": "Vuelo de conexión", "ticket": "Número de ticket", "pnr": "Código de reserva aérea"},
+        "en": {"flights": "Flights", "outbound": "Outbound", "return": "Return", "flight": "Flight", "connection": "Connecting flight", "ticket": "Ticket Number", "pnr": "Airline Reservation Code"},
+        "pt": {"flights": "Voos", "outbound": "Ida", "return": "Volta", "flight": "Voo", "connection": "Voo de conexão", "ticket": "Número do bilhete", "pnr": "Código da reserva aérea"},
+    }
+    return labels.get(language, labels["es"])
+
+
 def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> str:
     date_html = no_break_iso_date(date_value, language=language) if date_value else ""
     time_html = e(time_value) if time_value not in (None, "") else ""
@@ -21,7 +30,8 @@ def format_flight_datetime(date_value: Any, time_value: Any, language: str) -> s
     return date_html or time_html or ""
 
 
-def passenger_identity_block(passengers: List[Dict[str, Any]] | None = None) -> str:
+def passenger_identity_block(passengers: List[Dict[str, Any]] | None = None, language: str = 'es') -> str:
+    labels = flight_labels(language)
     passengers = passengers or []
 
     identity_rows = ""
@@ -34,14 +44,14 @@ def passenger_identity_block(passengers: List[Dict[str, Any]] | None = None) -> 
 
             <div class="flight-identity-fields">
               <div>
-                <div class="flight-label">Ticket Number</div>
+                <div class="flight-label">{labels["ticket"]}</div>
                 <div class="flight-value">
                   {display_or_pending(passenger.get("ticket_number"), "—")}
                 </div>
               </div>
 
               <div>
-                <div class="flight-label">Airline Reservation Code</div>
+                <div class="flight-label">{labels["pnr"]}</div>
                 <div class="flight-value">
                   {display_or_pending(passenger.get("airline_reservation_code"), "—")}
                 </div>
@@ -65,6 +75,7 @@ def flight_segment_cards(
     language: str,
 ) -> str:
     cards: List[str] = []
+    labels = flight_labels(language)
 
     for idx, segment in enumerate(segments or []):
         segment_order = segment.get("segment_order") or segment.get("source_segment_number") or ""
@@ -95,7 +106,7 @@ def flight_segment_cards(
             <article class="flight-card flight-card-premium">
               <div class="flight-card-top">
                 <div>
-                  <div class="flight-kicker">Flight {e(segment_order)}</div>
+                  <div class="flight-kicker">{labels["flight"]} {e(segment_order)}</div>
                   <div class="flight-number">{e(airline_name) if airline_name else flight_number}</div>
                 </div>
               </div>
@@ -126,10 +137,10 @@ def flight_segment_cards(
 
         if idx < len(segments or []) - 1:
             cards.append(
-                """
+                f"""
                 <div class="flight-connection">
                   <div class="flight-connection-line"></div>
-                  <div class="flight-connection-pill">Connecting flight</div>
+                  <div class="flight-connection-pill">{labels["connection"]}</div>
                 </div>
                 """
             )
@@ -151,12 +162,13 @@ def flights_section(
     if not outbound and not return_flights:
         return ""
 
-    identity_html = passenger_identity_block(passengers)
+    labels = flight_labels(language)
+    identity_html = passenger_identity_block(passengers, language)
 
     return f"""
       <section class="panel flights-panel">
         <button class="flights-toggle" type="button" onclick="this.closest('.flights-panel').classList.toggle('is-collapsed')">
-          Flights
+          {labels["flights"]}
         </button>
 
         <div class="flights-collapsible-body">
@@ -164,7 +176,7 @@ def flights_section(
 
             <section class="flight-direction">
                 <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Outbound
+                    {labels["outbound"]}
                 </button>
                 <div class="flight-direction-content">
                     {flight_segment_cards(outbound, language)}
@@ -173,7 +185,7 @@ def flights_section(
 
             <section class="flight-direction">
                 <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Return
+                    {labels["return"]}
                 </button>
                 <div class="flight-direction-content">
                     {flight_segment_cards(return_flights, language)}
