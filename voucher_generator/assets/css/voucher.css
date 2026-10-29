@@ -999,7 +999,7 @@
         line-height: 1.2;
       }
 
-      .panel, .meta-box, .summary-tile, .flight-card, .pax-card, .table-wrap, .logo-box {
+      .panel:not(.flights-panel), .meta-box, .summary-tile, .flight-card, .pax-card, .table-wrap, .logo-box {
         break-inside: avoid;
         page-break-inside: avoid;
       }
