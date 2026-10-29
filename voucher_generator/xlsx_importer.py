@@ -377,7 +377,7 @@ def get_flight_field_from_header(value: Any) -> Optional[str]:
     if "DATE OF ARRIVAL" in normalized:
         return "arrival_date"
 
-    if normalized == "AIRPORT":
+    if normalized in {"AIRPORT", "AIRPORT DESTINATION", "DESTINATION AIRPORT", "ARRIVAL AIRPORT", "AIRPORT OF ARRIVAL", "TO AIRPORT"}:
         return "destination_airport"
 
     # These are supported if at some point they are placed inside each
