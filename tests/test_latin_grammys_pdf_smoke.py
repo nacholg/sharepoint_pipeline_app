@@ -51,4 +51,8 @@ def test_latin_grammys_pdf_print(tmp_path):
     assert "DFW" in text
     assert "I D A" in text.upper() and "V U E L T A" in text.upper()
     assert "VUELO 1" in first.upper(), "First page contains only header (empty-page regression)"
+    from shutil import copyfile
+    artifact_dir = Path("test-results")
+    artifact_dir.mkdir(exist_ok=True)
+    copyfile(output, artifact_dir / "latin_grammys_actual_renderer.pdf")
     print(f"PDF smoke test passed: {len(pdf.pages)} pages, first page contains flight content")
