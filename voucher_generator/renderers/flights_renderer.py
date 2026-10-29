@@ -176,7 +176,7 @@ def flights_section(
 
             <section class="flight-direction">
                 <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Outbound
+                    {labels["outbound"]}
                 </button>
                 <div class="flight-direction-content">
                     {flight_segment_cards(outbound, language)}
@@ -185,7 +185,7 @@ def flights_section(
 
             <section class="flight-direction">
                 <button class="flight-direction-title flight-direction-toggle" type="button" onclick="this.closest('.flight-direction').classList.toggle('is-collapsed')">
-                    Return
+                    {labels["return"]}
                 </button>
                 <div class="flight-direction-content">
                     {flight_segment_cards(return_flights, language)}
