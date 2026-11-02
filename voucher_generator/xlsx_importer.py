@@ -407,25 +407,52 @@ def build_flight_column_map(
     group_row: int,
     header_row: int,
 ) -> Dict[str, Dict[int, Dict[str, int]]]:
+    """Assign flight columns by their physical groups, not repeated group numbers.
+
+    Many source workbooks label the group only 'FLIGHT 1' / 'FLIGHT 2',
+    with direction stated just at the start or indicated by the HOTEL divider.
+    Track the section across merged cells and allocate a unique sequential
+    segment number per direction so repeated labels cannot overwrite columns.
+    """
     flight_columns: Dict[str, Dict[int, Dict[str, int]]] = {
         "outbound": {},
         "return": {},
     }
+    direction = None
+    active_segment = None
+    previous_group_anchor = None
+    counters = {"outbound": 0, "return": 0}
 
     for col in range(1, ws.max_column + 1):
         group_value = get_effective_cell_value(ws, merged_lookup, group_row, col)
-        header_value = get_effective_cell_value(ws, merged_lookup, header_row, col)
+        group_label = normalize_header(group_value) or ""
+        bounds = merged_lookup.get((group_row, col))
+        group_anchor = (bounds[0], bounds[1]) if bounds else (group_row, col)
 
-        direction = get_flight_direction_from_group(group_value)
-        segment_number = get_flight_segment_number(group_value)
-        field_name = get_flight_field_from_header(header_value)
+        if group_anchor != previous_group_anchor:
+            previous_group_anchor = group_anchor
+            active_segment = None
 
-        if not direction or not segment_number or not field_name:
+            if "HOTEL" in group_label:
+                # These templates place outbound flights before the hotel and
+                # return flights after it.
+                direction = "return"
+            elif "FLIGHT" in group_label and get_flight_segment_number(group_label):
+                explicit_direction = get_flight_direction_from_group(group_label)
+                if explicit_direction:
+                    direction = explicit_direction
+                if direction is not None:
+                    counters[direction] += 1
+                    active_segment = counters[direction]
+                    flight_columns[direction][active_segment] = {}
+
+        if direction is None or active_segment is None:
             continue
-
-        flight_columns.setdefault(direction, {})
-        flight_columns[direction].setdefault(segment_number, {})
-        flight_columns[direction][segment_number][field_name] = col
+        field_name = get_flight_field_from_header(
+            get_effective_cell_value(ws, merged_lookup, header_row, col)
+        )
+        if field_name:
+            flight_columns[direction][active_segment][field_name] = col
 
     return flight_columns
 
