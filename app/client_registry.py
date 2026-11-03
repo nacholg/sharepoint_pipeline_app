@@ -44,6 +44,12 @@ BASE_CLIENTS = {
         "destination_site_key": "globalevents2",
         "default_folder_path": "/General",
     },
+    "patagonik_travel": {
+        "site_key": "globalevents2",
+        "source_site_key": "globalevents2",
+        "destination_site_key": "globalevents2",
+        "default_folder_path": "/General",
+    },
 }
 
 def build_clients() -> dict[str, dict[str, Any]]:
