@@ -69,10 +69,6 @@
       letter-spacing: -0.03em;
       margin: 0 0 10px;
       max-width: 100%;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
       word-break: break-word;
     }
 
