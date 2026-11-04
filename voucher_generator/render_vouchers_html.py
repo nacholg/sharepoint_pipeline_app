@@ -445,23 +445,23 @@ def build_html(
             <div>
               <div class="hotel-name text-wrap">{display_or_pending(hotel.get('display_name') or hotel.get('name'), t['empty'])}</div>
               <div class="hotel-address text-wrap">{display_or_pending(hotel.get('address'), t['empty'])}</div>
-              <div class="facts">
-                <div>
-                  <div class="fact-label">{e(t["city"])}</div>
-                  <div class="fact-value">{city_html}</div>
-                </div>
-                <div>
-                  <div class="fact-label">{e(t["country"])}</div>
-                  <div class="fact-value">{country_html}</div>
-                </div>
-                <div>
-                  <div class="fact-label">{e(t["phone"])}</div>
-                  <div class="fact-value">{phone_html}</div>
-                </div>
-              </div>
             </div>
             <div class="hotel-mini-logo">
               {hotel_logo_html}
+            </div>
+            <div class="facts">
+              <div class="fact-city">
+                <div class="fact-label">{e(t["city"])}</div>
+                <div class="fact-value">{city_html}</div>
+              </div>
+              <div class="fact-country">
+                <div class="fact-label">{e(t["country"])}</div>
+                <div class="fact-value">{country_html}</div>
+              </div>
+              <div class="fact-phone">
+                <div class="fact-label">{e(t["phone"])}</div>
+                <div class="fact-value">{phone_html}</div>
+              </div>
             </div>
           </div>
         </section>
