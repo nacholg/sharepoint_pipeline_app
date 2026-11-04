@@ -286,34 +286,35 @@
       letter-spacing: 0.12em;
     }
 
-    .facts {
-      display: grid;
-      grid-template-columns: minmax(46px, 0.65fr) minmax(46px, 0.65fr) minmax(112px, 1.7fr);
-      gap: 12px;
+    /* Contact details span the whole hotel card, not the narrow text column. */
+    .hotel-card > div:first-child { min-width: 0; }
+
+    .hotel-name {
+      hyphens: manual;
+      word-break: normal;
+      overflow-wrap: normal;
     }
 
-    .facts > div {
+    .facts {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 14px;
+      row-gap: 10px;
       min-width: 0;
     }
 
+    .facts > div { min-width: 0; }
+
+    .fact-phone { grid-column: 1 / -1; }
+
     .fact-label {
       font-size: 11px;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.10em;
       text-transform: uppercase;
       color: var(--muted);
       margin-bottom: 4px;
-      white-space: nowrap;
-    }
-
-    html[lang="en"] .facts {
-      grid-template-columns: minmax(0, 0.55fr) minmax(0, 1.05fr) minmax(0, 1.4fr);
-      gap: 8px;
-    }
-
-    html[lang="en"] .facts > div:last-child .fact-value {
-      font-size: 11px;
-      white-space: nowrap;
-      overflow-wrap: normal;
+      white-space: normal;
     }
 
     .fact-value {
@@ -321,7 +322,14 @@
       line-height: 1.35;
       font-weight: 600;
       min-width: 0;
-      overflow-wrap: anywhere;
+      word-break: normal;
+      overflow-wrap: normal;
+      hyphens: manual;
+    }
+
+    /* Preserve complete telephone digits; wrap only at natural separators. */
+    .fact-phone .fact-value {
+      overflow-wrap: break-word;
     }
 
     .summary-grid {
